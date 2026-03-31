@@ -26,6 +26,14 @@ func main() {
 	osCloud := env("OPENSTACK_CLOUD", "")
 	osConfigPath := env("OPENSTACK_CONFIG_PATH", "")
 
+	// Also set process env for safety: some providers/tools read directly from OS_*.
+	if osCloud != "" {
+		_ = os.Setenv("OS_CLOUD", osCloud)
+	}
+	if osConfigPath != "" {
+		_ = os.Setenv("OS_CLIENT_CONFIG_FILE", osConfigPath)
+	}
+
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 		log.Fatalf("mkdir: %v", err)
 	}
