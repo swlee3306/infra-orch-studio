@@ -61,6 +61,8 @@ OPENSTACK_CLOUD=exporter-internal \
 OPENSTACK_CONFIG_PATH=/home/sulee/.config/openstack/clouds.yaml \
 RUNNER_POLL_INTERVAL=2s \
 make runner
+
+Note: OpenStack credentials are passed to tofu via environment variables (`OS_CLOUD`, `OS_CLIENT_CONFIG_FILE`).
 ```
 
 Logs (per job workdir):
