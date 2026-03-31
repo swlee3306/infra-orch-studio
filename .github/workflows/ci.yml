@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt (check)
+        run: |
+          files=$(find . -name '*.go' -not -path './vendor/*')
+          if [ -z "$files" ]; then
+            echo "No Go files"
+            exit 0
+          fi
+          bad=$(gofmt -l $files)
+          if [ -n "$bad" ]; then
+            echo "gofmt is required. Please run: gofmt -w <files>"
+            echo "$bad"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
