@@ -22,7 +22,7 @@ func main() {
 	templateName := env("TEMPLATE_NAME", "basic")
 	tofuBin := env("TOFU_BIN", "tofu")
 
-	// OpenStack provider auth: prefer clouds.yaml (OS_CLOUD + OS_CLIENT_CONFIG_FILE).
+	// OpenStack provider auth (clouds.yaml): forwarded to tofu via env vars.
 	osCloud := env("OPENSTACK_CLOUD", "")
 	osConfigPath := env("OPENSTACK_CONFIG_PATH", "")
 
@@ -42,6 +42,18 @@ func main() {
 	defer t.Stop()
 
 	exec := executor.CommandExecutor{TofuBin: tofuBin}
+	if osCloud != "" {
+		if exec.Env == nil {
+			exec.Env = map[string]string{}
+		}
+		exec.Env["OS_CLOUD"] = osCloud
+	}
+	if osConfigPath != "" {
+		if exec.Env == nil {
+			exec.Env = map[string]string{}
+		}
+		exec.Env["OS_CLIENT_CONFIG_FILE"] = osConfigPath
+	}
 
 	for range t.C {
 		job, ok, err := store.ClaimNextQueuedJob(context.Background())
@@ -65,21 +77,13 @@ func main() {
 			continue
 		}
 
-		// Inject OpenStack provider auth vars (clouds.yaml based).
-		if osCloud == "" || osConfigPath == "" {
-			job.Status = domain.JobStatusFailed
-			job.Error = "missing required OpenStack env vars: OPENSTACK_CLOUD, OPENSTACK_CONFIG_PATH"
-			job.UpdatedAt = time.Now().UTC()
-			_, _ = store.UpdateJob(context.Background(), job)
-			continue
-		}
+		// OpenStack auth is injected via process env (OS_CLOUD / OS_CLIENT_CONFIG_FILE).
+		// We keep terraform.tfvars.json strictly for environment variables.
 		varsPayload := map[string]any{
-			"openstack_cloud":       osCloud,
-			"openstack_config_path": osConfigPath,
-			"environment_name":      vars.EnvironmentName,
-			"network":               vars.Network,
-			"subnet":                vars.Subnet,
-			"instances":             vars.Instances,
+			"environment_name": vars.EnvironmentName,
+			"network":          vars.Network,
+			"subnet":           vars.Subnet,
+			"instances":        vars.Instances,
 		}
 
 		modulesRoot := env("MODULES_ROOT", "./templates/opentofu/modules")

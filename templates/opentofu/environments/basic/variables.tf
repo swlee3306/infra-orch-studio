@@ -1,12 +1,3 @@
-variable "openstack_cloud" {
-  type        = string
-  description = "Cloud name in clouds.yaml (OS_CLOUD)"
-}
-
-variable "openstack_config_path" {
-  type        = string
-  description = "Absolute path to clouds.yaml (OS_CLIENT_CONFIG_FILE)"
-}
 
 variable "environment_name" {
   type        = string
