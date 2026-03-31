@@ -17,6 +17,7 @@ import (
 )
 
 type createJobRequest struct {
+	Type        string                 `json:"type,omitempty"`
 	Environment domain.EnvironmentSpec `json:"environment"`
 }
 
@@ -39,10 +40,22 @@ func JobsCollection(store storage.Store) http.Handler {
 				return
 			}
 
+			jobType := domain.JobTypeEnvironmentCreate
+			if req.Type != "" {
+				jobType = domain.JobType(req.Type)
+			}
+			switch jobType {
+			case domain.JobTypeEnvironmentCreate, domain.JobTypePlan:
+				// ok
+			default:
+				writeError(w, http.StatusBadRequest, "unsupported job type")
+				return
+			}
+
 			now := time.Now().UTC()
 			j := domain.Job{
 				ID:          uuid.NewString(),
-				Type:        domain.JobTypeEnvironmentCreate,
+				Type:        jobType,
 				Status:      domain.JobStatusQueued,
 				CreatedAt:   now,
 				UpdatedAt:   now,
