@@ -1,11 +1,6 @@
 provider "openstack" {
-  auth_url    = var.openstack_auth_url
-  region      = var.openstack_region
-  tenant_name = var.openstack_tenant_name
-  user_name   = var.openstack_username
-  password    = var.openstack_password
-
-  # Domain variables are optional depending on your OpenStack setup.
-  user_domain_name   = var.openstack_user_domain_name
-  project_domain_name = var.openstack_project_domain_name
+  # Use clouds.yaml based auth to avoid handling passwords in tfvars.
+  # The cloud definition should be present in the given config file.
+  cloud       = var.openstack_cloud
+  config_path = var.openstack_config_path
 }

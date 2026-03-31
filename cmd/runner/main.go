@@ -22,14 +22,9 @@ func main() {
 	templateName := env("TEMPLATE_NAME", "basic")
 	tofuBin := env("TOFU_BIN", "tofu")
 
-	// OpenStack provider auth (Phase 9 E2E): injected into terraform.tfvars.json.
-	osAuthURL := env("OPENSTACK_AUTH_URL", "")
-	osRegion := env("OPENSTACK_REGION", "RegionOne")
-	osTenant := env("OPENSTACK_TENANT_NAME", "")
-	osUser := env("OPENSTACK_USERNAME", "")
-	osPass := env("OPENSTACK_PASSWORD", "")
-	osUserDomain := env("OPENSTACK_USER_DOMAIN_NAME", "Default")
-	osProjDomain := env("OPENSTACK_PROJECT_DOMAIN_NAME", "Default")
+	// OpenStack provider auth: prefer clouds.yaml (OS_CLOUD + OS_CLIENT_CONFIG_FILE).
+	osCloud := env("OPENSTACK_CLOUD", "")
+	osConfigPath := env("OPENSTACK_CONFIG_PATH", "")
 
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 		log.Fatalf("mkdir: %v", err)
@@ -70,26 +65,21 @@ func main() {
 			continue
 		}
 
-		// Inject OpenStack provider auth vars.
-		if osAuthURL == "" || osTenant == "" || osUser == "" || osPass == "" {
+		// Inject OpenStack provider auth vars (clouds.yaml based).
+		if osCloud == "" || osConfigPath == "" {
 			job.Status = domain.JobStatusFailed
-			job.Error = "missing required OpenStack env vars: OPENSTACK_AUTH_URL, OPENSTACK_TENANT_NAME, OPENSTACK_USERNAME, OPENSTACK_PASSWORD"
+			job.Error = "missing required OpenStack env vars: OPENSTACK_CLOUD, OPENSTACK_CONFIG_PATH"
 			job.UpdatedAt = time.Now().UTC()
 			_, _ = store.UpdateJob(context.Background(), job)
 			continue
 		}
 		varsPayload := map[string]any{
-			"openstack_auth_url":            osAuthURL,
-			"openstack_region":              osRegion,
-			"openstack_tenant_name":         osTenant,
-			"openstack_username":            osUser,
-			"openstack_password":            osPass,
-			"openstack_user_domain_name":    osUserDomain,
-			"openstack_project_domain_name": osProjDomain,
-			"environment_name":              vars.EnvironmentName,
-			"network":                       vars.Network,
-			"subnet":                        vars.Subnet,
-			"instances":                     vars.Instances,
+			"openstack_cloud":       osCloud,
+			"openstack_config_path": osConfigPath,
+			"environment_name":      vars.EnvironmentName,
+			"network":               vars.Network,
+			"subnet":                vars.Subnet,
+			"instances":             vars.Instances,
 		}
 
 		modulesRoot := env("MODULES_ROOT", "./templates/opentofu/modules")
