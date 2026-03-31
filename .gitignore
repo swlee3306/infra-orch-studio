@@ -19,6 +19,7 @@
 configs/local.*
 *.env
 
-# runtime data (Phase 6+)
+# runtime data
 workdirs/
 logs/
+var/

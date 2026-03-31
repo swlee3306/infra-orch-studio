@@ -33,7 +33,10 @@ Requirements: Go 1.23+
 ```bash
 make fmt
 make test
+
+# API (sqlite DB default: ./var/infra-orch.db)
 make api
+
 # in another shell
 make runner
 ```
