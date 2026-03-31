@@ -17,7 +17,7 @@ func NewServer(store storage.Store) *Server {
 
 	mux.HandleFunc("/healthz", handlers.Healthz)
 	mux.Handle("/jobs", handlers.JobsCollection(store))
-	mux.Handle("/jobs/", handlers.JobsItem(store))
+	mux.Handle("/jobs/", handlers.JobsRouter(store))
 
 	return &Server{mux: mux}
 }

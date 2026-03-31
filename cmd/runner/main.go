@@ -72,7 +72,27 @@ func main() {
 		job.TemplateName = templateName
 		job.Workdir = wd.Dir
 
-		// Phase 6: tofu init + plan (still no apply).
+		// Phase 6/7 execution (still minimal): init + plan, and apply only for explicit tofu.apply jobs.
+		if job.Type == domain.JobTypeApply {
+			applyRes, err := exec.Apply(context.Background(), job.Workdir, job.PlanPath)
+			_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-apply", applyRes.Stdout, applyRes.Stderr)
+			if err != nil {
+				job.Status = domain.JobStatusFailed
+				job.Error = err.Error()
+				job.UpdatedAt = time.Now().UTC()
+				_, _ = store.UpdateJob(context.Background(), job)
+				continue
+			}
+			job.Status = domain.JobStatusDone
+			job.UpdatedAt = time.Now().UTC()
+			if _, err := store.UpdateJob(context.Background(), job); err != nil {
+				log.Printf("update job failed: id=%s err=%v", job.ID, err)
+				continue
+			}
+			log.Printf("finished job id=%s status=%s workdir=%s", job.ID, job.Status, job.Workdir)
+			continue
+		}
+
 		initRes, err := exec.Init(context.Background(), job.Workdir)
 		_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-init", initRes.Stdout, initRes.Stderr)
 		if err != nil {
