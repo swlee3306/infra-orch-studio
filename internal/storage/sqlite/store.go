@@ -227,14 +227,14 @@ func (s *Store) ClaimNextQueuedJob(ctx context.Context) (domain.Job, bool, error
 	defer func() { _ = tx.Rollback() }()
 
 	row := tx.QueryRowContext(ctx,
-		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, error
+		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, source_job_id, error
 		 FROM jobs WHERE status = ? ORDER BY created_at ASC LIMIT 1`,
 		string(domain.JobStatusQueued),
 	)
 
 	var j domain.Job
 	var jobType, status, createdAt, updatedAt, envJSON string
-	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.PlanPath, &j.Error); err != nil {
+	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.PlanPath, &j.SourceJobID, &j.Error); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			if err := tx.Commit(); err != nil {
 				return domain.Job{}, false, fmt.Errorf("commit empty tx: %w", err)
