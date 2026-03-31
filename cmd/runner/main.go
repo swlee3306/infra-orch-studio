@@ -113,13 +113,35 @@ func main() {
 				_, _ = store.UpdateJob(context.Background(), job)
 				continue
 			}
-			if job.PlanPath == "" {
+
+			// Always load the source (plan) job to obtain the authoritative workdir/plan path.
+			src, err := store.GetJob(context.Background(), job.SourceJobID)
+			if err != nil {
 				job.Status = domain.JobStatusFailed
-				job.Error = "apply job missing plan_path"
+				job.Error = "failed to load source job: " + err.Error()
 				job.UpdatedAt = time.Now().UTC()
 				_, _ = store.UpdateJob(context.Background(), job)
 				continue
 			}
+			if src.Type != domain.JobTypePlan || src.Status != domain.JobStatusDone {
+				job.Status = domain.JobStatusFailed
+				job.Error = "source job must be done tofu.plan"
+				job.UpdatedAt = time.Now().UTC()
+				_, _ = store.UpdateJob(context.Background(), job)
+				continue
+			}
+			if src.Workdir == "" || src.PlanPath == "" {
+				job.Status = domain.JobStatusFailed
+				job.Error = "source job missing workdir/plan_path"
+				job.UpdatedAt = time.Now().UTC()
+				_, _ = store.UpdateJob(context.Background(), job)
+				continue
+			}
+
+			job.Workdir = src.Workdir
+			job.PlanPath = src.PlanPath
+			job.TemplateName = src.TemplateName
+
 			if _, err := os.Stat(filepath.Join(job.Workdir, job.PlanPath)); err != nil {
 				job.Status = domain.JobStatusFailed
 				job.Error = "plan file not found: " + err.Error()
