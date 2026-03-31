@@ -1,30 +1,32 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
-	"net/http"
 	"os"
+	"path/filepath"
+
+	"github.com/swlee3306/infra-orch-studio/internal/api"
+	storesqlite "github.com/swlee3306/infra-orch-studio/internal/storage/sqlite"
 )
 
 func main() {
 	addr := env("API_ADDR", ":8080")
+	dbPath := env("STORE_SQLITE_PATH", "./var/infra-orch.db")
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-	})
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+		log.Fatalf("mkdir: %v", err)
+	}
 
-	log.Printf("api listening on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	store, err := storesqlite.Open(dbPath)
+	if err != nil {
+		log.Fatalf("open store: %v", err)
+	}
+	defer store.Close()
+
+	srv := api.NewServer(store)
+	if err := srv.ListenAndServe(addr); err != nil {
 		log.Fatalf("listen: %v", err)
 	}
-}
-
-func writeJSON(w http.ResponseWriter, code int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(v)
 }
 
 func env(key, def string) string {
