@@ -72,7 +72,7 @@ func main() {
 		job.TemplateName = templateName
 		job.Workdir = wd.Dir
 
-		// Phase 6-1: tofu init (no plan/apply yet).
+		// Phase 6: tofu init + plan (still no apply).
 		initRes, err := exec.Init(context.Background(), job.Workdir)
 		_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-init", initRes.Stdout, initRes.Stderr)
 		if err != nil {
@@ -82,6 +82,18 @@ func main() {
 			_, _ = store.UpdateJob(context.Background(), job)
 			continue
 		}
+
+		planRelPath := ".infra-orch/plan/plan.bin"
+		planRes, err := exec.Plan(context.Background(), job.Workdir, planRelPath)
+		_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-plan", planRes.Stdout, planRes.Stderr)
+		if err != nil {
+			job.Status = domain.JobStatusFailed
+			job.Error = err.Error()
+			job.UpdatedAt = time.Now().UTC()
+			_, _ = store.UpdateJob(context.Background(), job)
+			continue
+		}
+		job.PlanPath = planRelPath
 
 		// Placeholder processing delay to keep logs readable.
 		time.Sleep(processingDelay)

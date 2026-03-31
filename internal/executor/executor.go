@@ -42,6 +42,20 @@ func (e CommandExecutor) Init(ctx context.Context, workdir string) (RunResult, e
 	return e.run(ctx, workdir, "init", "-input=false", "-no-color")
 }
 
+func (e CommandExecutor) Plan(ctx context.Context, workdir, outPlanPath string) (RunResult, error) {
+	// Ensure plan output directory exists.
+	if dir := filepath.Dir(outPlanPath); dir != "." {
+		_ = os.MkdirAll(filepath.Join(workdir, dir), 0o755)
+	}
+	return e.run(ctx, workdir,
+		"plan",
+		"-input=false",
+		"-no-color",
+		"-var-file=terraform.tfvars.json",
+		"-out="+outPlanPath,
+	)
+}
+
 func (e CommandExecutor) run(ctx context.Context, workdir string, args ...string) (RunResult, error) {
 	bin := e.tofuBin()
 	path, err := exec.LookPath(bin)

@@ -35,6 +35,9 @@ type Job struct {
 	TemplateName string `json:"template_name,omitempty"`
 	Workdir      string `json:"workdir,omitempty"`
 
+	// Artifacts (Phase 6+).
+	PlanPath string `json:"plan_path,omitempty"`
+
 	// Result pointers. In Phase 6+ we will store logs/plan/output references here.
 	Error string `json:"error,omitempty"`
 }
