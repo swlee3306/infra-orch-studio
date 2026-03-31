@@ -69,3 +69,9 @@ Logs (per job workdir):
 
 Plan artifact (per job workdir):
 - `<workdir>/.infra-orch/plan/plan.bin`
+
+Trigger apply (explicit only):
+```bash
+# create apply job from a plan job id
+curl -s -X POST localhost:8080/jobs/<plan_job_id>/apply
+```

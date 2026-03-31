@@ -56,6 +56,15 @@ func (e CommandExecutor) Plan(ctx context.Context, workdir, outPlanPath string) 
 	)
 }
 
+func (e CommandExecutor) Apply(ctx context.Context, workdir, planPath string) (RunResult, error) {
+	return e.run(ctx, workdir,
+		"apply",
+		"-input=false",
+		"-no-color",
+		planPath,
+	)
+}
+
 func (e CommandExecutor) run(ctx context.Context, workdir string, args ...string) (RunResult, error) {
 	bin := e.tofuBin()
 	path, err := exec.LookPath(bin)

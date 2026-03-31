@@ -38,6 +38,9 @@ type Job struct {
 	// Artifacts (Phase 6+).
 	PlanPath string `json:"plan_path,omitempty"`
 
+	// Links (Phase 7+). For apply jobs, SourceJobID points to the plan job.
+	SourceJobID string `json:"source_job_id,omitempty"`
+
 	// Result pointers. In Phase 6+ we will store logs/plan/output references here.
 	Error string `json:"error,omitempty"`
 }
