@@ -28,6 +28,7 @@
 ## Phase 6: Plan
 - `tofu init`, `tofu plan`
 - stdout/stderr 수집 (workdir 파일 저장 → 이후 DB 메타데이터로 확장)
+- plan artifact path 메타데이터 저장
 
 ## Phase 7: Apply
 - 명시적 요청에서만 apply
