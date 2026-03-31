@@ -1,0 +1,31 @@
+{
+  "openstack_auth_url": "https://openstack.example:5000/v3",
+  "openstack_region": "RegionOne",
+  "openstack_tenant_name": "demo",
+  "openstack_username": "demo",
+  "openstack_password": "CHANGE_ME",
+  "openstack_user_domain_name": "Default",
+  "openstack_project_domain_name": "Default",
+
+  "environment_name": "dev",
+
+  "network": {
+    "name": "net1",
+    "cidr": "10.0.0.0/24"
+  },
+  "subnet": {
+    "name": "subnet1",
+    "cidr": "10.0.0.0/24",
+    "enable_dhcp": true
+  },
+  "instances": [
+    {
+      "name": "vm1",
+      "image": "ubuntu-22.04",
+      "flavor": "m1.small",
+      "count": 1,
+      "ssh_key_name": "mykey",
+      "security_groups": ["default"]
+    }
+  ]
+}
