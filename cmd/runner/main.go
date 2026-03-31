@@ -138,6 +138,7 @@ func main() {
 				continue
 			}
 
+			log.Printf("apply job id=%s source_job_id=%s src_workdir=%s src_plan_path=%s", job.ID, job.SourceJobID, src.Workdir, src.PlanPath)
 			job.Workdir = src.Workdir
 			job.PlanPath = src.PlanPath
 			job.TemplateName = src.TemplateName
