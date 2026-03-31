@@ -1,0 +1,41 @@
+# Roadmap
+
+## Phase 0
+- 탐색/계획 (DONE)
+
+## Phase 1: Repository bootstrap
+- 디렉터리 구조 생성
+- `go.mod`, `cmd/api`, `cmd/runner` 최소 골격 (빌드 가능)
+- README/architecture/roadmap 업데이트
+
+## Phase 2: Go API skeleton
+- `/healthz`
+- `/jobs` create/get/list (storage MVP 포함)
+- domain + validation 도입
+
+## Phase 3: Runner skeleton
+- job pickup loop
+- renderer/executor/storage 인터페이스 정의
+
+## Phase 4: OpenTofu templates
+- OpenStack network/subnet/instance
+- sample vars/tfvars
+
+## Phase 5: Rendering
+- domain → tofu vars
+- 안전한 workdir 생성
+
+## Phase 6: Plan
+- `tofu init`, `tofu plan`
+- stdout/stderr 저장 및 조회
+
+## Phase 7: Apply
+- 명시적 요청에서만 apply
+- outputs/state 안전장치
+
+## Phase 8: Kubernetes deploy
+- manifests/helm
+- config/secret/PV 문서화
+
+## Phase 9: E2E verify
+- 실제 OpenStack all-in-one 대상 1개 예시 성공

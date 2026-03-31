@@ -1,0 +1,24 @@
+# binaries
+/bin/
+/dist/
+*.exe
+
+# go
+*.test
+*.out
+/vendor/
+
+# ide
+.idea/
+.vscode/
+
+# os
+.DS_Store
+
+# local config/secrets
+configs/local.*
+*.env
+
+# runtime data (Phase 6+)
+workdirs/
+logs/
