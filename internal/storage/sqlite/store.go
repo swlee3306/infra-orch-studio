@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 	template_name TEXT NOT NULL DEFAULT '',
 	workdir TEXT NOT NULL DEFAULT '',
 	plan_path TEXT NOT NULL DEFAULT '',
+	source_job_id TEXT NOT NULL DEFAULT '',
 	error TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
@@ -66,6 +67,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
 	_ = s.addColumnIfMissing(ctx, "jobs", "template_name", "TEXT NOT NULL DEFAULT ''")
 	_ = s.addColumnIfMissing(ctx, "jobs", "workdir", "TEXT NOT NULL DEFAULT ''")
 	_ = s.addColumnIfMissing(ctx, "jobs", "plan_path", "TEXT NOT NULL DEFAULT ''")
+	_ = s.addColumnIfMissing(ctx, "jobs", "source_job_id", "TEXT NOT NULL DEFAULT ''")
 
 	return nil
 }
@@ -104,8 +106,8 @@ func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 	}
 
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO jobs (id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, error)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO jobs (id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, source_job_id, error)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		j.ID,
 		string(j.Type),
 		string(j.Status),
@@ -115,6 +117,7 @@ func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 		j.TemplateName,
 		j.Workdir,
 		j.PlanPath,
+		j.SourceJobID,
 		j.Error,
 	)
 	if err != nil {
@@ -125,12 +128,12 @@ func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 
 func (s *Store) GetJob(ctx context.Context, id string) (domain.Job, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, error
+		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, source_job_id, error
 		 FROM jobs WHERE id = ?`, id)
 
 	var j domain.Job
 	var jobType, status, createdAt, updatedAt, envJSON string
-	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.PlanPath, &j.Error); err != nil {
+	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.PlanPath, &j.SourceJobID, &j.Error); err != nil {
 		return domain.Job{}, err
 	}
 	j.Type = domain.JobType(jobType)
@@ -153,7 +156,7 @@ func (s *Store) ListJobs(ctx context.Context, limit int) ([]domain.Job, error) {
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, error
+		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, source_job_id, error
 		 FROM jobs ORDER BY created_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list jobs: %w", err)
@@ -164,7 +167,7 @@ func (s *Store) ListJobs(ctx context.Context, limit int) ([]domain.Job, error) {
 	for rows.Next() {
 		var j domain.Job
 		var jobType, status, createdAt, updatedAt, envJSON string
-		if err := rows.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.PlanPath, &j.Error); err != nil {
+		if err := rows.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.PlanPath, &j.SourceJobID, &j.Error); err != nil {
 			return nil, err
 		}
 		j.Type = domain.JobType(jobType)
@@ -194,7 +197,7 @@ func (s *Store) UpdateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE jobs
-		 SET type = ?, status = ?, updated_at = ?, environment_json = ?, template_name = ?, workdir = ?, plan_path = ?, error = ?
+		 SET type = ?, status = ?, updated_at = ?, environment_json = ?, template_name = ?, workdir = ?, plan_path = ?, source_job_id = ?, error = ?
 		 WHERE id = ?`,
 		string(j.Type),
 		string(j.Status),
@@ -203,6 +206,7 @@ func (s *Store) UpdateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 		j.TemplateName,
 		j.Workdir,
 		j.PlanPath,
+		j.SourceJobID,
 		j.Error,
 		j.ID,
 	)
