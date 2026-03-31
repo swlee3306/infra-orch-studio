@@ -74,6 +74,28 @@ func main() {
 
 		// Phase 6/7 execution (still minimal): init + plan, and apply only for explicit tofu.apply jobs.
 		if job.Type == domain.JobTypeApply {
+			if job.SourceJobID == "" {
+				job.Status = domain.JobStatusFailed
+				job.Error = "apply job missing source_job_id"
+				job.UpdatedAt = time.Now().UTC()
+				_, _ = store.UpdateJob(context.Background(), job)
+				continue
+			}
+			if job.PlanPath == "" {
+				job.Status = domain.JobStatusFailed
+				job.Error = "apply job missing plan_path"
+				job.UpdatedAt = time.Now().UTC()
+				_, _ = store.UpdateJob(context.Background(), job)
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(job.Workdir, job.PlanPath)); err != nil {
+				job.Status = domain.JobStatusFailed
+				job.Error = "plan file not found: " + err.Error()
+				job.UpdatedAt = time.Now().UTC()
+				_, _ = store.UpdateJob(context.Background(), job)
+				continue
+			}
+
 			applyRes, err := exec.Apply(context.Background(), job.Workdir, job.PlanPath)
 			_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-apply", applyRes.Stdout, applyRes.Stderr)
 			if err != nil {
