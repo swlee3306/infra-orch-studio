@@ -43,5 +43,17 @@ make runner
 
 Health check:
 ```bash
-curl -s localhost:8080/healthz | jq
+curl -s localhost:8080/healthz
+```
+
+Create a job:
+```bash
+curl -s -X POST localhost:8080/jobs \
+  -H 'content-type: application/json' \
+  -d '{"environment":{"environment_name":"dev","tenant_name":"t1","network":{"name":"net1","cidr":"10.0.0.0/24"},"subnet":{"name":"sub1","cidr":"10.0.0.0/24","enable_dhcp":true},"instances":[{"name":"vm1","image":"ubuntu","flavor":"m1.small","count":1}]}}'
+```
+
+Run runner (Phase 3 placeholder):
+```bash
+STORE_SQLITE_PATH=./var/infra-orch.db RUNNER_POLL_INTERVAL=2s make runner
 ```
