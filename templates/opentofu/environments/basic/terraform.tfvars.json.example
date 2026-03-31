@@ -1,11 +1,6 @@
 {
-  "openstack_auth_url": "https://openstack.example:5000/v3",
-  "openstack_region": "RegionOne",
-  "openstack_tenant_name": "demo",
-  "openstack_username": "demo",
-  "openstack_password": "CHANGE_ME",
-  "openstack_user_domain_name": "Default",
-  "openstack_project_domain_name": "Default",
+  "openstack_cloud": "exporter-internal",
+  "openstack_config_path": "/home/sulee/.config/openstack/clouds.yaml",
 
   "environment_name": "dev",
 
