@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -169,4 +170,68 @@ func (s *Store) UpdateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 		return domain.Job{}, sql.ErrNoRows
 	}
 	return j, nil
+}
+
+func (s *Store) ClaimNextQueuedJob(ctx context.Context) (domain.Job, bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domain.Job{}, false, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	row := tx.QueryRowContext(ctx,
+		`SELECT id, type, status, created_at, updated_at, environment_json, error
+		 FROM jobs WHERE status = ? ORDER BY created_at ASC LIMIT 1`,
+		string(domain.JobStatusQueued),
+	)
+
+	var j domain.Job
+	var jobType, status, createdAt, updatedAt, envJSON string
+	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.Error); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			if err := tx.Commit(); err != nil {
+				return domain.Job{}, false, fmt.Errorf("commit empty tx: %w", err)
+			}
+			return domain.Job{}, false, nil
+		}
+		return domain.Job{}, false, err
+	}
+
+	j.Type = domain.JobType(jobType)
+	j.Status = domain.JobStatus(status)
+	if t, err := time.Parse(time.RFC3339Nano, createdAt); err == nil {
+		j.CreatedAt = t
+	}
+	if t, err := time.Parse(time.RFC3339Nano, updatedAt); err == nil {
+		j.UpdatedAt = t
+	}
+	if err := json.Unmarshal([]byte(envJSON), &j.Environment); err != nil {
+		return domain.Job{}, false, fmt.Errorf("unmarshal environment: %w", err)
+	}
+
+	now := time.Now().UTC()
+	res, err := tx.ExecContext(ctx,
+		`UPDATE jobs SET status = ?, updated_at = ? WHERE id = ? AND status = ?`,
+		string(domain.JobStatusRunning),
+		now.Format(time.RFC3339Nano),
+		j.ID,
+		string(domain.JobStatusQueued),
+	)
+	if err != nil {
+		return domain.Job{}, false, fmt.Errorf("claim job: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		// Lost the race to another runner.
+		if err := tx.Commit(); err != nil {
+			return domain.Job{}, false, fmt.Errorf("commit lost-race tx: %w", err)
+		}
+		return domain.Job{}, false, nil
+	}
+
+	j.Status = domain.JobStatusRunning
+	j.UpdatedAt = now
+	if err := tx.Commit(); err != nil {
+		return domain.Job{}, false, fmt.Errorf("commit claim tx: %w", err)
+	}
+	return j, true, nil
 }

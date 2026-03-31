@@ -15,4 +15,9 @@ type Store interface {
 	GetJob(ctx context.Context, id string) (domain.Job, error)
 	ListJobs(ctx context.Context, limit int) ([]domain.Job, error)
 	UpdateJob(ctx context.Context, j domain.Job) (domain.Job, error)
+
+	// ClaimNextQueuedJob atomically claims one queued job and transitions it to running.
+	// It returns (job, true, nil) when a job was claimed.
+	// It returns (domain.Job{}, false, nil) when no queued job exists.
+	ClaimNextQueuedJob(ctx context.Context) (domain.Job, bool, error)
 }
