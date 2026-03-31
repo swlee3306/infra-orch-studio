@@ -1,6 +1,5 @@
-provider "openstack" {
-  # Use clouds.yaml based auth to avoid handling passwords in tfvars.
-  # The cloud definition should be present in the given config file.
-  cloud       = var.openstack_cloud
-  config_path = var.openstack_config_path
-}
+# OpenStack provider auth is supplied via environment variables on the runner.
+# For clouds.yaml:
+# - OS_CLOUD
+# - OS_CLIENT_CONFIG_FILE
+provider "openstack" {}

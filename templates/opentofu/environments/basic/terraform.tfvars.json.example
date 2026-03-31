@@ -1,7 +1,4 @@
 {
-  "openstack_cloud": "exporter-internal",
-  "openstack_config_path": "/home/sulee/.config/openstack/clouds.yaml",
-
   "environment_name": "dev",
 
   "network": {

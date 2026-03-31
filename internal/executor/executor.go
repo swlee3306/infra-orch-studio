@@ -19,7 +19,8 @@ import (
 //
 // We keep this small and stdlib-only.
 type CommandExecutor struct {
-	TofuBin string // default "tofu"
+	TofuBin string            // default "tofu"
+	Env     map[string]string // extra environment variables injected into tofu process
 }
 
 type RunResult struct {
@@ -74,6 +75,12 @@ func (e CommandExecutor) run(ctx context.Context, workdir string, args ...string
 
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Dir = workdir
+	if len(e.Env) > 0 {
+		cmd.Env = append([]string{}, os.Environ()...)
+		for k, v := range e.Env {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
