@@ -48,6 +48,9 @@ func TestStore_CRUD(t *testing.T) {
 	if got.ID != j.ID || got.Environment.EnvironmentName != "dev" {
 		t.Fatalf("unexpected job: %#v", got)
 	}
+	if got.Workdir != "" || got.TemplateName != "" {
+		t.Fatalf("expected empty workdir/template, got workdir=%q template=%q", got.Workdir, got.TemplateName)
+	}
 
 	got.Status = domain.JobStatusRunning
 	got.UpdatedAt = time.Now().UTC().Truncate(time.Second)

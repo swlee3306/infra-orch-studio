@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
+	"github.com/swlee3306/infra-orch-studio/internal/renderer"
 	storesqlite "github.com/swlee3306/infra-orch-studio/internal/storage/sqlite"
 )
 
@@ -15,6 +16,9 @@ func main() {
 	interval := envDuration("RUNNER_POLL_INTERVAL", 2*time.Second)
 	dbPath := env("STORE_SQLITE_PATH", "./var/infra-orch.db")
 	processingDelay := envDuration("RUNNER_PROCESSING_DELAY", 300*time.Millisecond)
+	templatesRoot := env("TEMPLATES_ROOT", "./templates/opentofu/environments")
+	workdirsRoot := env("WORKDIRS_ROOT", "./workdirs")
+	templateName := env("TEMPLATE_NAME", "basic")
 
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 		log.Fatalf("mkdir: %v", err)
@@ -42,10 +46,29 @@ func main() {
 		}
 
 		log.Printf("claimed job id=%s type=%s", job.ID, job.Type)
-		job.Status = domain.JobStatusRunning
-		job.UpdatedAt = time.Now().UTC()
 
-		// Placeholder execution (Phase 3). Real rendering/executor will come later.
+		// Phase 5: render -> create workdir.
+		vars, err := renderer.RenderEnvironmentVars(job.Environment)
+		if err != nil {
+			job.Status = domain.JobStatusFailed
+			job.Error = err.Error()
+			job.UpdatedAt = time.Now().UTC()
+			_, _ = store.UpdateJob(context.Background(), job)
+			continue
+		}
+
+		wd, err := renderer.CreateWorkdir(renderer.WorkdirConfig{TemplatesRoot: templatesRoot, WorkdirsRoot: workdirsRoot}, templateName, job.ID, vars)
+		if err != nil {
+			job.Status = domain.JobStatusFailed
+			job.Error = err.Error()
+			job.UpdatedAt = time.Now().UTC()
+			_, _ = store.UpdateJob(context.Background(), job)
+			continue
+		}
+		job.TemplateName = templateName
+		job.Workdir = wd.Dir
+
+		// Placeholder execution (Phase 3). Real tofu execution will come in Phase 6/7.
 		time.Sleep(processingDelay)
 		job.Status = domain.JobStatusDone
 		job.UpdatedAt = time.Now().UTC()
@@ -54,7 +77,7 @@ func main() {
 			log.Printf("update job failed: id=%s err=%v", job.ID, err)
 			continue
 		}
-		log.Printf("finished job id=%s status=%s", job.ID, job.Status)
+		log.Printf("finished job id=%s status=%s workdir=%s", job.ID, job.Status, job.Workdir)
 	}
 }
 
