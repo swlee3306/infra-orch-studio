@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
+	"github.com/swlee3306/infra-orch-studio/internal/executor"
 	"github.com/swlee3306/infra-orch-studio/internal/renderer"
 	storesqlite "github.com/swlee3306/infra-orch-studio/internal/storage/sqlite"
 )
@@ -19,6 +20,7 @@ func main() {
 	templatesRoot := env("TEMPLATES_ROOT", "./templates/opentofu/environments")
 	workdirsRoot := env("WORKDIRS_ROOT", "./workdirs")
 	templateName := env("TEMPLATE_NAME", "basic")
+	tofuBin := env("TOFU_BIN", "tofu")
 
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 		log.Fatalf("mkdir: %v", err)
@@ -34,6 +36,8 @@ func main() {
 
 	t := time.NewTicker(interval)
 	defer t.Stop()
+
+	exec := executor.CommandExecutor{TofuBin: tofuBin}
 
 	for range t.C {
 		job, ok, err := store.ClaimNextQueuedJob(context.Background())
@@ -68,7 +72,18 @@ func main() {
 		job.TemplateName = templateName
 		job.Workdir = wd.Dir
 
-		// Placeholder execution (Phase 3). Real tofu execution will come in Phase 6/7.
+		// Phase 6-1: tofu init (no plan/apply yet).
+		initRes, err := exec.Init(context.Background(), job.Workdir)
+		_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-init", initRes.Stdout, initRes.Stderr)
+		if err != nil {
+			job.Status = domain.JobStatusFailed
+			job.Error = err.Error()
+			job.UpdatedAt = time.Now().UTC()
+			_, _ = store.UpdateJob(context.Background(), job)
+			continue
+		}
+
+		// Placeholder processing delay to keep logs readable.
 		time.Sleep(processingDelay)
 		job.Status = domain.JobStatusDone
 		job.UpdatedAt = time.Now().UTC()
