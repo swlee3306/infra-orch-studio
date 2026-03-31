@@ -57,6 +57,13 @@ Run runner (Phase 6: renders workdir + tofu init + plan):
 ```bash
 STORE_SQLITE_PATH=./var/infra-orch.db \
 TOFU_BIN=tofu \
+OPENSTACK_AUTH_URL=http://192.168.219.121:5000/v3 \
+OPENSTACK_REGION=RegionOne \
+OPENSTACK_TENANT_NAME=admin \
+OPENSTACK_USERNAME=admin \
+OPENSTACK_PASSWORD=*** \
+OPENSTACK_USER_DOMAIN_NAME=Default \
+OPENSTACK_PROJECT_DOMAIN_NAME=Default \
 RUNNER_POLL_INTERVAL=2s \
 make runner
 ```
