@@ -53,7 +53,7 @@ curl -s -X POST localhost:8080/jobs \
   -d '{"environment":{"environment_name":"dev","tenant_name":"t1","network":{"name":"net1","cidr":"10.0.0.0/24"},"subnet":{"name":"sub1","cidr":"10.0.0.0/24","enable_dhcp":true},"instances":[{"name":"vm1","image":"ubuntu","flavor":"m1.small","count":1}]}}'
 ```
 
-Run runner (Phase 6-1: renders workdir + tofu init):
+Run runner (Phase 6: renders workdir + tofu init + plan):
 ```bash
 STORE_SQLITE_PATH=./var/infra-orch.db \
 TOFU_BIN=tofu \
@@ -64,3 +64,8 @@ make runner
 Logs (per job workdir):
 - `<workdir>/.infra-orch/logs/tofu-init.stdout.log`
 - `<workdir>/.infra-orch/logs/tofu-init.stderr.log`
+- `<workdir>/.infra-orch/logs/tofu-plan.stdout.log`
+- `<workdir>/.infra-orch/logs/tofu-plan.stderr.log`
+
+Plan artifact (per job workdir):
+- `<workdir>/.infra-orch/plan/plan.bin`
