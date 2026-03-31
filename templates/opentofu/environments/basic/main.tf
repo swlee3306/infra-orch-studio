@@ -3,7 +3,7 @@ locals {
 }
 
 module "network" {
-  source = "../../modules/network"
+  source = "./modules/network"
 
   name_prefix = local.name_prefix
   network     = var.network
@@ -11,10 +11,10 @@ module "network" {
 }
 
 module "instances" {
-  source = "../../modules/instance"
+  source = "./modules/instance"
 
-  name_prefix     = local.name_prefix
-  network_id      = module.network.network_id
-  subnet_id       = module.network.subnet_id
-  instances       = var.instances
+  name_prefix = local.name_prefix
+  network_id  = module.network.network_id
+  subnet_id   = module.network.subnet_id
+  instances   = var.instances
 }

@@ -23,7 +23,16 @@ func TestCreateWorkdir_CopiesTemplateAndWritesVars(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := WorkdirConfig{TemplatesRoot: templatesRoot, WorkdirsRoot: workdirsRoot}
+	// fake modules root
+	modulesRoot := filepath.Join(tmp, "modules")
+	if err := os.MkdirAll(filepath.Join(modulesRoot, "network"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modulesRoot, "network", "main.tf"), []byte("// mod\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := WorkdirConfig{TemplatesRoot: templatesRoot, ModulesRoot: modulesRoot, WorkdirsRoot: workdirsRoot}
 	vars := map[string]any{"environment_name": "dev"}
 	out, err := CreateWorkdir(cfg, "basic", "job-1", vars)
 	if err != nil {
@@ -35,6 +44,9 @@ func TestCreateWorkdir_CopiesTemplateAndWritesVars(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(out.Dir, "nested", "x.txt")); err != nil {
 		t.Fatalf("expected nested file copied: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out.Dir, "modules", "network", "main.tf")); err != nil {
+		t.Fatalf("expected module copied: %v", err)
 	}
 
 	b, err := os.ReadFile(out.VarsPath)

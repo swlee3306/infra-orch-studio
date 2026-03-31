@@ -92,7 +92,8 @@ func main() {
 			"instances":                     vars.Instances,
 		}
 
-		wd, err := renderer.CreateWorkdir(renderer.WorkdirConfig{TemplatesRoot: templatesRoot, WorkdirsRoot: workdirsRoot}, templateName, job.ID, varsPayload)
+		modulesRoot := env("MODULES_ROOT", "./templates/opentofu/modules")
+		wd, err := renderer.CreateWorkdir(renderer.WorkdirConfig{TemplatesRoot: templatesRoot, ModulesRoot: modulesRoot, WorkdirsRoot: workdirsRoot}, templateName, job.ID, varsPayload)
 		if err != nil {
 			job.Status = domain.JobStatusFailed
 			job.Error = err.Error()

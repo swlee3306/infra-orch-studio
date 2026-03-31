@@ -12,6 +12,7 @@ import (
 
 type WorkdirConfig struct {
 	TemplatesRoot string // e.g. ./templates/opentofu/environments
+	ModulesRoot   string // e.g. ./templates/opentofu/modules
 	WorkdirsRoot  string // e.g. ./workdirs
 }
 
@@ -29,8 +30,8 @@ type RenderedWorkdir struct {
 // - template source must be under TemplatesRoot
 // - workdir is created under WorkdirsRoot
 func CreateWorkdir(cfg WorkdirConfig, templateName, workdirName string, vars any) (RenderedWorkdir, error) {
-	if cfg.TemplatesRoot == "" || cfg.WorkdirsRoot == "" {
-		return RenderedWorkdir{}, fmt.Errorf("TemplatesRoot and WorkdirsRoot are required")
+	if cfg.TemplatesRoot == "" || cfg.ModulesRoot == "" || cfg.WorkdirsRoot == "" {
+		return RenderedWorkdir{}, fmt.Errorf("TemplatesRoot, ModulesRoot and WorkdirsRoot are required")
 	}
 	if templateName == "" || strings.Contains(templateName, "/") || strings.Contains(templateName, "\\") {
 		return RenderedWorkdir{}, fmt.Errorf("invalid templateName")
@@ -40,6 +41,10 @@ func CreateWorkdir(cfg WorkdirConfig, templateName, workdirName string, vars any
 	}
 
 	tRootAbs, err := filepath.Abs(cfg.TemplatesRoot)
+	if err != nil {
+		return RenderedWorkdir{}, err
+	}
+	mRootAbs, err := filepath.Abs(cfg.ModulesRoot)
 	if err != nil {
 		return RenderedWorkdir{}, err
 	}
@@ -71,6 +76,22 @@ func CreateWorkdir(cfg WorkdirConfig, templateName, workdirName string, vars any
 	}
 
 	if err := copyDir(srcAbs, dstAbs); err != nil {
+		return RenderedWorkdir{}, err
+	}
+
+	// Copy shared modules into the workdir so module sources can stay relative and self-contained.
+	mInfo, err := os.Stat(mRootAbs)
+	if err != nil {
+		return RenderedWorkdir{}, fmt.Errorf("stat modules root: %w", err)
+	}
+	if !mInfo.IsDir() {
+		return RenderedWorkdir{}, fmt.Errorf("modules root is not a directory")
+	}
+	modulesDst := filepath.Join(dstAbs, "modules")
+	if err := os.MkdirAll(modulesDst, 0o755); err != nil {
+		return RenderedWorkdir{}, fmt.Errorf("mkdir modules: %w", err)
+	}
+	if err := copyDir(mRootAbs, modulesDst); err != nil {
 		return RenderedWorkdir{}, err
 	}
 
