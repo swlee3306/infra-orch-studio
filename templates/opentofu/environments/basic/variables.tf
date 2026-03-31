@@ -1,39 +1,11 @@
-variable "openstack_auth_url" {
+variable "openstack_cloud" {
   type        = string
-  description = "OpenStack Keystone auth URL (e.g. https://keystone:5000/v3)"
+  description = "Cloud name in clouds.yaml (OS_CLOUD)"
 }
 
-variable "openstack_region" {
+variable "openstack_config_path" {
   type        = string
-  description = "OpenStack region name"
-}
-
-variable "openstack_tenant_name" {
-  type        = string
-  description = "Project/Tenant name"
-}
-
-variable "openstack_username" {
-  type        = string
-  description = "OpenStack username"
-}
-
-variable "openstack_password" {
-  type        = string
-  sensitive   = true
-  description = "OpenStack password"
-}
-
-variable "openstack_user_domain_name" {
-  type        = string
-  default     = ""
-  description = "User domain name (optional)"
-}
-
-variable "openstack_project_domain_name" {
-  type        = string
-  default     = ""
-  description = "Project domain name (optional)"
+  description = "Absolute path to clouds.yaml (OS_CLIENT_CONFIG_FILE)"
 }
 
 variable "environment_name" {
