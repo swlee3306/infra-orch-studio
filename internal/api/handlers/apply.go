@@ -34,6 +34,14 @@ func JobsApply(store storage.Store) http.Handler {
 			writeError(w, http.StatusNotFound, "source job not found")
 			return
 		}
+		if src.Type != domain.JobTypePlan {
+			writeError(w, http.StatusBadRequest, "source job must be type tofu.plan")
+			return
+		}
+		if src.Status != domain.JobStatusDone {
+			writeError(w, http.StatusBadRequest, "source job must be done before apply")
+			return
+		}
 		if src.PlanPath == "" || src.Workdir == "" {
 			writeError(w, http.StatusBadRequest, "source job has no plan artifact")
 			return
