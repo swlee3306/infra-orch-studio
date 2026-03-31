@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL,
 	environment_json TEXT NOT NULL,
+	template_name TEXT NOT NULL DEFAULT '',
+	workdir TEXT NOT NULL DEFAULT '',
 	error TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
@@ -57,7 +59,40 @@ CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
 	if _, err := s.db.ExecContext(ctx, ddl); err != nil {
 		return fmt.Errorf("sqlite migrate: %w", err)
 	}
+
+	// Backward-compatible migrations for existing DBs.
+	// SQLite supports ADD COLUMN; we use DEFAULT '' to keep scans simple.
+	_ = s.addColumnIfMissing(ctx, "jobs", "template_name", "TEXT NOT NULL DEFAULT ''")
+	_ = s.addColumnIfMissing(ctx, "jobs", "workdir", "TEXT NOT NULL DEFAULT ''")
+
 	return nil
+}
+
+func (s *Store) addColumnIfMissing(ctx context.Context, table, col, ddl string) error {
+	rows, err := s.db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull int
+		var dflt sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == col {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, col, ddl))
+	return err
 }
 
 func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error) {
@@ -67,14 +102,16 @@ func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 	}
 
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO jobs (id, type, status, created_at, updated_at, environment_json, error)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO jobs (id, type, status, created_at, updated_at, environment_json, template_name, workdir, error)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		j.ID,
 		string(j.Type),
 		string(j.Status),
 		j.CreatedAt.UTC().Format(time.RFC3339Nano),
 		j.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		string(envJSON),
+		j.TemplateName,
+		j.Workdir,
 		j.Error,
 	)
 	if err != nil {
@@ -85,12 +122,12 @@ func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 
 func (s *Store) GetJob(ctx context.Context, id string) (domain.Job, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, type, status, created_at, updated_at, environment_json, error
+		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, error
 		 FROM jobs WHERE id = ?`, id)
 
 	var j domain.Job
 	var jobType, status, createdAt, updatedAt, envJSON string
-	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.Error); err != nil {
+	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.Error); err != nil {
 		return domain.Job{}, err
 	}
 	j.Type = domain.JobType(jobType)
@@ -113,7 +150,7 @@ func (s *Store) ListJobs(ctx context.Context, limit int) ([]domain.Job, error) {
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, type, status, created_at, updated_at, environment_json, error
+		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, error
 		 FROM jobs ORDER BY created_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list jobs: %w", err)
@@ -124,7 +161,7 @@ func (s *Store) ListJobs(ctx context.Context, limit int) ([]domain.Job, error) {
 	for rows.Next() {
 		var j domain.Job
 		var jobType, status, createdAt, updatedAt, envJSON string
-		if err := rows.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.Error); err != nil {
+		if err := rows.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.Error); err != nil {
 			return nil, err
 		}
 		j.Type = domain.JobType(jobType)
@@ -154,12 +191,14 @@ func (s *Store) UpdateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE jobs
-		 SET type = ?, status = ?, updated_at = ?, environment_json = ?, error = ?
+		 SET type = ?, status = ?, updated_at = ?, environment_json = ?, template_name = ?, workdir = ?, error = ?
 		 WHERE id = ?`,
 		string(j.Type),
 		string(j.Status),
 		j.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		string(envJSON),
+		j.TemplateName,
+		j.Workdir,
 		j.Error,
 		j.ID,
 	)
@@ -180,14 +219,14 @@ func (s *Store) ClaimNextQueuedJob(ctx context.Context) (domain.Job, bool, error
 	defer func() { _ = tx.Rollback() }()
 
 	row := tx.QueryRowContext(ctx,
-		`SELECT id, type, status, created_at, updated_at, environment_json, error
+		`SELECT id, type, status, created_at, updated_at, environment_json, template_name, workdir, error
 		 FROM jobs WHERE status = ? ORDER BY created_at ASC LIMIT 1`,
 		string(domain.JobStatusQueued),
 	)
 
 	var j domain.Job
 	var jobType, status, createdAt, updatedAt, envJSON string
-	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.Error); err != nil {
+	if err := row.Scan(&j.ID, &jobType, &status, &createdAt, &updatedAt, &envJSON, &j.TemplateName, &j.Workdir, &j.Error); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			if err := tx.Commit(); err != nil {
 				return domain.Job{}, false, fmt.Errorf("commit empty tx: %w", err)

@@ -31,6 +31,10 @@ type Job struct {
 
 	Environment EnvironmentSpec `json:"environment"`
 
+	// Rendering/execution metadata (Phase 5+).
+	TemplateName string `json:"template_name,omitempty"`
+	Workdir      string `json:"workdir,omitempty"`
+
 	// Result pointers. In Phase 6+ we will store logs/plan/output references here.
 	Error string `json:"error,omitempty"`
 }
