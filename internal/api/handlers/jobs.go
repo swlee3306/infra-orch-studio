@@ -47,6 +47,10 @@ func JobsCollection(store storage.Store) http.Handler {
 			switch jobType {
 			case domain.JobTypeEnvironmentCreate, domain.JobTypePlan:
 				// ok
+			case domain.JobTypeApply:
+				// explicit apply must be created via POST /jobs/{id}/apply
+				writeError(w, http.StatusBadRequest, "apply must be triggered via POST /jobs/{id}/apply")
+				return
 			default:
 				writeError(w, http.StatusBadRequest, "unsupported job type")
 				return

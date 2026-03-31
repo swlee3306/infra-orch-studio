@@ -32,6 +32,7 @@
 
 ## Phase 7: Apply
 - 명시적 요청에서만 apply
+- apply는 plan job을 참조하여 실행 (`POST /jobs/{id}/apply` 등)
 - outputs/state 안전장치
 
 ## Phase 8: Kubernetes deploy
