@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-orch-web
+  namespace: infra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infra-orch-web
+  template:
+    metadata:
+      labels:
+        app: infra-orch-web
+    spec:
+      containers:
+        - name: web
+          image: infra-orch-studio-web:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: VITE_API_URL
+              value: "http://localhost:8080"
+          ports:
+            - containerPort: 80

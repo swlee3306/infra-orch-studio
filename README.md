@@ -1,43 +1,91 @@
 # infra-orch-studio
 
-템플릿, API, (향후) 채팅 기반 입력을 통해 OpenTofu를 활용하여 **OpenStack 인프라 환경(Environment)** 을 선언형으로 생성·관리하는 환경 단위 오케스트레이션 플랫폼.
+템플릿, API, 웹 UI를 통해 OpenTofu를 활용하여 **OpenStack 인프라 환경(Environment)** 을 선언형으로 생성·관리하는 환경 단위 오케스트레이션 플랫폼.
 
 ## MVP scope
-- Environment 생성 요청
+- Environment 생성 요청 → job 생성
 - plan 생성
-- apply 실행(명시적 요청에서만)
-- job 상태/로그/output 조회
-
-Environment 필드(초기):
-- `environment_name`
-- `tenant_name`
-- network 1개
-- subnet 1개
-- instance 1~2개
-- optional security group references
+- apply 실행(명시적 요청에서만, admin only)
+- job 상태/로그 조회 (WebSocket)
 
 ## Architecture
 - API 서비스와 runner(OpenTofu 실행)는 분리
 - API는 job을 생성/조회만 하고, **tofu 실행은 runner가 수행**
-- 도메인 모델은 OpenTofu 문법에 종속되지 않도록 유지
 - OpenTofu 레이어는 "고정 템플릿 + 변수 주입" 중심
 
 문서:
 - `docs/architecture.md`
 - `docs/roadmap.md`
 
-## Local dev (Phase 1)
+---
 
-Requirements: Go 1.23+
+## API
+
+### Auth
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+
+세션은 **httpOnly cookie** 기반.
+
+Admin seed:
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD` 를 API에 설정하면 시작 시 admin 유저를 upsert 합니다.
+
+### Jobs
+- `GET /api/jobs?limit=50`
+- `POST /api/jobs`
+- `GET /api/jobs/:id`
+- `POST /api/jobs/:id/plan`
+- `POST /api/jobs/:id/apply` (admin only)
+
+### WebSocket
+- `GET /ws` (cookie auth)
+- client → server: `{ "type": "subscribe", "jobId": "..." }`
+- server → client:
+  - `{ "type": "status", "jobId": "...", "status": "...", "error": "..." }`
+  - `{ "type": "log", "jobId": "...", "file": "...", "message": "..." }`
+
+로그는 workdir의 `.infra-orch/logs/*.log` 를 tail 하는 방식.
+
+---
+
+## Storage (MySQL)
+
+필수 env (API/runner 공통):
+- `MYSQL_HOST`, `MYSQL_PORT`
+- `MYSQL_DB`, `MYSQL_USER`, `MYSQL_PASSWORD`
+
+> NOTE: 현재 API는 AuthStore가 필요하므로 **MySQL이 필수**입니다.
+
+---
+
+## Local dev
+
+Requirements: Go 1.23+, Node 18+
+
+### 1) API + runner
 
 ```bash
+# API
+export MYSQL_HOST=127.0.0.1
+export MYSQL_PORT=3306
+export MYSQL_DB=infra_orch
+export MYSQL_USER=infra_orch
+export MYSQL_PASSWORD=pass
+
+export ADMIN_EMAIL=admin@example.com
+export ADMIN_PASSWORD=change-me
+
 make fmt
 make test
-
-# API (sqlite DB default: ./var/infra-orch.db)
 make api
 
 # in another shell
+TOFU_BIN=tofu \
+OPENSTACK_CLOUD=exporter-internal \
+OPENSTACK_CONFIG_PATH=$HOME/.config/openstack/clouds.yaml \
+RUNNER_POLL_INTERVAL=2s \
 make runner
 ```
 
@@ -46,36 +94,38 @@ Health check:
 curl -s localhost:8080/healthz
 ```
 
-Create a job:
+### 2) Web UI
+
 ```bash
-curl -s -X POST localhost:8080/jobs \
-  -H 'content-type: application/json' \
-  -d '{"environment":{"environment_name":"dev","tenant_name":"t1","network":{"name":"net1","cidr":"10.0.0.0/24"},"subnet":{"name":"sub1","cidr":"10.0.0.0/24","enable_dhcp":true},"instances":[{"name":"vm1","image":"ubuntu","flavor":"m1.small","count":1}]}}'
+cd web
+npm install
+VITE_API_URL=http://localhost:8080 npm run dev
 ```
 
-Run runner (Phase 6: renders workdir + tofu init + plan):
-```bash
-STORE_SQLITE_PATH=./var/infra-orch.db \
-TOFU_BIN=tofu \
-OPENSTACK_CLOUD=exporter-internal \
-OPENSTACK_CONFIG_PATH=/home/sulee/.config/openstack/clouds.yaml \
-RUNNER_POLL_INTERVAL=2s \
-make runner
+Open: http://localhost:5173
 
-Note: OpenStack credentials are passed to tofu via environment variables (`OS_CLOUD`, `OS_CLIENT_CONFIG_FILE`).
+---
+
+## Kubernetes (namespace: infra)
+
+Manifests: `deployments/k8s/`
+
+```bash
+kubectl apply -f deployments/k8s/namespace.yaml
+# create mysql secret (example file is base64-encoded)
+kubectl apply -f deployments/k8s/secret-mysql.example.yaml
+
+kubectl apply -f deployments/k8s/api-deployment.yaml -f deployments/k8s/api-service.yaml
+kubectl apply -f deployments/k8s/runner-deployment.yaml
+kubectl apply -f deployments/k8s/web-deployment.yaml -f deployments/k8s/web-service.yaml
 ```
 
-Logs (per job workdir):
-- `<workdir>/.infra-orch/logs/tofu-init.stdout.log`
-- `<workdir>/.infra-orch/logs/tofu-init.stderr.log`
-- `<workdir>/.infra-orch/logs/tofu-plan.stdout.log`
-- `<workdir>/.infra-orch/logs/tofu-plan.stderr.log`
-
-Plan artifact (per job workdir):
-- `<workdir>/.infra-orch/plan/plan.bin`
-
-Trigger apply (explicit only):
+Port-forward:
 ```bash
-# create apply job from a plan job id
-curl -s -X POST localhost:8080/jobs/<plan_job_id>/apply
+kubectl -n infra port-forward svc/infra-orch-api 8080:8080
+kubectl -n infra port-forward svc/infra-orch-web 8081:80
 ```
+
+Then:
+- API: http://localhost:8080
+- Web: http://localhost:8081

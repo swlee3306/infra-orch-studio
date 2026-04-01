@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-orch-runner
+  namespace: infra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infra-orch-runner
+  template:
+    metadata:
+      labels:
+        app: infra-orch-runner
+    spec:
+      containers:
+        - name: runner
+          image: infra-orch-studio-runner:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TEMPLATES_ROOT
+              value: "/app/templates/opentofu/environments"
+            - name: WORKDIRS_ROOT
+              value: "/workdirs"
+          envFrom:
+            - secretRef:
+                name: infra-orch-mysql
+          volumeMounts:
+            - name: workdirs
+              mountPath: /workdirs
+      volumes:
+        - name: workdirs
+          emptyDir: {}
