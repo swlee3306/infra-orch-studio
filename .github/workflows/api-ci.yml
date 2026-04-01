@@ -22,7 +22,7 @@ permissions:
 jobs:
   build_push_and_bump:
     # Prevent infinite loop when this workflow bumps the tag and pushes a commit
-    if: ${{ github.event.head_commit == null || !startsWith(github.event.head_commit.message, 'chore(cd): bump infra-orch-studio image') }}
+    if: "${{ github.event.head_commit == null || !startsWith(github.event.head_commit.message, 'chore(cd): bump infra-orch-studio image') }}"
     runs-on: self-hosted
     env:
       REGISTRY: 10.10.0.190:32000
