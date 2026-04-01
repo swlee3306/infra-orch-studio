@@ -151,12 +151,16 @@ func main() {
 		}
 
 		modulesRoot := env("MODULES_ROOT", "./templates/opentofu/modules")
-		wd, err := renderer.CreateWorkdir(renderer.WorkdirConfig{TemplatesRoot: templatesRoot, ModulesRoot: modulesRoot, WorkdirsRoot: workdirsRoot}, templateName, job.ID, varsPayload)
+		effectiveTemplateName := job.TemplateName
+		if effectiveTemplateName == "" {
+			effectiveTemplateName = templateName
+		}
+		wd, err := renderer.CreateWorkdir(renderer.WorkdirConfig{TemplatesRoot: templatesRoot, ModulesRoot: modulesRoot, WorkdirsRoot: workdirsRoot}, effectiveTemplateName, job.ID, varsPayload)
 		if err != nil {
 			failJob(store, job, err.Error())
 			continue
 		}
-		job.TemplateName = templateName
+		job.TemplateName = effectiveTemplateName
 		job.Workdir = wd.Dir
 		job.Error = ""
 		job.UpdatedAt = time.Now().UTC()

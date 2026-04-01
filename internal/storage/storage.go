@@ -8,7 +8,6 @@ import (
 
 // Store is a minimal persistence interface shared by API and runner.
 //
-// MVP note: implementation will start as sqlite (preferred) in Phase 2.
 // We keep the interface small to avoid premature abstraction.
 type Store interface {
 	CreateJob(ctx context.Context, j domain.Job) (domain.Job, error)

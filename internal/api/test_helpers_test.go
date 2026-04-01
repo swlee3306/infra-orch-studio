@@ -1,0 +1,232 @@
+package api
+
+import (
+	"context"
+	"database/sql"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/swlee3306/infra-orch-studio/internal/domain"
+	"github.com/swlee3306/infra-orch-studio/internal/security"
+	"github.com/swlee3306/infra-orch-studio/internal/storage"
+)
+
+type fakeStore struct {
+	mu sync.Mutex
+
+	users       map[string]domain.User
+	usersByMail map[string]string
+	sessions    map[string]domain.Session
+	jobs        map[string]domain.Job
+}
+
+func newFakeStore() *fakeStore {
+	return &fakeStore{
+		users:       map[string]domain.User{},
+		usersByMail: map[string]string{},
+		sessions:    map[string]domain.Session{},
+		jobs:        map[string]domain.Job{},
+	}
+}
+
+func newTestServer(store *fakeStore) *Server {
+	return NewServer(Config{
+		JobStore:       store,
+		AuthStore:      store,
+		CookieName:     "test_session",
+		SessionTTL:     time.Hour,
+		AllowedOrigins: []string{"http://localhost:5173"},
+	})
+}
+
+func (f *fakeStore) CreateJob(_ context.Context, j domain.Job) (domain.Job, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.jobs[j.ID] = j
+	return j, nil
+}
+
+func (f *fakeStore) GetJob(_ context.Context, id string) (domain.Job, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	j, ok := f.jobs[id]
+	if !ok {
+		return domain.Job{}, sql.ErrNoRows
+	}
+	return j, nil
+}
+
+func (f *fakeStore) ListJobs(_ context.Context, limit int) ([]domain.Job, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if limit <= 0 {
+		limit = 50
+	}
+	out := make([]domain.Job, 0, len(f.jobs))
+	for _, j := range f.jobs {
+		out = append(out, j)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (f *fakeStore) UpdateJob(_ context.Context, j domain.Job) (domain.Job, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, ok := f.jobs[j.ID]; !ok {
+		return domain.Job{}, sql.ErrNoRows
+	}
+	f.jobs[j.ID] = j
+	return j, nil
+}
+
+func (f *fakeStore) ClaimNextQueuedJob(_ context.Context) (domain.Job, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var chosen *domain.Job
+	for _, j := range f.jobs {
+		if j.Status != domain.JobStatusQueued {
+			continue
+		}
+		j := j
+		if chosen == nil || j.CreatedAt.Before(chosen.CreatedAt) {
+			chosen = &j
+		}
+	}
+	if chosen == nil {
+		return domain.Job{}, false, nil
+	}
+	job := *chosen
+	job.Status = domain.JobStatusRunning
+	job.UpdatedAt = time.Now().UTC()
+	f.jobs[job.ID] = job
+	return job, true, nil
+}
+
+func (f *fakeStore) CreateUser(_ context.Context, user domain.User) (domain.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	email := strings.ToLower(user.Email)
+	if _, ok := f.usersByMail[email]; ok {
+		return domain.User{}, storage.ErrConflict
+	}
+	user.Email = email
+	f.users[user.ID] = user
+	f.usersByMail[email] = user.ID
+	return user, nil
+}
+
+func (f *fakeStore) GetUserByEmail(_ context.Context, email string) (domain.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	id, ok := f.usersByMail[strings.ToLower(email)]
+	if !ok {
+		return domain.User{}, sql.ErrNoRows
+	}
+	user, ok := f.users[id]
+	if !ok {
+		return domain.User{}, sql.ErrNoRows
+	}
+	return user, nil
+}
+
+func (f *fakeStore) GetUserByID(_ context.Context, id string) (domain.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	user, ok := f.users[id]
+	if !ok {
+		return domain.User{}, sql.ErrNoRows
+	}
+	return user, nil
+}
+
+func (f *fakeStore) UpsertAdminUser(_ context.Context, user domain.User) (domain.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	user.Email = strings.ToLower(user.Email)
+	user.IsAdmin = true
+	if existingID, ok := f.usersByMail[user.Email]; ok {
+		user.ID = existingID
+	}
+	if user.ID == "" {
+		user.ID = uuid.NewString()
+	}
+	f.users[user.ID] = user
+	f.usersByMail[user.Email] = user.ID
+	return user, nil
+}
+
+func (f *fakeStore) CreateSession(_ context.Context, session domain.Session) (domain.Session, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sessions[session.TokenHash] = session
+	return session, nil
+}
+
+func (f *fakeStore) GetSessionWithUser(_ context.Context, tokenHash string) (domain.Session, domain.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	session, ok := f.sessions[tokenHash]
+	if !ok {
+		return domain.Session{}, domain.User{}, sql.ErrNoRows
+	}
+	user, ok := f.users[session.UserID]
+	if !ok {
+		return domain.Session{}, domain.User{}, sql.ErrNoRows
+	}
+	return session, user, nil
+}
+
+func (f *fakeStore) DeleteSessionByTokenHash(_ context.Context, tokenHash string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.sessions, tokenHash)
+	return nil
+}
+
+func mustHashPassword(t interface{ Fatalf(string, ...any) }, password string) string {
+	hash, err := security.HashPassword(password)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	return hash
+}
+
+func mustUser(t interface{ Fatalf(string, ...any) }, email string, admin bool, password string) domain.User {
+	now := time.Now().UTC()
+	return domain.User{
+		ID:           uuid.NewString(),
+		Email:        email,
+		IsAdmin:      admin,
+		PasswordHash: mustHashPassword(t, password),
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+}
+
+func seedSession(store *fakeStore, user domain.User, rawToken string) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	tokenHash := security.HashToken(rawToken)
+	store.users[user.ID] = user
+	store.usersByMail[strings.ToLower(user.Email)] = user.ID
+	store.sessions[tokenHash] = domain.Session{
+		ID:        uuid.NewString(),
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		CreatedAt: time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(time.Hour),
+	}
+}

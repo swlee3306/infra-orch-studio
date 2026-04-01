@@ -6,6 +6,35 @@ export type User = {
   updated_at?: string
 }
 
+export type Network = {
+  name: string
+  cidr: string
+}
+
+export type Subnet = {
+  name: string
+  cidr: string
+  gateway_ip?: string
+  enable_dhcp: boolean
+}
+
+export type Instance = {
+  name: string
+  image: string
+  flavor: string
+  ssh_key_name?: string
+  count: number
+}
+
+export type EnvironmentSpec = {
+  environment_name: string
+  tenant_name: string
+  network: Network
+  subnet: Subnet
+  instances: Instance[]
+  security_groups?: string[]
+}
+
 export type Job = {
   id: string
   type: string
@@ -18,6 +47,11 @@ export type Job = {
   source_job_id?: string
   error?: string
   environment?: any
+}
+
+export type JobListResponse = {
+  items: Job[]
+  viewer: User
 }
 
 // VITE_API_URL should point to the API base.
@@ -57,11 +91,12 @@ export const auth = {
 }
 
 export const jobs = {
-  list: (limit = 50) => req<{ items: Job[]; viewer: User }>('/jobs?limit=' + limit),
+  list: (limit = 50) => req<JobListResponse>('/jobs?limit=' + limit),
   get: (id: string) => req<Job>('/jobs/' + id),
-  create: (environment: any, type?: string) =>
+  create: (environment: EnvironmentSpec, type?: string) =>
     req<Job>('/jobs', { method: 'POST', body: JSON.stringify({ type, environment }) }),
-  plan: (id: string) => req<Job>('/jobs/' + id + '/plan', { method: 'POST' }),
+  plan: (environment: EnvironmentSpec) =>
+    req<Job>('/jobs', { method: 'POST', body: JSON.stringify({ type: 'tofu.plan', environment }) }),
   apply: (id: string) => req<Job>('/jobs/' + id + '/apply', { method: 'POST' }),
 }
 

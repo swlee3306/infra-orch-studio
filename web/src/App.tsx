@@ -1,40 +1,46 @@
 import React from 'react'
-import { Link, Route, Routes, useNavigate } from 'react-router-dom'
-import LoginPage from './pages/Login'
-import JobsPage from './pages/Jobs'
-import JobDetailPage from './pages/JobDetail'
+import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { auth } from './api'
+import JobDetailPage from './pages/JobDetail'
+import JobsPage from './pages/Jobs'
+import LoginPage from './pages/Login'
 
 export default function App() {
   const nav = useNavigate()
-
-  // Keep the header visible, but hide Logout on the login screen.
-  // We use window.location (not react-router location) to avoid any edge cases
-  // where the router state lags behind the actual URL.
-  const showLogout = !window.location.pathname.startsWith('/login')
+  const location = useLocation()
+  const isAuthRoute = location.pathname === '/login'
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', padding: 16, maxWidth: 1000, margin: '0 auto' }}>
-      <header style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-        <Link to="/jobs" style={{ textDecoration: 'none' }}>
-          <h2 style={{ margin: 0 }}>Infra Orch Studio</h2>
-        </Link>
-        {showLogout && (
-          <div style={{ marginLeft: 'auto' }}>
-            <button
-              onClick={async () => {
-                try {
-                  await auth.logout()
-                } finally {
-                  nav('/login')
-                }
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        )}
-      </header>
+    <>
+      {isAuthRoute ? null : (
+        <div className="shell">
+          <header className="shell-header">
+            <Link to="/jobs" style={{ textDecoration: 'none' }}>
+              <div className="brand">
+                <h1>Infra Orch Studio</h1>
+                <p>Operator console for plan, apply, and runtime visibility</p>
+              </div>
+            </Link>
+            <div className="nav">
+              <Link to="/jobs" className="ghost" style={{ textDecoration: 'none', display: 'inline-flex' }}>
+                Jobs
+              </Link>
+              <button
+                className="ghost"
+                onClick={async () => {
+                  try {
+                    await auth.logout()
+                  } finally {
+                    nav('/login')
+                  }
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          </header>
+        </div>
+      )}
 
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -42,6 +48,6 @@ export default function App() {
         <Route path="/jobs/:id" element={<JobDetailPage />} />
         <Route path="*" element={<LoginPage />} />
       </Routes>
-    </div>
+    </>
   )
 }

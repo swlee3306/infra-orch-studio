@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/mail"
+	"os"
 	"strings"
 	"time"
 
@@ -116,7 +117,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(s.cookieName); err == nil && cookie.Value != "" {
 		_ = s.auth.DeleteSessionByTokenHash(r.Context(), security.HashToken(cookie.Value))
 	}
-	s.clearSessionCookie(w)
+	s.clearSessionCookie(w, shouldUseSecureCookie(r))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -151,6 +152,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, user domai
 		Value:    rawToken,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   shouldUseSecureCookie(r),
 		SameSite: http.SameSiteLaxMode,
 		Expires:  session.ExpiresAt,
 		MaxAge:   int(s.sessionTTL.Seconds()),
@@ -158,16 +160,21 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, user domai
 	return nil
 }
 
-func (s *Server) clearSessionCookie(w http.ResponseWriter) {
+func (s *Server) clearSessionCookie(w http.ResponseWriter, secure bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     s.cookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 	})
+}
+
+func shouldUseSecureCookie(r *http.Request) bool {
+	return r.TLS != nil || strings.EqualFold(os.Getenv("SESSION_COOKIE_SECURE"), "true")
 }
 
 func normalizeEmail(email string) (string, error) {
