@@ -478,9 +478,11 @@ func userSelectColumns() string {
 
 func userSelectColumnsWithAlias(alias string) string {
 	return strings.Join([]string{
-		fmt.Sprintf("TO_BASE64(%s.id)", alias),
-		fmt.Sprintf("TO_BASE64(%s.email)", alias),
-		fmt.Sprintf("TO_BASE64(%s.password_hash)", alias),
+		// MySQL TO_BASE64() inserts line breaks every 76 chars; strip them to keep
+		// results parseable as single-row, tab-delimited output.
+		fmt.Sprintf("REPLACE(REPLACE(TO_BASE64(%s.id), '\\n', ''), '\\r', '')", alias),
+		fmt.Sprintf("REPLACE(REPLACE(TO_BASE64(%s.email), '\\n', ''), '\\r', '')", alias),
+		fmt.Sprintf("REPLACE(REPLACE(TO_BASE64(%s.password_hash), '\\n', ''), '\\r', '')", alias),
 		fmt.Sprintf("%s.is_admin", alias),
 		fmt.Sprintf("DATE_FORMAT(%s.created_at, '%s')", alias, sqlTimeFormat),
 		fmt.Sprintf("DATE_FORMAT(%s.updated_at, '%s')", alias, sqlTimeFormat),
@@ -489,9 +491,9 @@ func userSelectColumnsWithAlias(alias string) string {
 
 func sessionSelectColumns(alias string) string {
 	return strings.Join([]string{
-		fmt.Sprintf("TO_BASE64(%s.id)", alias),
-		fmt.Sprintf("TO_BASE64(%s.user_id)", alias),
-		fmt.Sprintf("TO_BASE64(%s.token_hash)", alias),
+		fmt.Sprintf("REPLACE(REPLACE(TO_BASE64(%s.id), '\\n', ''), '\\r', '')", alias),
+		fmt.Sprintf("REPLACE(REPLACE(TO_BASE64(%s.user_id), '\\n', ''), '\\r', '')", alias),
+		fmt.Sprintf("REPLACE(REPLACE(TO_BASE64(%s.token_hash), '\\n', ''), '\\r', '')", alias),
 		fmt.Sprintf("DATE_FORMAT(%s.created_at, '%s')", alias, sqlTimeFormat),
 		fmt.Sprintf("DATE_FORMAT(%s.expires_at, '%s')", alias, sqlTimeFormat),
 	}, ", ")
