@@ -4,6 +4,7 @@ metadata:
   name: infra-orch-web
   namespace: infra
 spec:
+  type: NodePort
   selector:
     app: infra-orch-web
   ports:

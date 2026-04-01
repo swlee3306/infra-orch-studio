@@ -1,0 +1,64 @@
+name: web-ci
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "web/**"
+      - "k8s/app/**"
+      - ".github/workflows/web-ci.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build_push_and_bump:
+    runs-on: self-hosted
+    env:
+      REGISTRY: 10.10.0.190:32000
+      IMAGE: infra-orch-web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute tag
+        id: vars
+        shell: bash
+        run: |
+          echo "TAG=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build web image
+        shell: bash
+        run: |
+          docker build --build-arg VITE_API_URL=/api -t "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}" ./web
+
+      - name: Push web image
+        shell: bash
+        run: |
+          docker push "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}"
+
+      - name: Update kustomize overlay tag
+        shell: bash
+        run: |
+          set -e
+          FILE=k8s/app/overlays/prod/kustomization.yaml
+          TAG="${{ steps.vars.outputs.TAG }}"
+          perl -0777 -i -pe "s/(name: 10\\.10\\.0\\.190:32000\\/infra-orch-web\\n\\s+newName: 10\\.10\\.0\\.190:32000\\/infra-orch-web\\n\\s+newTag: )[^\\n]+/\${1}$TAG/" "$FILE"
+          git diff -- "$FILE" || true
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -e
+          git config user.name "infra-orch-studio-ci"
+          git config user.email "infra-orch-studio-ci@users.noreply.github.com"
+          git add k8s/app/overlays/prod/kustomization.yaml
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(web): bump infra-orch-web image tag to ${{ steps.vars.outputs.TAG }}"
+          git push

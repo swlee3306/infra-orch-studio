@@ -15,10 +15,10 @@ spec:
     spec:
       containers:
         - name: web
-          image: infra-orch-studio-web:dev
+          image: 10.10.0.190:32000/infra-orch-web:89a40e6
           imagePullPolicy: IfNotPresent
           env:
             - name: VITE_API_URL
-              value: "http://localhost:8080"
+              value: "/api"
           ports:
             - containerPort: 80
