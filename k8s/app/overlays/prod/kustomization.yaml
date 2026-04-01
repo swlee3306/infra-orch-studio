@@ -13,4 +13,4 @@ images:
   newTag: db6f251
 - name: 10.10.0.190:32000/infra-orch-web
   newName: 10.10.0.190:32000/infra-orch-web
-  newTag: "dd8d89f"
+  newTag: "5d6d53d"
