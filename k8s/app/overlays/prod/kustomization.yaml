@@ -10,4 +10,4 @@ resources:
 images:
 - name: 10.10.0.190:32000/infra-orch-studio
   newName: 10.10.0.190:32000/infra-orch-studio
-  newTag: bca808e
+  newTag: bf56a7f
