@@ -15,6 +15,7 @@ spec:
       labels:
         app.kubernetes.io/name: infra-orch-mysql
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: mysql
           image: mysql:8.0
@@ -39,6 +40,29 @@ spec:
                 secretKeyRef:
                   name: infra-orch-mysql
                   key: MYSQL_ROOT_PASSWORD
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql

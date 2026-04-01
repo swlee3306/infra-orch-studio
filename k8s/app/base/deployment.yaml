@@ -14,6 +14,7 @@ spec:
       labels:
         app.kubernetes.io/name: infra-orch-api
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: api
           image: 10.10.0.190:32000/infra-orch-studio:dev
@@ -21,24 +22,32 @@ spec:
           ports:
             - containerPort: 8080
               name: http
-          env:
-            - name: API_ADDR
-              value: :8080
-            - name: ADMIN_EMAIL
-              value: admin@example.com
-            - name: ADMIN_PASSWORD
-              value: change-me
-            - name: MYSQL_BIN
-              value: mysql
           envFrom:
+            - configMapRef:
+                name: infra-orch-runtime
             - secretRef:
                 name: infra-orch-mysql
+            - secretRef:
+                name: infra-orch-admin
           readinessProbe:
             httpGet:
               path: /healthz
               port: http
             initialDelaySeconds: 1
             periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -56,28 +65,34 @@ spec:
       labels:
         app.kubernetes.io/name: infra-orch-runner
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: runner
           image: 10.10.0.190:32000/infra-orch-studio:dev
           imagePullPolicy: IfNotPresent
           command: [/app/infra-orch-runner]
-          env:
-            - name: MYSQL_BIN
-              value: mysql
-            - name: TOFU_BIN
-              value: tofu
-            - name: OPENSTACK_CLOUD
-              value: exporter-internal
-            - name: OPENSTACK_CONFIG_PATH
-              value: /etc/openstack/clouds.yaml
           envFrom:
+            - configMapRef:
+                name: infra-orch-runtime
             - secretRef:
                 name: infra-orch-mysql
           volumeMounts:
             - name: clouds
               mountPath: /etc/openstack
               readOnly: true
+            - name: workdirs
+              mountPath: /workdirs
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
       volumes:
         - name: clouds
           secret:
             secretName: openstack-clouds
+        - name: workdirs
+          persistentVolumeClaim:
+            claimName: infra-orch-workdirs

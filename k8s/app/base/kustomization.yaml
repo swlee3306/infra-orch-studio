@@ -2,6 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
+  - configmap.yaml
+  - secret-admin.example.yaml
+  - secret-openstack.example.yaml
+  - workdirs-pvc.yaml
   - service.yaml
   - deployment.yaml
   - web-service.yaml
