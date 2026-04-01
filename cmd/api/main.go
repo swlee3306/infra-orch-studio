@@ -14,9 +14,9 @@ func main() {
 	addr := env("API_ADDR", ":8080")
 
 	var (
-		jobStore storage.Store
+		jobStore  storage.Store
 		authStore storage.AuthStore
-		closer   func() error
+		closer    func() error
 	)
 
 	host := os.Getenv("MYSQL_HOST")

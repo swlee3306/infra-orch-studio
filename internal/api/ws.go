@@ -20,7 +20,9 @@ type wsClientMessage struct {
 }
 
 type jobStream struct {
-	store      interface{ GetJob(context.Context, string) (domain.Job, error) }
+	store interface {
+		GetJob(context.Context, string) (domain.Job, error)
+	}
 	conn       *wsConn
 	jobID      string
 	offsets    map[string]int64
