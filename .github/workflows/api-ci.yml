@@ -1,12 +1,19 @@
-name: web-ci
+name: api-ci
 
 on:
   push:
     branches: [ main ]
     paths:
-      - "web/**"
+      - "cmd/**"
+      - "internal/**"
+      - "templates/**"
+      - "third_party/**"
+      - "Dockerfile"
+      - "go.mod"
+      - "go.sum"
+      - "hack/**"
       - "k8s/app/**"
-      - ".github/workflows/web-ci.yml"
+      - ".github/workflows/api-ci.yml"
   workflow_dispatch: {}
 
 permissions:
@@ -15,11 +22,11 @@ permissions:
 jobs:
   build_push_and_bump:
     # Prevent infinite loop when this workflow bumps the tag and pushes a commit
-    if: ${{ !startsWith(github.event.head_commit.message, "chore(web): bump") }}
+    if: ${{ !startsWith(github.event.head_commit.message, "chore(cd): bump infra-orch-studio image") }}
     runs-on: self-hosted
     env:
       REGISTRY: 10.10.0.190:32000
-      IMAGE: infra-orch-web
+      IMAGE: infra-orch-studio
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,12 +39,12 @@ jobs:
         run: |
           echo "TAG=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
-      - name: Build web image
+      - name: Build api/runner image
         shell: bash
         run: |
-          docker build --build-arg VITE_API_URL=/api -t "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}" ./web
+          docker build -t "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}" .
 
-      - name: Push web image
+      - name: Push api/runner image
         shell: bash
         run: |
           docker push "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}"
@@ -48,7 +55,7 @@ jobs:
           set -e
           FILE=k8s/app/overlays/prod/kustomization.yaml
           TAG="${{ steps.vars.outputs.TAG }}"
-          perl -0777 -i -pe "s/(name: 10\\.10\\.0\\.190:32000\\/infra-orch-web\\n\\s+newName: 10\\.10\\.0\\.190:32000\\/infra-orch-web\\n\\s+newTag: )[^\\n]+/\${1}$TAG/" "$FILE"
+          perl -0777 -i -pe "s/(name: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newName: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newTag: )[^\\n]+/\${1}$TAG/" "$FILE"
           git diff -- "$FILE" || true
 
       - name: Commit and push
@@ -62,5 +69,5 @@ jobs:
             echo "No changes to commit."
             exit 0
           fi
-          git commit -m "chore(web): bump infra-orch-web image tag to ${{ steps.vars.outputs.TAG }}"
+          git commit -m "chore(cd): bump infra-orch-studio image to ${{ steps.vars.outputs.TAG }}"
           git push
