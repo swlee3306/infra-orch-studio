@@ -13,4 +13,4 @@ images:
   newTag: a7399b2
 - name: 10.10.0.190:32000/infra-orch-web
   newName: 10.10.0.190:32000/infra-orch-web
-  newTag: "ea5c38e"
+  newTag: "e2b5e7a"
