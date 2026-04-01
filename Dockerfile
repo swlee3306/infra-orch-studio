@@ -16,14 +16,14 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/infra-orch-runner ./c
 FROM debian:bookworm-slim
 WORKDIR /app
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl tar mariadb-client \
+RUN apt-get -o Acquire::ForceIPv4=true update \
+  && apt-get -o Acquire::ForceIPv4=true install -y --no-install-recommends ca-certificates curl tar mariadb-client \
   && rm -rf /var/lib/apt/lists/*
 
 # Install OpenTofu (runner)
 ARG TOFU_VERSION=1.11.0
-RUN curl --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 300 --http1.1 -o /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip" \
-  && apt-get update && apt-get install -y --no-install-recommends unzip \
+RUN curl -4 --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 300 --http1.1 -o /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip" \
+  && apt-get -o Acquire::ForceIPv4=true update && apt-get -o Acquire::ForceIPv4=true install -y --no-install-recommends unzip \
   && unzip /tmp/tofu.zip -d /usr/local/bin \
   && rm -f /tmp/tofu.zip \
   && apt-get purge -y --auto-remove unzip \
