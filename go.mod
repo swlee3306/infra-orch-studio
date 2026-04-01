@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/google/uuid v1.6.0
+	golang.org/x/crypto v0.23.0
 	modernc.org/sqlite v1.48.0
 )
 
@@ -17,3 +18,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
+
+replace golang.org/x/crypto => ./third_party/golang.org/x/crypto

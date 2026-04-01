@@ -3,27 +3,55 @@ package main
 import (
 	"log"
 	"os"
-	"path/filepath"
+	"strconv"
 
 	"github.com/swlee3306/infra-orch-studio/internal/api"
-	storesqlite "github.com/swlee3306/infra-orch-studio/internal/storage/sqlite"
+	"github.com/swlee3306/infra-orch-studio/internal/storage"
+	storemysql "github.com/swlee3306/infra-orch-studio/internal/storage/mysql"
 )
 
 func main() {
 	addr := env("API_ADDR", ":8080")
-	dbPath := env("STORE_SQLITE_PATH", "./var/infra-orch.db")
 
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
-		log.Fatalf("mkdir: %v", err)
+	var (
+		jobStore storage.Store
+		authStore storage.AuthStore
+		closer   func() error
+	)
+
+	host := os.Getenv("MYSQL_HOST")
+	if host == "" {
+		log.Fatalf("MYSQL_HOST is required")
 	}
-
-	store, err := storesqlite.Open(dbPath)
+	port := env("MYSQL_PORT", "3306")
+	if _, err := strconv.Atoi(port); err != nil {
+		log.Fatalf("invalid MYSQL_PORT: %v", err)
+	}
+	store, err := storemysql.Open(storemysql.Config{
+		Host:     host,
+		Port:     port,
+		Database: env("MYSQL_DB", "infra_orch"),
+		User:     env("MYSQL_USER", "infra_orch"),
+		Password: os.Getenv("MYSQL_PASSWORD"),
+		MySQLBin: env("MYSQL_BIN", "mysql"),
+	})
 	if err != nil {
-		log.Fatalf("open store: %v", err)
+		log.Fatalf("open mysql store: %v", err)
 	}
-	defer store.Close()
+	jobStore = store
+	authStore = store
+	closer = store.Close
+	log.Printf("using mysql store: %s:%s/%s", host, port, env("MYSQL_DB", "infra_orch"))
+	defer func() {
+		if closer != nil {
+			_ = closer()
+		}
+	}()
 
-	srv := api.NewServer(store)
+	srv := api.NewServer(api.Config{
+		JobStore:  jobStore,
+		AuthStore: authStore,
+	})
 	if err := srv.ListenAndServe(addr); err != nil {
 		log.Fatalf("listen: %v", err)
 	}
