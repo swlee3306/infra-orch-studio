@@ -15,18 +15,18 @@ spec:
     spec:
       containers:
         - name: api
-          image: infra-orch-studio-api:dev
+          image: 10.10.0.190:32000/infra-orch-studio:dev
           imagePullPolicy: IfNotPresent
-          env:
-            - name: API_ADDR
-              value: ":8080"
-            - name: ADMIN_EMAIL
-              value: "admin@example.com"
-            - name: ADMIN_PASSWORD
-              value: "change-me"
           envFrom:
             - secretRef:
                 name: infra-orch-mysql
+            - secretRef:
+                name: infra-orch-admin
+          env:
+            - name: API_ADDR
+              value: ":8080"
+            - name: MYSQL_BIN
+              value: "mysql"
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -35,3 +35,16 @@ spec:
               port: 8080
             initialDelaySeconds: 1
             periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

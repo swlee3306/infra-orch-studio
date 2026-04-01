@@ -15,19 +15,44 @@ spec:
     spec:
       containers:
         - name: runner
-          image: infra-orch-studio-runner:dev
+          image: 10.10.0.190:32000/infra-orch-studio:dev
           imagePullPolicy: IfNotPresent
+          command: ["/app/infra-orch-runner"]
           env:
+            - name: MYSQL_BIN
+              value: "mysql"
+            - name: TOFU_BIN
+              value: "tofu"
             - name: TEMPLATES_ROOT
               value: "/app/templates/opentofu/environments"
+            - name: MODULES_ROOT
+              value: "/app/templates/opentofu/modules"
             - name: WORKDIRS_ROOT
               value: "/workdirs"
+            - name: OPENSTACK_CLOUD
+              value: "exporter-internal"
+            - name: OPENSTACK_CONFIG_PATH
+              value: "/etc/openstack/clouds.yaml"
           envFrom:
             - secretRef:
                 name: infra-orch-mysql
           volumeMounts:
+            - name: clouds
+              mountPath: /etc/openstack
+              readOnly: true
             - name: workdirs
               mountPath: /workdirs
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
       volumes:
+        - name: clouds
+          secret:
+            secretName: openstack-clouds
         - name: workdirs
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: infra-orch-workdirs
