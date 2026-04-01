@@ -4,10 +4,10 @@ kind: Kustomization
 namespace: personal
 
 resources:
-  - ../../base
-  - ../../../../k8s/mysql/base
+- ../../base
+- ../../../../k8s/mysql/base
 
 images:
-  - name: 10.10.0.190:32000/infra-orch-studio
-    newName: 10.10.0.190:32000/infra-orch-studio
-    newTag: dev
+- name: 10.10.0.190:32000/infra-orch-studio
+  newName: 10.10.0.190:32000/infra-orch-studio
+  newTag: 8bfaec6
