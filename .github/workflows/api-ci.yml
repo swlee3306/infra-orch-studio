@@ -12,7 +12,6 @@ on:
       - "go.mod"
       - "go.sum"
       - "hack/**"
-      - "k8s/app/**"
       - ".github/workflows/api-ci.yml"
   workflow_dispatch: {}
 
