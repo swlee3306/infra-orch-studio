@@ -1,0 +1,77 @@
+name: cicd
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build_push_and_bump_manifest:
+    runs-on: [self-hosted, linux, x64]
+    if: github.actor != 'github-actions[bot]'
+
+    env:
+      REGISTRY: 10.10.0.190:32000
+      IMAGE_NAME: infra-orch-studio
+      KUSTOMIZE_DIR: k8s/app/overlays/prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set TAG
+        id: vars
+        run: |
+          TAG="$(git rev-parse --short HEAD)"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "Using TAG=$TAG"
+
+      - name: Docker build
+        run: |
+          docker build -t "${REGISTRY}/${IMAGE_NAME}:${{ steps.vars.outputs.TAG }}" .
+
+      - name: Docker push
+        run: |
+          docker push "${REGISTRY}/${IMAGE_NAME}:${{ steps.vars.outputs.TAG }}"
+
+      - name: Install kustomize (local)
+        run: |
+          set -e
+          curl -sSLo kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.2/kustomize_v5.4.2_linux_amd64.tar.gz
+          tar -xzf kustomize.tar.gz
+          sudo mv kustomize /usr/local/bin/kustomize
+          kustomize version
+
+      - name: Update kustomize image tag
+        run: |
+          set -e
+          cd "${KUSTOMIZE_DIR}"
+          kustomize edit set image "10.10.0.190:32000/infra-orch-studio=${REGISTRY}/${IMAGE_NAME}:${{ steps.vars.outputs.TAG }}"
+          echo "---- kustomization.yaml ----"
+          cat kustomization.yaml
+
+      - name: Commit & push manifest bump (if changed)
+        run: |
+          set -e
+          if git diff --quiet; then
+            echo "No manifest change; skipping commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "${KUSTOMIZE_DIR}/kustomization.yaml"
+          git commit -m "chore(cd): bump infra-orch-studio image to ${{ steps.vars.outputs.TAG }}"
+          git push
+
+      - name: Cleanup Docker (prune cache/images)
+        if: always()
+        run: |
+          docker builder prune -af || true
+          docker image prune -af || true
