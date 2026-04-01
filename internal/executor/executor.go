@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -83,8 +84,24 @@ func (e CommandExecutor) run(ctx context.Context, workdir string, args ...string
 	}
 
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	stdoutWriter := io.Writer(&stdout)
+	stderrWriter := io.Writer(&stderr)
+
+	logName := "tofu"
+	if len(args) > 0 {
+		logName = "tofu-" + strings.ReplaceAll(args[0], " ", "-")
+	}
+	outFile, errFile, err := openRunLogFiles(workdir, logName)
+	if err != nil {
+		return RunResult{}, fmt.Errorf("open log files: %w", err)
+	}
+	defer outFile.Close()
+	defer errFile.Close()
+
+	stdoutWriter = io.MultiWriter(&stdout, outFile)
+	stderrWriter = io.MultiWriter(&stderr, errFile)
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
 
 	res := RunResult{StartedAt: time.Now().UTC()}
 	err = cmd.Run()
@@ -125,29 +142,51 @@ func errorAs(err error, target any) bool {
 
 // WriteRunLogs writes stdout/stderr to files under workdir.
 func WriteRunLogs(workdir, name string, stdout, stderr []byte) (outPath, errPath string, err error) {
-	logDir := filepath.Join(workdir, ".infra-orch", "logs")
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
+	outFile, errFile, err := openRunLogFiles(workdir, name)
+	if err != nil {
 		return "", "", err
 	}
+	defer outFile.Close()
+	defer errFile.Close()
 
-	outPath = filepath.Join(logDir, name+".stdout.log")
-	errPath = filepath.Join(logDir, name+".stderr.log")
-
-	if err := writeFile0600(outPath, stdout); err != nil {
+	outPath = outFile.Name()
+	errPath = errFile.Name()
+	if err := writeFile(outFile, stdout); err != nil {
 		return "", "", err
 	}
-	if err := writeFile0600(errPath, stderr); err != nil {
+	if err := writeFile(errFile, stderr); err != nil {
 		return "", "", err
 	}
 	return outPath, errPath, nil
 }
 
-func writeFile0600(path string, b []byte) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+func openRunLogFiles(workdir, name string) (outFile, errFile *os.File, err error) {
+	logDir := filepath.Join(workdir, ".infra-orch", "logs")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return nil, nil, err
+	}
+
+	outPath := filepath.Join(logDir, name+".stdout.log")
+	errPath := filepath.Join(logDir, name+".stderr.log")
+	outFile, err = os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
+		return nil, nil, err
+	}
+	errFile, err = os.OpenFile(errPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		_ = outFile.Close()
+		return nil, nil, err
+	}
+	return outFile, errFile, nil
+}
+
+func writeFile(f *os.File, b []byte) error {
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = io.Copy(f, bytes.NewReader(append(b, '\n')))
+	if err := f.Truncate(0); err != nil {
+		return err
+	}
+	_, err := io.Copy(f, bytes.NewReader(append(b, '\n')))
 	return err
 }

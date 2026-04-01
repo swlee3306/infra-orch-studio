@@ -5,22 +5,30 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
 	"github.com/swlee3306/infra-orch-studio/internal/executor"
 	"github.com/swlee3306/infra-orch-studio/internal/renderer"
-	storesqlite "github.com/swlee3306/infra-orch-studio/internal/storage/sqlite"
+	storemysql "github.com/swlee3306/infra-orch-studio/internal/storage/mysql"
 )
 
 func main() {
 	interval := envDuration("RUNNER_POLL_INTERVAL", 2*time.Second)
-	dbPath := env("STORE_SQLITE_PATH", "./var/infra-orch.db")
 	processingDelay := envDuration("RUNNER_PROCESSING_DELAY", 300*time.Millisecond)
 	templatesRoot := env("TEMPLATES_ROOT", "./templates/opentofu/environments")
 	workdirsRoot := env("WORKDIRS_ROOT", "./workdirs")
 	templateName := env("TEMPLATE_NAME", "basic")
 	tofuBin := env("TOFU_BIN", "tofu")
+	mysqlCfg := storemysql.Config{
+		Host:     env("MYSQL_HOST", ""),
+		Port:     env("MYSQL_PORT", "3306"),
+		Database: env("MYSQL_DB", ""),
+		User:     env("MYSQL_USER", ""),
+		Password: env("MYSQL_PASSWORD", ""),
+		MySQLBin: env("MYSQL_BIN", "mysql"),
+	}
 
 	// OpenStack provider auth (clouds.yaml): forwarded to tofu via env vars.
 	osCloud := env("OPENSTACK_CLOUD", "")
@@ -34,17 +42,17 @@ func main() {
 		_ = os.Setenv("OS_CLIENT_CONFIG_FILE", osConfigPath)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+	if err := os.MkdirAll(workdirsRoot, 0o755); err != nil {
 		log.Fatalf("mkdir: %v", err)
 	}
 
-	store, err := storesqlite.Open(dbPath)
+	store, err := storemysql.Open(mysqlCfg)
 	if err != nil {
 		log.Fatalf("open store: %v", err)
 	}
 	defer store.Close()
 
-	log.Printf("runner starting (poll interval=%s, db=%s)", interval, dbPath)
+	log.Printf("runner starting (poll interval=%s, mysql=%s:%s/%s)", interval, mysqlCfg.Host, mysqlCfg.Port, mysqlCfg.Database)
 
 	t := time.NewTicker(interval)
 	defer t.Stop()
@@ -75,18 +83,66 @@ func main() {
 
 		log.Printf("claimed job id=%s type=%s", job.ID, job.Type)
 
-		// Phase 5: render -> create workdir.
-		vars, err := renderer.RenderEnvironmentVars(job.Environment)
-		if err != nil {
-			job.Status = domain.JobStatusFailed
-			job.Error = err.Error()
+		if job.Type == domain.JobTypeApply {
+			if job.SourceJobID == "" {
+				failJob(store, job, "apply job missing source_job_id")
+				continue
+			}
+
+			// Always load the source (plan) job to obtain the authoritative workdir/plan path.
+			src, err := store.GetJob(context.Background(), job.SourceJobID)
+			if err != nil {
+				failJob(store, job, "failed to load source job: "+err.Error())
+				continue
+			}
+			if src.Type != domain.JobTypePlan || src.Status != domain.JobStatusDone {
+				failJob(store, job, "source job must be done tofu.plan")
+				continue
+			}
+			if src.Workdir == "" || src.PlanPath == "" {
+				failJob(store, job, "source job missing workdir/plan_path")
+				continue
+			}
+
+			log.Printf("apply job id=%s source_job_id=%s src_workdir=%s src_plan_path=%s", job.ID, job.SourceJobID, src.Workdir, src.PlanPath)
+			job.Workdir = src.Workdir
+			job.PlanPath = src.PlanPath
+			job.TemplateName = src.TemplateName
+			job.Error = ""
 			job.UpdatedAt = time.Now().UTC()
-			_, _ = store.UpdateJob(context.Background(), job)
+			if _, err := store.UpdateJob(context.Background(), job); err != nil {
+				log.Printf("persist apply job metadata failed: id=%s err=%v", job.ID, err)
+				continue
+			}
+
+			if _, err := os.Stat(filepath.Join(job.Workdir, job.PlanPath)); err != nil {
+				failJob(store, job, "plan file not found: "+err.Error())
+				continue
+			}
+
+			applyRes, err := exec.Apply(context.Background(), job.Workdir, job.PlanPath)
+			if err != nil {
+				log.Printf("apply command failed: id=%s exit=%d stderr=%s", job.ID, applyRes.ExitCode, strings.TrimSpace(string(applyRes.Stderr)))
+				failJob(store, job, err.Error())
+				continue
+			}
+			job.Status = domain.JobStatusDone
+			job.Error = ""
+			job.UpdatedAt = time.Now().UTC()
+			if _, err := store.UpdateJob(context.Background(), job); err != nil {
+				log.Printf("update job failed: id=%s err=%v", job.ID, err)
+				continue
+			}
+			log.Printf("finished job id=%s status=%s workdir=%s", job.ID, job.Status, job.Workdir)
 			continue
 		}
 
-		// OpenStack auth is injected via process env (OS_CLOUD / OS_CLIENT_CONFIG_FILE).
-		// We keep terraform.tfvars.json strictly for environment variables.
+		vars, err := renderer.RenderEnvironmentVars(job.Environment)
+		if err != nil {
+			failJob(store, job, err.Error())
+			continue
+		}
+
 		varsPayload := map[string]any{
 			"environment_name": vars.EnvironmentName,
 			"network":          vars.Network,
@@ -97,106 +153,44 @@ func main() {
 		modulesRoot := env("MODULES_ROOT", "./templates/opentofu/modules")
 		wd, err := renderer.CreateWorkdir(renderer.WorkdirConfig{TemplatesRoot: templatesRoot, ModulesRoot: modulesRoot, WorkdirsRoot: workdirsRoot}, templateName, job.ID, varsPayload)
 		if err != nil {
-			job.Status = domain.JobStatusFailed
-			job.Error = err.Error()
-			job.UpdatedAt = time.Now().UTC()
-			_, _ = store.UpdateJob(context.Background(), job)
+			failJob(store, job, err.Error())
 			continue
 		}
 		job.TemplateName = templateName
 		job.Workdir = wd.Dir
-
-		// Phase 6/7 execution (still minimal): init + plan, and apply only for explicit tofu.apply jobs.
-		if job.Type == domain.JobTypeApply {
-			if job.SourceJobID == "" {
-				job.Status = domain.JobStatusFailed
-				job.Error = "apply job missing source_job_id"
-				job.UpdatedAt = time.Now().UTC()
-				_, _ = store.UpdateJob(context.Background(), job)
-				continue
-			}
-
-			// Always load the source (plan) job to obtain the authoritative workdir/plan path.
-			src, err := store.GetJob(context.Background(), job.SourceJobID)
-			if err != nil {
-				job.Status = domain.JobStatusFailed
-				job.Error = "failed to load source job: " + err.Error()
-				job.UpdatedAt = time.Now().UTC()
-				_, _ = store.UpdateJob(context.Background(), job)
-				continue
-			}
-			if src.Type != domain.JobTypePlan || src.Status != domain.JobStatusDone {
-				job.Status = domain.JobStatusFailed
-				job.Error = "source job must be done tofu.plan"
-				job.UpdatedAt = time.Now().UTC()
-				_, _ = store.UpdateJob(context.Background(), job)
-				continue
-			}
-			if src.Workdir == "" || src.PlanPath == "" {
-				job.Status = domain.JobStatusFailed
-				job.Error = "source job missing workdir/plan_path"
-				job.UpdatedAt = time.Now().UTC()
-				_, _ = store.UpdateJob(context.Background(), job)
-				continue
-			}
-
-			log.Printf("apply job id=%s source_job_id=%s src_workdir=%s src_plan_path=%s", job.ID, job.SourceJobID, src.Workdir, src.PlanPath)
-			job.Workdir = src.Workdir
-			job.PlanPath = src.PlanPath
-			job.TemplateName = src.TemplateName
-
-			if _, err := os.Stat(filepath.Join(job.Workdir, job.PlanPath)); err != nil {
-				job.Status = domain.JobStatusFailed
-				job.Error = "plan file not found: " + err.Error()
-				job.UpdatedAt = time.Now().UTC()
-				_, _ = store.UpdateJob(context.Background(), job)
-				continue
-			}
-
-			applyRes, err := exec.Apply(context.Background(), job.Workdir, job.PlanPath)
-			_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-apply", applyRes.Stdout, applyRes.Stderr)
-			if err != nil {
-				job.Status = domain.JobStatusFailed
-				job.Error = err.Error()
-				job.UpdatedAt = time.Now().UTC()
-				_, _ = store.UpdateJob(context.Background(), job)
-				continue
-			}
-			job.Status = domain.JobStatusDone
-			job.UpdatedAt = time.Now().UTC()
-			if _, err := store.UpdateJob(context.Background(), job); err != nil {
-				log.Printf("update job failed: id=%s err=%v", job.ID, err)
-				continue
-			}
-			log.Printf("finished job id=%s status=%s workdir=%s", job.ID, job.Status, job.Workdir)
+		job.Error = ""
+		job.UpdatedAt = time.Now().UTC()
+		if _, err := store.UpdateJob(context.Background(), job); err != nil {
+			log.Printf("persist workdir metadata failed: id=%s err=%v", job.ID, err)
 			continue
 		}
 
 		initRes, err := exec.Init(context.Background(), job.Workdir)
-		_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-init", initRes.Stdout, initRes.Stderr)
 		if err != nil {
-			job.Status = domain.JobStatusFailed
-			job.Error = err.Error()
-			job.UpdatedAt = time.Now().UTC()
-			_, _ = store.UpdateJob(context.Background(), job)
+			log.Printf("init command failed: id=%s exit=%d stderr=%s", job.ID, initRes.ExitCode, strings.TrimSpace(string(initRes.Stderr)))
+			failJob(store, job, err.Error())
 			continue
 		}
 
 		planRelPath := ".infra-orch/plan/plan.bin"
-		planRes, err := exec.Plan(context.Background(), job.Workdir, planRelPath)
-		_, _, _ = executor.WriteRunLogs(job.Workdir, "tofu-plan", planRes.Stdout, planRes.Stderr)
-		if err != nil {
-			job.Status = domain.JobStatusFailed
-			job.Error = err.Error()
-			job.UpdatedAt = time.Now().UTC()
-			_, _ = store.UpdateJob(context.Background(), job)
+		job.PlanPath = planRelPath
+		job.UpdatedAt = time.Now().UTC()
+		if _, err := store.UpdateJob(context.Background(), job); err != nil {
+			log.Printf("persist plan metadata failed: id=%s err=%v", job.ID, err)
 			continue
 		}
-		job.PlanPath = planRelPath
+
+		planRes, err := exec.Plan(context.Background(), job.Workdir, planRelPath)
+		if err != nil {
+			log.Printf("plan command failed: id=%s exit=%d stderr=%s", job.ID, planRes.ExitCode, strings.TrimSpace(string(planRes.Stderr)))
+			failJob(store, job, err.Error())
+			continue
+		}
 
 		// Placeholder processing delay to keep logs readable.
 		time.Sleep(processingDelay)
 		job.Status = domain.JobStatusDone
+		job.Error = ""
 		job.UpdatedAt = time.Now().UTC()
 
 		if _, err := store.UpdateJob(context.Background(), job); err != nil {
@@ -221,4 +215,11 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func failJob(store *storemysql.Store, job domain.Job, message string) {
+	job.Status = domain.JobStatusFailed
+	job.Error = message
+	job.UpdatedAt = time.Now().UTC()
+	_, _ = store.UpdateJob(context.Background(), job)
 }

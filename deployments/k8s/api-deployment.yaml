@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-orch-api
+  namespace: infra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infra-orch-api
+  template:
+    metadata:
+      labels:
+        app: infra-orch-api
+    spec:
+      containers:
+        - name: api
+          image: infra-orch-studio-api:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: API_ADDR
+              value: ":8080"
+            - name: ADMIN_EMAIL
+              value: "admin@example.com"
+            - name: ADMIN_PASSWORD
+              value: "change-me"
+          envFrom:
+            - secretRef:
+                name: infra-orch-mysql
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 1
+            periodSeconds: 5
