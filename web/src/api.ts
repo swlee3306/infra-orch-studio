@@ -20,7 +20,10 @@ export type Job = {
   environment?: any
 }
 
-const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+// VITE_API_URL should point to the API base.
+// - prod (nginx proxy): "/api"
+// - dev: "http://localhost:8080/api"
+const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 
 export function apiUrl(path: string): string {
   if (path.startsWith('http')) return path
@@ -46,24 +49,29 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const auth = {
   signup: (email: string, password: string) =>
-    req<User>('/api/auth/signup', { method: 'POST', body: JSON.stringify({ email, password }) }),
+    req<User>('/auth/signup', { method: 'POST', body: JSON.stringify({ email, password }) }),
   login: (email: string, password: string) =>
-    req<User>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  logout: () => req<void>('/api/auth/logout', { method: 'POST' }),
-  me: () => req<User>('/api/auth/me'),
+    req<User>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  logout: () => req<void>('/auth/logout', { method: 'POST' }),
+  me: () => req<User>('/auth/me'),
 }
 
 export const jobs = {
-  list: (limit = 50) => req<{ items: Job[]; viewer: User }>('/api/jobs?limit=' + limit),
-  get: (id: string) => req<Job>('/api/jobs/' + id),
+  list: (limit = 50) => req<{ items: Job[]; viewer: User }>('/jobs?limit=' + limit),
+  get: (id: string) => req<Job>('/jobs/' + id),
   create: (environment: any, type?: string) =>
-    req<Job>('/api/jobs', { method: 'POST', body: JSON.stringify({ type, environment }) }),
-  plan: (id: string) => req<Job>('/api/jobs/' + id + '/plan', { method: 'POST' }),
-  apply: (id: string) => req<Job>('/api/jobs/' + id + '/apply', { method: 'POST' }),
+    req<Job>('/jobs', { method: 'POST', body: JSON.stringify({ type, environment }) }),
+  plan: (id: string) => req<Job>('/jobs/' + id + '/plan', { method: 'POST' }),
+  apply: (id: string) => req<Job>('/jobs/' + id + '/apply', { method: 'POST' }),
 }
 
 export function wsUrl(): string {
-  const u = new URL(baseUrl)
-  const wsProto = u.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${wsProto}//${u.host}/ws`
+  // WebSocket is served at /ws (not under /api). For relative baseUrl ("/api"),
+  // use the current page host.
+  const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  if (baseUrl.startsWith('http')) {
+    const u = new URL(baseUrl)
+    return `${wsProto}//${u.host}/ws`
+  }
+  return `${wsProto}//${window.location.host}/ws`
 }
