@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-orch-api
+  labels:
+    app.kubernetes.io/name: infra-orch-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: infra-orch-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: infra-orch-api
+    spec:
+      containers:
+        - name: api
+          image: 10.10.0.190:32000/infra-orch-studio:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: API_ADDR
+              value: :8080
+            - name: ADMIN_EMAIL
+              value: admin@example.com
+            - name: ADMIN_PASSWORD
+              value: change-me
+            - name: MYSQL_BIN
+              value: mysql
+          envFrom:
+            - secretRef:
+                name: infra-orch-mysql
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 1
+            periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-orch-runner
+  labels:
+    app.kubernetes.io/name: infra-orch-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: infra-orch-runner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: infra-orch-runner
+    spec:
+      containers:
+        - name: runner
+          image: 10.10.0.190:32000/infra-orch-studio:dev
+          imagePullPolicy: IfNotPresent
+          command: [/app/infra-orch-runner]
+          env:
+            - name: MYSQL_BIN
+              value: mysql
+            - name: TOFU_BIN
+              value: tofu
+            - name: OPENSTACK_CLOUD
+              value: exporter-internal
+            - name: OPENSTACK_CONFIG_PATH
+              value: /etc/openstack/clouds.yaml
+          envFrom:
+            - secretRef:
+                name: infra-orch-mysql
+          volumeMounts:
+            - name: clouds
+              mountPath: /etc/openstack
+              readOnly: true
+      volumes:
+        - name: clouds
+          secret:
+            secretName: openstack-clouds
