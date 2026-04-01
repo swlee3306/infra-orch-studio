@@ -31,6 +31,23 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
           echo "Using TAG=$TAG"
 
+      - name: Fetch OpenTofu binary for image
+        run: |
+          set -euo pipefail
+          TOFU_VERSION=1.11.0
+          sudo apt-get -o Acquire::ForceIPv4=true update
+          sudo apt-get -o Acquire::ForceIPv4=true install -y --no-install-recommends ca-certificates curl unzip
+          mkdir -p hack
+          curl -4 --fail --silent --show-error --location \
+            --retry 8 --retry-all-errors --retry-delay 2 \
+            --connect-timeout 10 --max-time 600 --http1.1 \
+            -o /tmp/tofu.zip \
+            "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip"
+          rm -rf /tmp/tofu && mkdir -p /tmp/tofu
+          unzip -o /tmp/tofu.zip -d /tmp/tofu
+          install -m 0755 /tmp/tofu/tofu hack/tofu
+          hack/tofu version || true
+
       - name: Docker build
         run: |
           docker build -t "${REGISTRY}/${IMAGE_NAME}:${{ steps.vars.outputs.TAG }}" .

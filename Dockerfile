@@ -20,14 +20,11 @@ RUN apt-get -o Acquire::ForceIPv4=true update \
   && apt-get -o Acquire::ForceIPv4=true install -y --no-install-recommends ca-certificates curl tar mariadb-client \
   && rm -rf /var/lib/apt/lists/*
 
-# Install OpenTofu (runner)
-ARG TOFU_VERSION=1.11.0
-RUN curl -4 --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 300 --http1.1 -o /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip" \
-  && apt-get -o Acquire::ForceIPv4=true update && apt-get -o Acquire::ForceIPv4=true install -y --no-install-recommends unzip \
-  && unzip /tmp/tofu.zip -d /usr/local/bin \
-  && rm -f /tmp/tofu.zip \
-  && apt-get purge -y --auto-remove unzip \
-  && rm -rf /var/lib/apt/lists/*
+# OpenTofu (runner)
+# Provided by CI as hack/tofu (so docker build does not depend on external network)
+COPY hack/tofu /usr/local/bin/tofu
+RUN chmod +x /usr/local/bin/tofu && tofu version || true
+
 
 COPY --from=build /out/infra-orch-api /app/infra-orch-api
 COPY --from=build /out/infra-orch-runner /app/infra-orch-runner
