@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: infra
+
+resources:
+  - ../../base
+  - ../../../../k8s/mysql/base
+
+images:
+  - name: 10.10.0.190:32000/infra-orch-studio
+    newName: 10.10.0.190:32000/infra-orch-studio
+    newTag: dev
+  - name: 10.10.0.190:32000/infra-orch-web
+    newName: 10.10.0.190:32000/infra-orch-web
+    newTag: dev
+
+replicas:
+  - name: infra-orch-api
+    count: 1
+  - name: infra-orch-runner
+    count: 1
+  - name: infra-orch-web
+    count: 1
+
+patches:
+  - path: web-service-nodeport.yaml

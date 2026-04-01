@@ -6,6 +6,7 @@ namespace: infra
 resources:
 - ../../base
 - ../../../../k8s/mysql/base
+- ingress.yaml
 
 images:
 - name: 10.10.0.190:32000/infra-orch-studio
@@ -14,3 +15,11 @@ images:
 - name: 10.10.0.190:32000/infra-orch-web
   newName: 10.10.0.190:32000/infra-orch-web
   newTag: "5d6d53d"
+
+replicas:
+  - name: infra-orch-api
+    count: 2
+  - name: infra-orch-runner
+    count: 1
+  - name: infra-orch-web
+    count: 2

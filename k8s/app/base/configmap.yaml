@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infra-orch-runtime
+  labels:
+    app.kubernetes.io/name: infra-orch-runtime
+data:
+  API_ADDR: ":8080"
+  MYSQL_BIN: "mysql"
+  TOFU_BIN: "tofu"
+  TEMPLATES_ROOT: "/app/templates/opentofu/environments"
+  MODULES_ROOT: "/app/templates/opentofu/modules"
+  WORKDIRS_ROOT: "/workdirs"
+  OPENSTACK_CLOUD: "exporter-internal"
+  OPENSTACK_CONFIG_PATH: "/etc/openstack/clouds.yaml"

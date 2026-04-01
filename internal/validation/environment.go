@@ -35,12 +35,15 @@ func ValidateEnvironmentSpec(s domain.EnvironmentSpec) error {
 		if inst.Flavor == "" {
 			return fmt.Errorf("instances[%d].flavor is required", i)
 		}
-		if inst.Count == 0 {
-			return fmt.Errorf("instances[%d].count is required (>=1)", i)
+		if inst.Count <= 0 {
+			return fmt.Errorf("instances[%d].count must be >= 1", i)
 		}
-		if inst.Count < 0 {
-			return fmt.Errorf("instances[%d].count must be >= 0", i)
-		}
+	}
+	if s.Network.CIDR == "" {
+		return fmt.Errorf("network.cidr is required")
+	}
+	if s.Subnet.CIDR == "" {
+		return fmt.Errorf("subnet.cidr is required")
 	}
 	return nil
 }
