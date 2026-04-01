@@ -15,7 +15,7 @@ permissions:
 jobs:
   build_push_and_bump:
     # Prevent infinite loop when this workflow bumps the tag and pushes a commit
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(web): bump') }}
+    if: ${{ github.event.head_commit == null || !startsWith(github.event.head_commit.message, 'chore(web): bump') }}
     runs-on: self-hosted
     env:
       REGISTRY: 10.10.0.190:32000
