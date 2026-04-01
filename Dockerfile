@@ -22,7 +22,7 @@ RUN apt-get update \
 
 # Install OpenTofu (runner)
 ARG TOFU_VERSION=1.11.0
-RUN curl -fsSL -o /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip" \
+RUN curl --fail --silent --show-error --location --retry 8 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 300 --http1.1 -o /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip" \
   && apt-get update && apt-get install -y --no-install-recommends unzip \
   && unzip /tmp/tofu.zip -d /usr/local/bin \
   && rm -f /tmp/tofu.zip \
