@@ -4,13 +4,13 @@ kind: Kustomization
 namespace: infra
 
 resources:
-  - ../../base
-  - ../../../../k8s/mysql/base
+- ../../base
+- ../../../../k8s/mysql/base
 
 images:
-  - name: 10.10.0.190:32000/infra-orch-studio
-    newName: 10.10.0.190:32000/infra-orch-studio
-    newTag: bf56a7f
-  - name: 10.10.0.190:32000/infra-orch-web
-    newName: 10.10.0.190:32000/infra-orch-web
-    newTag: 87fe20d
+- name: 10.10.0.190:32000/infra-orch-studio
+  newName: 10.10.0.190:32000/infra-orch-studio
+  newTag: 8ae7b88
+- name: 10.10.0.190:32000/infra-orch-web
+  newName: 10.10.0.190:32000/infra-orch-web
+  newTag: 87fe20d
