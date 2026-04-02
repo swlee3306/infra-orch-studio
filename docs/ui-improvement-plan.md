@@ -1,5 +1,7 @@
 # UI Improvement Plan
 
+> Historical snapshot: job-led UI 개선 초안이다. 현재 UI 구현과 다음 단계는 `docs/design-integration-plan.md`를 우선 기준으로 본다.
+
 ## Goal
 Make the current web app usable as an operator console for environment plan creation, execution monitoring, and apply approval.
 
@@ -48,4 +50,3 @@ Make the current web app usable as an operator console for environment plan crea
 - Do not depend on a dedicated backend plan endpoint.
 - Treat plan creation as a normal job creation path with `type: "tofu.plan"`.
 - Keep the UI resilient if future backend plan APIs are added later.
-

@@ -1,5 +1,7 @@
 # Upgrade Backlog
 
+> Historical snapshot: environment-first 전환 초기에 작성한 백로그다. approval, audit, retry, environment UI가 이미 반영된 현재 상태와 일부 우선순위가 다르다.
+
 ## P0
 
 - approval flow

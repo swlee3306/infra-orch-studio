@@ -1,5 +1,7 @@
 # Backend Refactor Plan
 
+> Historical snapshot: 이 문서는 초기 backend cleanup 계획 기록이다. 일부 항목은 이미 반영되었고, 남은 구조 개선은 현재 코드 기준으로 다시 평가해야 한다.
+
 ## Completed in This Patch
 - Repaired the MySQL storage compile blocker.
 - Added the missing derived plan route.

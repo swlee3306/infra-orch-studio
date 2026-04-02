@@ -1,5 +1,7 @@
 # Quality Audit
 
+> Historical snapshot: 초기 품질 감사 기록이다. 현재 테스트/배포 게이트는 `docs/release-checklist.md`와 실제 CI/검증 명령을 함께 본다.
+
 ## Core Diagnosis
 
 The repository has a working baseline for build, API, runner, and UI, but the quality system is still MVP-grade rather than service-grade.
