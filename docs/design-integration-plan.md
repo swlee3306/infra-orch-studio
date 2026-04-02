@@ -162,14 +162,21 @@
 
 ### API / 상태 구조 보완 제안
 
-- `GET /api/environments/:id/jobs`
-  - 환경별 최근 작업 목록용
 - `GET /api/environments/:id/plan-review`
   - high-risk / low-risk / warnings / impact summary 분리용
-- `GET /api/environments/:id/artifacts`
-  - outputs, logs, bundles, reports 메타데이터 분리용
 - `approval comment`, `destroy typed confirmation`, `checkpoint states`
   - Zone D 수준 UX를 위해 필요
+
+### 현재 반영된 API
+
+- `GET /api/environments/:id/jobs`
+  - 환경별 최근 작업 목록 조회용
+- `GET /api/environments/:id/artifacts`
+  - workdir, plan_path, outputs, last plan/apply job 조회용
+- `GET /api/audit`
+  - 전역 환경 audit feed 조회용
+- `GET /api/templates`
+  - repo-backed template catalog 조회용
 
 ## 8. 수정 우선순위
 
@@ -217,7 +224,5 @@
 - 미완료
   - template edit/validate/apply 같은 고급 관리 기능은 아직 없음
 - 추가 필요 사항
-  - 환경별 최근 jobs/artifacts 전용 API
   - plan review risk payload 전용 API
-  - 전역 audit feed API가 없어 현재는 environment 목록 기준 aggregate 방식으로 구현
   - approval comment를 저장하는 계약

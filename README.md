@@ -43,6 +43,8 @@ Admin seed:
 - `POST /api/environments/:id/retry`
 - `POST /api/environments/:id/destroy` (admin only, requires confirmation payload)
 - `GET /api/environments/:id/audit`
+- `GET /api/environments/:id/jobs`
+- `GET /api/environments/:id/artifacts`
 
 ### Templates
 - `GET /api/templates`
