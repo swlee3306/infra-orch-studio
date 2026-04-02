@@ -32,19 +32,37 @@
 ## 2. 현재 구현 화면 목록
 
 1. `/login`
-2. `/environments`
-   - 환경 목록
-   - 즉시 생성 폼
-3. `/environments/:id`
+2. `/dashboard`
+   - 운영 대시보드
+   - lifecycle / approval / failure KPI
+3. `/environments`
+   - environment 중심 목록
+   - quick create rail
+   - search / lifecycle summary
+4. `/create-environment`
+   - 다단계 create wizard
+   - template selection / staged validation / review preview
+5. `/environments/:id`
    - 환경 상세
-   - update plan / approve / apply / retry / destroy
-   - outputs / audit
-4. `/jobs`
+   - update plan / review / approval / retry / destroy
+   - outputs / artifacts / audit / recent jobs
+6. `/environments/:id/review`
+   - plan review
+   - risk signals / impact summary / approval comment
+7. `/environments/:id/approval`
+   - approval control
+   - guarded apply / destroy flow
+8. `/jobs`
    - raw execution ledger
    - legacy raw plan create
-5. `/jobs/:id`
+9. `/jobs/:id`
    - job detail
-   - websocket logs
+   - websocket logs / linked environment / artifacts
+10. `/templates`
+   - template catalog
+   - template/module inspect + validate
+11. `/audit`
+   - 전역 environment audit feed
 
 ## 3. 일치하는 부분
 
@@ -55,13 +73,9 @@
 
 ## 4. 부족한 부분
 
-- 대시보드가 없다.
-- 운영 콘솔 레이아웃과 시각 언어가 `.pen` 디자인과 다르다.
-- environment list가 단순 표 수준이라 lifecycle / approval / risk posture를 충분히 보여주지 못한다.
-- environment detail이 존재하지만, 디자인이 기대하는 overview/resources/recent jobs/outputs/audit 구조가 더 필요하다.
-- create flow와 plan review는 화면적으로 분리되어 있지 않다.
-- approval / destroy guard는 별도 제어 화면이 아니라 버튼 액션 수준이다.
-- templates / dedicated audit 화면은 아직 없다.
+- template management는 inspect/validate까지 왔지만 edit/apply 같은 고급 관리 기능은 없다.
+- drift detection / chat assistance는 아직 화면과 API가 없다.
+- legacy `/jobs` 화면은 운영 주 경로라기보다 하위 execution ledger 성격이 강하다.
 
 ## 5. 새로 구현해야 할 부분
 
@@ -92,10 +106,10 @@
   - 전체 운영 posture를 먼저 보여주고
   - 그 아래에서 환경 목록과 approval/failure queue를 본다.
 - 현재 상태
-  - `/environments` 하나에 목록과 생성 폼이 같이 있다.
+  - `/dashboard`와 `/environments`로 분리되어 있고 environment 중심 요약이 반영되어 있다.
 - 반영 방향
-  - `/dashboard` 신설
-  - `/environments`는 richer list + filter + quick create rail로 재구성
+  - 현재 구조 유지
+  - 이후 drift signal이나 approval SLA 같은 운영 지표를 추가 가능
 
 ### Zone B -> `/environments/:id`
 
@@ -103,9 +117,9 @@
   - 환경이 1급 객체로 보이고
   - metadata, resources, recent jobs, outputs, audit, guarded actions가 한 화면에 있다.
 - 현재 상태
-  - 핵심 액션은 있으나, 정보 구조가 설계 도면보다 약하다.
+  - metadata, recent jobs, outputs/artifacts, audit, guarded actions 구조까지 반영되어 있다.
 - 반영 방향
-  - overview cards, recent jobs, outputs/artifacts, audit timeline, safe action hierarchy로 확장
+  - update plan 편집 UX를 create wizard와 더 강하게 통합하는 정도의 개선 여지가 남아 있다.
 
 ### Zone C -> new create/plan review flow
 
@@ -113,52 +127,40 @@
   - 단계형 생성 flow
   - plan review에서 high-risk / low-risk / impact summary 구분
 - 현재 상태
-  - 즉시 생성 + 즉시 plan queue
+  - create wizard와 plan review가 별도 화면으로 분리되어 있다.
 - 반영 방향
-  - 현재는 quick create 유지
-  - 이후 dedicated wizard + plan review screen 추가
+  - 현재 구조 유지
+  - 향후 server-side validation 범위를 더 넓히는 개선 가능
 
 ### Zone D -> new approval/mutation screen
 
 - 디자인 의도
   - control checkpoint와 destructive safeguard를 분리
 - 현재 상태
-  - approve/apply/destroy가 detail action button 수준
+  - approval control과 guarded destroy flow가 별도 화면으로 분리되어 있다.
 - 반영 방향
-  - 현재 detail에 위험 액션 계층을 먼저 반영
-  - 이후 dedicated approval screen 추가
+  - 현재 구조 유지
+  - approval policy 세분화가 필요한지 추가 검토
 
 ## 7. 화면별 Gap 분석
 
 ### Dashboard
 
-- 현재 구현 없음
+- 현재 구현 있음
 - 필요한 것
-  - KPI cards
-  - pending approvals panel
-  - failed execution panel
-  - lifecycle summary
-  - environment snapshot table
+  - drift, cost, SLA 같은 추가 운영 지표는 향후 확장 가능
 
 ### Environment List
 
-- 현재 표와 생성 폼은 있음
+- 현재 environment 중심 목록과 quick create rail이 있음
 - 부족한 것
-  - 운영 중심 필터
-  - search
-  - approval/failure emphasis
-  - quick create rail
-  - lifecycle stage summary
+  - 더 정교한 ops filter, saved view 같은 고급 기능은 없음
 
 ### Environment Detail
 
-- 현재 액션과 audit는 있음
+- 현재 overview/resources/recent jobs/outputs/audit/guarded actions 구조가 반영됨
 - 부족한 것
-  - recent jobs list
-  - richer metadata cards
-  - outputs/artifacts grouping
-  - safe action hierarchy
-  - overview/resources/job/audit 구조 강조
+  - drift signal, richer artifact preview 같은 심화 기능은 없음
 
 ### API / 상태 구조 보완 제안
 
@@ -179,6 +181,10 @@
   - 전역 환경 audit feed 조회용
 - `GET /api/templates`
   - repo-backed template catalog 조회용
+- `GET /api/templates/:kind/:name`
+  - selected template/module inspect 조회용
+- `POST /api/templates/:kind/:name/validate`
+  - renderer contract 기준 validate 실행용
 
 ## 8. 수정 우선순위
 
@@ -206,11 +212,11 @@
 ## 10. 최종 상태 표기 기준
 
 - 디자인 반영 완료
-  - P0 화면이 `.pen` 정보 구조와 시각 언어를 반영하고 실제 API 상태와 연결됨
+  - P0/P1 화면이 `.pen` 정보 구조와 시각 언어를 반영하고 실제 API 상태와 연결됨
 - 디자인 반영 미완료
-  - P2 전용 화면은 아직 없음
+  - 일부 P2 고급 기능은 아직 없음
 - 추가 필요 사항
-  - plan review / approval 전용 API 계약 강화
+  - drift detection / chat assistance 같은 후속 범위 정리
 
 ## 11. 현재 반영 상태
 
