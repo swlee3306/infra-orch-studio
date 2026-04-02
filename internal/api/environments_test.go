@@ -480,3 +480,88 @@ func TestEnvironmentJobsAndArtifactsEndpoints(t *testing.T) {
 		t.Fatalf("unexpected artifacts payload: %+v", artifactsResp)
 	}
 }
+
+func TestEnvironmentPlanReviewEndpoint(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-review",
+		Status:         domain.EnvironmentStatusPendingApproval,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusPending,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-review",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/27", EnableDHCP: true},
+			Instances: []domain.Instance{
+				{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 2},
+				{Name: "vm-b", Image: "ubuntu", Flavor: "small", Count: 2},
+			},
+		},
+		LastPlanJobID: uuid.NewString(),
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+	if _, err := store.CreateJob(nil, domain.Job{
+		ID:            env.LastPlanJobID,
+		Type:          domain.JobTypePlan,
+		Status:        domain.JobStatusDone,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		EnvironmentID: env.ID,
+		Operation:     env.Operation,
+		Environment:   env.Spec,
+		TemplateName:  "basic",
+		Workdir:       "/tmp/workdir",
+		PlanPath:      ".infra-orch/plan/plan.bin",
+	}); err != nil {
+		t.Fatalf("create plan job: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/environments/"+env.ID+"/plan-review", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("plan review status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var resp struct {
+		ReviewSignals []struct {
+			Label    string `json:"label"`
+			Severity string `json:"severity"`
+		} `json:"review_signals"`
+		ImpactSummary struct {
+			Downtime string `json:"downtime"`
+		} `json:"impact_summary"`
+		PlanJob *domain.Job `json:"plan_job"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode plan review response: %v", err)
+	}
+	if resp.PlanJob == nil || resp.PlanJob.TemplateName != "basic" {
+		t.Fatalf("unexpected plan job payload: %+v", resp.PlanJob)
+	}
+	if resp.ImpactSummary.Downtime != "Medium" {
+		t.Fatalf("downtime = %q, want %q", resp.ImpactSummary.Downtime, "Medium")
+	}
+	foundHigh := false
+	for _, item := range resp.ReviewSignals {
+		if item.Label == "Subnet capacity pressure" && item.Severity == "high" {
+			foundHigh = true
+			break
+		}
+	}
+	if !foundHigh {
+		t.Fatalf("expected subnet capacity signal in %+v", resp.ReviewSignals)
+	}
+}

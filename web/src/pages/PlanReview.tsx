@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AuditEvent, auth, Environment, environments, Job } from '../api'
-import { buildImpactSummary, buildReviewSignals, findLatestPlanJob, latestApprovalEvent } from '../utils/environmentView'
-import StatusBadge from '../components/StatusBadge'
+import { AuditEvent, auth, Environment, environments, Job, ImpactSummary, ReviewSignal } from '../api'
+import { latestApprovalEvent } from '../utils/environmentView'
 
 export default function PlanReviewPage() {
   const nav = useNavigate()
@@ -10,7 +9,9 @@ export default function PlanReviewPage() {
   const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
   const [environment, setEnvironment] = useState<Environment | null>(null)
   const [auditItems, setAuditItems] = useState<AuditEvent[]>([])
-  const [jobItems, setJobItems] = useState<Job[]>([])
+  const [planJob, setPlanJob] = useState<Job | null>(null)
+  const [reviewSignals, setReviewSignals] = useState<ReviewSignal[]>([])
+  const [impact, setImpact] = useState<ImpactSummary | null>(null)
   const [ack, setAck] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -28,14 +29,16 @@ export default function PlanReviewPage() {
       return
     }
     try {
-      const [env, audit, environmentJobs] = await Promise.all([
+      const [env, audit, review] = await Promise.all([
         environments.get(environmentId),
         environments.audit(environmentId),
-        environments.jobs(environmentId),
+        environments.planReview(environmentId),
       ])
       setEnvironment(env)
       setAuditItems(audit.items)
-      setJobItems(environmentJobs.items)
+      setPlanJob(review.plan_job || null)
+      setReviewSignals(review.review_signals)
+      setImpact(review.impact_summary)
     } catch (err: any) {
       setError(err?.message || 'failed')
     }
@@ -45,9 +48,6 @@ export default function PlanReviewPage() {
     load()
   }, [environmentId])
 
-  const planJob = useMemo(() => findLatestPlanJob(environment, jobItems), [environment, jobItems])
-  const reviewSignals = useMemo(() => buildReviewSignals(environment?.spec || { environment_name: '', tenant_name: '', network: { name: '', cidr: '' }, subnet: { name: '', cidr: '', enable_dhcp: true }, instances: [] }, environment?.operation || 'create'), [environment])
-  const impact = useMemo(() => buildImpactSummary(environment?.spec || { environment_name: '', tenant_name: '', network: { name: '', cidr: '' }, subnet: { name: '', cidr: '', enable_dhcp: true }, instances: [] }, environment?.operation || 'create'), [environment])
   const approvalEvent = useMemo(() => latestApprovalEvent(auditItems), [auditItems])
 
   async function run(action: string, fn: () => Promise<any>) {
@@ -158,15 +158,15 @@ export default function PlanReviewPage() {
           <div className="info-grid">
             <div className="meta-item">
               <span>Downtime risk</span>
-              <strong>{impact.downtime}</strong>
+              <strong>{impact?.downtime || '-'}</strong>
             </div>
             <div className="meta-item">
               <span>Blast radius</span>
-              <strong>{impact.blastRadius}</strong>
+              <strong>{impact?.blast_radius || '-'}</strong>
             </div>
             <div className="meta-item">
               <span>Footprint</span>
-              <strong>{impact.costDelta}</strong>
+              <strong>{impact?.cost_delta || '-'}</strong>
             </div>
             <div className="meta-item">
               <span>Plan artifact</span>
