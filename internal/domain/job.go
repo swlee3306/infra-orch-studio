@@ -7,11 +7,11 @@ type JobType string
 type JobStatus string
 
 const (
-	JobTypeEnvironmentCreate JobType = "environment.create"
-	JobTypeEnvironmentUpdate JobType = "environment.update"
+	JobTypeEnvironmentCreate  JobType = "environment.create"
+	JobTypeEnvironmentUpdate  JobType = "environment.update"
 	JobTypeEnvironmentDestroy JobType = "environment.destroy"
-	JobTypePlan              JobType = "tofu.plan"
-	JobTypeApply             JobType = "tofu.apply"
+	JobTypePlan               JobType = "tofu.plan"
+	JobTypeApply              JobType = "tofu.apply"
 )
 
 const (
@@ -31,9 +31,9 @@ type Job struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	EnvironmentID string `json:"environment_id,omitempty"`
+	EnvironmentID string               `json:"environment_id,omitempty"`
 	Operation     EnvironmentOperation `json:"operation,omitempty"`
-	Environment EnvironmentSpec `json:"environment"`
+	Environment   EnvironmentSpec      `json:"environment"`
 
 	// Rendering/execution metadata (Phase 5+).
 	TemplateName string `json:"template_name,omitempty"`

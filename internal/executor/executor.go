@@ -62,7 +62,7 @@ func (e CommandExecutor) plan(ctx context.Context, workdir, outPlanPath string, 
 		"-input=false",
 		"-no-color",
 		"-var-file=terraform.tfvars.json",
-		"-out="+outPlanPath,
+		"-out=" + outPlanPath,
 	}
 	if destroy {
 		args = append(args, "-destroy")
