@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { auth, environments, EnvironmentSpec } from '../api'
+import { auth, environments, EnvironmentSpec, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { buildImpactSummary, buildReviewSignals, emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
 
@@ -22,6 +22,8 @@ export default function CreateEnvironmentPage() {
   const [step, setStep] = useState(0)
   const [spec, setSpec] = useState<EnvironmentSpec>(emptyEnvironmentSpec)
   const [templateMode, setTemplateMode] = useState<'template' | 'custom'>('template')
+  const [templateItems, setTemplateItems] = useState<TemplateDescriptor[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState('basic')
   const [error, setError] = useState<string | null>(null)
   const [savingDraft, setSavingDraft] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -34,12 +36,36 @@ export default function CreateEnvironmentPage() {
   }, [])
 
   useEffect(() => {
+    if (!viewerReady) return
+    templates
+      .list()
+      .then((catalog) => {
+        setTemplateItems(catalog.environment_sets)
+        if (catalog.environment_sets.length > 0) {
+          setSelectedTemplate((current) =>
+            catalog.environment_sets.some((item) => item.name === current) ? current : catalog.environment_sets[0].name,
+          )
+        }
+      })
+      .catch(() => {
+        setTemplateItems([])
+        setSelectedTemplate('basic')
+      })
+  }, [viewerReady])
+
+  useEffect(() => {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return
     try {
-      const parsed = JSON.parse(raw) as { spec?: EnvironmentSpec; templateMode?: 'template' | 'custom'; step?: number }
+      const parsed = JSON.parse(raw) as {
+        spec?: EnvironmentSpec
+        templateMode?: 'template' | 'custom'
+        selectedTemplate?: string
+        step?: number
+      }
       if (parsed.spec) setSpec(parsed.spec)
       if (parsed.templateMode) setTemplateMode(parsed.templateMode)
+      if (parsed.selectedTemplate) setSelectedTemplate(parsed.selectedTemplate)
       if (typeof parsed.step === 'number') setStep(Math.max(0, Math.min(6, parsed.step)))
     } catch {
       // ignore malformed local draft
@@ -54,7 +80,7 @@ export default function CreateEnvironmentPage() {
     setSavingDraft(true)
     setError(null)
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ spec, templateMode, step }))
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ spec, templateMode, selectedTemplate, step }))
     } catch (err: any) {
       setError(err?.message || 'failed to save local draft')
     } finally {
@@ -66,7 +92,7 @@ export default function CreateEnvironmentPage() {
     setCreating(true)
     setError(null)
     try {
-      const created = await environments.create(spec, 'basic')
+      const created = await environments.create(spec, selectedTemplate)
       window.localStorage.removeItem(STORAGE_KEY)
       nav(`/environments/${created.environment.id}/review`)
     } catch (err: any) {
@@ -136,19 +162,41 @@ export default function CreateEnvironmentPage() {
           </div>
 
           {step === 0 ? (
-            <div className="dashboard-grid">
-              <article className={`stack-row stack-row-link ${templateMode === 'template' ? 'stack-row-selected' : ''}`} onClick={() => setTemplateMode('template')}>
-                <div>
-                  <strong>Template mode</strong>
-                  <div className="row-meta">Uses baseline modules and secure defaults.</div>
-                </div>
-              </article>
-              <article className={`stack-row stack-row-link ${templateMode === 'custom' ? 'stack-row-selected' : ''}`} onClick={() => setTemplateMode('custom')}>
-                <div>
-                  <strong>Custom mode</strong>
-                  <div className="row-meta">Full control for networking and instance mix within the current API contract.</div>
-                </div>
-              </article>
+            <div className="page-stack">
+              <div className="dashboard-grid">
+                <article className={`stack-row stack-row-link ${templateMode === 'template' ? 'stack-row-selected' : ''}`} onClick={() => setTemplateMode('template')}>
+                  <div>
+                    <strong>Template mode</strong>
+                    <div className="row-meta">Uses a repo-backed environment set and baseline modules.</div>
+                  </div>
+                </article>
+                <article className={`stack-row stack-row-link ${templateMode === 'custom' ? 'stack-row-selected' : ''}`} onClick={() => setTemplateMode('custom')}>
+                  <div>
+                    <strong>Custom mode</strong>
+                    <div className="row-meta">Keeps the same template backend, but emphasizes direct desired-state control in the form.</div>
+                  </div>
+                </article>
+              </div>
+              <div className="stack-list">
+                {templateItems.length === 0 ? (
+                  <div className="empty-state">No template catalog entries were loaded.</div>
+                ) : (
+                  templateItems.map((item) => (
+                    <button
+                      key={item.name}
+                      type="button"
+                      className={`stack-row stack-row-link ${selectedTemplate === item.name ? 'stack-row-selected' : ''}`}
+                      onClick={() => setSelectedTemplate(item.name)}
+                    >
+                      <div>
+                        <strong>{item.name}</strong>
+                        <div className="row-meta">{item.path}</div>
+                        <div className="row-meta">{item.files.join(', ')}</div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           ) : null}
 
@@ -228,6 +276,10 @@ export default function CreateEnvironmentPage() {
                     <div className="meta-item">
                       <span>Cost / capacity</span>
                       <strong>{impact.costDelta}</strong>
+                    </div>
+                    <div className="meta-item">
+                      <span>Template</span>
+                      <strong>{selectedTemplate}</strong>
                     </div>
                     <div className="meta-item">
                       <span>Mode</span>
