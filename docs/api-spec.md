@@ -34,6 +34,121 @@
 - Auth required.
 - Returns the current user.
 
+## Environments
+
+### Environment object
+```json
+{
+  "id": "uuid",
+  "name": "dev-a",
+  "status": "planning | pending_approval | approved | applying | active | destroying | destroyed | failed",
+  "operation": "create | update | destroy",
+  "approval_status": "not_requested | pending | approved",
+  "spec": { "...": "..." },
+  "created_by_email": "operator@example.com",
+  "approved_by_email": "admin@example.com",
+  "approved_at": "2026-04-02T00:00:00Z",
+  "last_plan_job_id": "uuid",
+  "last_apply_job_id": "uuid",
+  "last_job_id": "uuid",
+  "last_error": "message",
+  "retry_count": 0,
+  "max_retries": 3,
+  "workdir": "/abs/path",
+  "plan_path": ".infra-orch/plan/plan.bin",
+  "outputs_json": "{\"vm_ip\":{\"value\":\"10.0.0.10\"}}",
+  "created_at": "2026-04-02T00:00:00Z",
+  "updated_at": "2026-04-02T00:00:00Z"
+}
+```
+
+### `GET /api/environments?limit=50`
+- Auth required.
+- Returns:
+```json
+{ "items": [/* environments */], "viewer": { "id": "...", "email": "..." } }
+```
+
+### `POST /api/environments`
+- Auth required.
+- Body:
+```json
+{
+  "spec": {
+    "environment_name": "dev-a",
+    "tenant_name": "tenant-a",
+    "network": { "name": "net1", "cidr": "10.0.0.0/24" },
+    "subnet": { "name": "sub1", "cidr": "10.0.0.0/24", "enable_dhcp": true },
+    "instances": [
+      { "name": "vm1", "image": "ubuntu-22.04", "flavor": "m1.small", "count": 1 }
+    ]
+  },
+  "template_name": "basic"
+}
+```
+- Creates the environment aggregate and immediately queues the initial `tofu.plan` job.
+- Returns `{ "environment": { ... }, "job": { ... } }`.
+
+### `GET /api/environments/:id`
+- Auth required.
+- Returns a single environment or 404.
+
+### `POST /api/environments/:id/plan`
+- Auth required.
+- Queues a plan for the target environment.
+- Optional body:
+```json
+{
+  "spec": { "...": "optional updated spec" },
+  "operation": "update | destroy",
+  "template_name": "basic"
+}
+```
+- If no operation is provided, the server infers `create` or `update` from current lifecycle state.
+
+### `POST /api/environments/:id/approve`
+- Auth required.
+- Admin only.
+- Requires the latest plan job to be `done`.
+- Marks the environment as approved and records approver metadata.
+
+### `POST /api/environments/:id/apply`
+- Auth required.
+- Admin only.
+- Requires `approval_status = approved`.
+- Requires the latest plan artifact (`workdir`, `plan_path`) to be ready.
+- Returns `{ "environment": { ... }, "job": { ... } }`.
+
+### `POST /api/environments/:id/retry`
+- Auth required.
+- Requires the latest job to have failed and retry budget to remain.
+- Returns `{ "environment": { ... }, "job": { ... } }`.
+
+### `POST /api/environments/:id/destroy`
+- Auth required.
+- Queues a destroy plan for the environment.
+- The destroy plan still requires approval before apply.
+
+### `GET /api/environments/:id/audit`
+- Auth required.
+- Returns:
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "resource_type": "environment",
+      "resource_id": "uuid",
+      "action": "environment.approved",
+      "actor_email": "admin@example.com",
+      "message": "plan approved for apply",
+      "metadata_json": "{\"plan_job_id\":\"uuid\"}",
+      "created_at": "2026-04-02T00:00:00Z"
+    }
+  ]
+}
+```
+
 ## Jobs
 
 ### Job object
@@ -44,11 +159,18 @@
   "status": "queued | running | done | failed",
   "created_at": "2026-04-01T00:00:00Z",
   "updated_at": "2026-04-01T00:00:00Z",
+  "environment_id": "uuid",
+  "operation": "create | update | destroy",
   "environment": { "...": "..." },
   "template_name": "basic",
   "workdir": "/abs/path",
+  "log_dir": "/abs/path/.infra-orch/logs",
   "plan_path": ".infra-orch/plan/plan.bin",
+  "outputs_json": "{\"vm_ip\":{\"value\":\"10.0.0.10\"}}",
   "source_job_id": "uuid",
+  "retry_count": 0,
+  "max_retries": 3,
+  "requested_by": "operator@example.com",
   "error": "message"
 }
 ```
