@@ -43,6 +43,24 @@ test_check() {
   go test "${GO_PACKAGES[@]}"
 }
 
+kustomize_check() {
+  local builder=""
+  if command -v kustomize >/dev/null 2>&1; then
+    builder="kustomize build"
+  elif command -v kubectl >/dev/null 2>&1; then
+    builder="kubectl kustomize"
+  else
+    echo "skip kustomize validation: no kustomize or kubectl found"
+    return 0
+  fi
+
+  local path
+  for path in k8s/app/base k8s/app/overlays/dev k8s/app/overlays/stage k8s/app/overlays/prod; do
+    echo "validate ${path}"
+    ${builder} "${path}" >/dev/null
+  done
+}
+
 case "${1:-verify}" in
   fmt)
     fmt_check
@@ -57,10 +75,10 @@ case "${1:-verify}" in
     fmt_check
     vet_check
     test_check
+    kustomize_check
     ;;
   *)
     echo "usage: $0 [fmt|vet|test|verify]"
     exit 2
     ;;
 esac
-
