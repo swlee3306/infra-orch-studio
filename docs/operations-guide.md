@@ -15,6 +15,7 @@ Access model:
 - `dev`: web service can be exposed with NodePort for direct bastion or lab access.
 - `stage` and `prod`: prefer ingress and an explicit host name that matches the public entrypoint.
 - If you use DDNS or bastion forwarding, the ingress `host` must match the browser host header. IP-only access will not match a host-restricted ingress rule.
+- In lab or bare-metal setups, the ingress controller may never populate `status.loadBalancer.ingress`. The stage/prod ingress manifests therefore opt out of Argo CD health gating for the ingress object itself so the app does not remain stuck in `Progressing` while workloads are already healthy.
 
 ## Recommended Order
 
