@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AuditEvent, auth, Environment, environments, Job, jobs } from '../api'
+import { AuditEvent, auth, Environment, environments, Job, jobs, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 
@@ -157,13 +157,20 @@ export default function EnvironmentDetailPage() {
   const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
   const [environment, setEnvironment] = useState<Environment | null>(null)
   const [auditItems, setAuditItems] = useState<AuditEvent[]>([])
-  const [recentJobs, setRecentJobs] = useState<Job[]>([])
+  const [environmentJobs, setEnvironmentJobs] = useState<Job[]>([])
+  const [templateItems, setTemplateItems] = useState<TemplateDescriptor[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState('basic')
   const [editingSpec, setEditingSpec] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
 
   const environmentId = useMemo(() => id || '', [id])
   const outputs = useMemo(() => parseJson(environment?.outputs_json), [environment?.outputs_json])
+  const currentPlanJob = useMemo(
+    () => environmentJobs.find((item) => item.id === environment?.last_plan_job_id) || null,
+    [environment?.last_plan_job_id, environmentJobs],
+  )
+  const recentJobs = useMemo(() => environmentJobs.slice(0, 4), [environmentJobs])
 
   async function load() {
     setError(null)
@@ -177,15 +184,24 @@ export default function EnvironmentDetailPage() {
     if (!environmentId) return
 
     try {
-      const [env, audit, jobsResponse] = await Promise.all([
+      const [env, audit, jobsResponse, templateRes] = await Promise.all([
         environments.get(environmentId),
         environments.audit(environmentId),
         jobs.list(100),
+        templates.list().catch(() => null),
       ])
       setEnvironment(env)
       setEditingSpec(env.spec)
       setAuditItems(audit.items)
-      setRecentJobs(jobsResponse.items.filter((item) => item.environment_id === env.id).slice(0, 4))
+      const envJobs = jobsResponse.items.filter((item) => item.environment_id === env.id)
+      setEnvironmentJobs(envJobs)
+      if (templateRes) {
+        setTemplateItems(templateRes.environment_sets)
+      } else {
+        setTemplateItems([])
+      }
+      const planTemplate = envJobs.find((item) => item.id === env.last_plan_job_id)?.template_name || 'basic'
+      setSelectedTemplate(planTemplate)
     } catch (err: any) {
       setError(err?.message || 'failed')
     }
@@ -260,7 +276,7 @@ export default function EnvironmentDetailPage() {
             className="ghost"
             disabled={!canPlanUpdate || busyAction !== null}
             onClick={() =>
-              runAction('update-plan', () => environments.plan(environmentId, editingSpec, 'update', 'basic'))
+              runAction('update-plan', () => environments.plan(environmentId, editingSpec, 'update', selectedTemplate))
             }
           >
             {busyAction === 'update-plan' ? 'Queueing...' : 'Queue update plan'}
@@ -400,9 +416,24 @@ export default function EnvironmentDetailPage() {
               <span>Plan artifact</span>
               <strong>{environment?.plan_path || '-'}</strong>
             </div>
+            <div className="meta-item">
+              <span>Template</span>
+              <strong>{currentPlanJob?.template_name || selectedTemplate}</strong>
+            </div>
           </div>
           <div className="field-group" style={{ marginTop: 16 }}>
             <div className="field-title">Environment spec</div>
+            <label className="field" style={{ marginBottom: 14 }}>
+              <span>Plan template</span>
+              <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
+                {templateItems.length === 0 ? <option value="basic">basic</option> : null}
+                {templateItems.map((item) => (
+                  <option key={item.name} value={item.name}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} /> : null}
           </div>
         </article>
