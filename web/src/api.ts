@@ -241,6 +241,15 @@ export const environments = {
   jobs: (id: string) => req<EnvironmentJobsResponse>('/environments/' + id + '/jobs'),
   artifacts: (id: string) => req<EnvironmentArtifactsResponse>('/environments/' + id + '/artifacts'),
   planReview: (id: string) => req<EnvironmentPlanReviewResponse>('/environments/' + id + '/plan-review'),
+  previewPlanReview: (payload: {
+    spec: EnvironmentSpec
+    operation?: 'create' | 'update' | 'destroy'
+    template_name?: string
+  }) =>
+    req<EnvironmentPlanReviewResponse>('/environments/plan-review-preview', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 }
 
 export const templates = {

@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,6 +21,12 @@ type impactSummary struct {
 	Downtime    string `json:"downtime"`
 	BlastRadius string `json:"blast_radius"`
 	CostDelta   string `json:"cost_delta"`
+}
+
+type previewPlanReviewRequest struct {
+	Spec         domain.EnvironmentSpec      `json:"spec"`
+	Operation    domain.EnvironmentOperation `json:"operation,omitempty"`
+	TemplateName string                      `json:"template_name,omitempty"`
 }
 
 func (s *Server) handleEnvironmentPlanReview(w http.ResponseWriter, r *http.Request) {
@@ -54,6 +61,36 @@ func (s *Server) handleEnvironmentPlanReview(w http.ResponseWriter, r *http.Requ
 		"review_signals": buildReviewSignals(env.Spec, string(env.Operation), planJob),
 		"impact_summary": buildImpactSummary(env.Spec, string(env.Operation)),
 		"plan_job":       planJob,
+	})
+}
+
+func (s *Server) handlePlanReviewPreview(w http.ResponseWriter, r *http.Request, _ domain.User) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req previewPlanReviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if err := validateEnvironmentSpecStrict(req.Spec); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	operation := req.Operation
+	if operation == "" {
+		operation = domain.EnvironmentOperationCreate
+	}
+	templateName := req.TemplateName
+	if templateName == "" {
+		templateName = "basic"
+	}
+	previewJob := &domain.Job{TemplateName: templateName}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"review_signals": buildReviewSignals(req.Spec, string(operation), previewJob),
+		"impact_summary": buildImpactSummary(req.Spec, string(operation)),
+		"plan_job":       previewJob,
 	})
 }
 

@@ -106,6 +106,28 @@
 ```
 - If no operation is provided, the server infers `create` or `update` from current lifecycle state.
 
+### `POST /api/environments/plan-review-preview`
+- Auth required.
+- Validates an in-progress desired-state payload without creating the environment aggregate.
+- Request body:
+```json
+{
+  "spec": {
+    "environment_name": "prod-a",
+    "tenant_name": "tenant-prod-us-03",
+    "network": { "name": "net1", "cidr": "10.0.0.0/24" },
+    "subnet": { "name": "sub1", "cidr": "10.0.0.0/25", "enable_dhcp": true },
+    "instances": [
+      { "name": "vm1", "image": "ubuntu-22.04", "flavor": "m1.small", "count": 2 }
+    ],
+    "security_groups": ["sg-web"]
+  },
+  "operation": "create",
+  "template_name": "basic"
+}
+```
+- Returns the same shape as `GET /api/environments/:id/plan-review` so create wizard review uses the same server-owned risk model as post-create review.
+
 ### `POST /api/environments/:id/approve`
 - Auth required.
 - Admin only.

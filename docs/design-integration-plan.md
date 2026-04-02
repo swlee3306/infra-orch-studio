@@ -171,6 +171,8 @@
   - 환경별 최근 작업 목록 조회용
 - `GET /api/environments/:id/plan-review`
   - review signal, impact summary, current plan job 조회용
+- `POST /api/environments/plan-review-preview`
+  - create wizard의 사전 review signal, impact summary, preview template 조회용
 - `GET /api/environments/:id/artifacts`
   - workdir, plan_path, outputs, last plan/apply job 조회용
 - `GET /api/audit`
@@ -216,6 +218,7 @@
   - P0 `Dashboard / Environment List / Environment Detail`
   - P1 `Create Environment Flow / Plan Review / Approval`
   - 상태 기반 진입 흐름 `dashboard -> environments -> detail -> review -> approval`
+  - create wizard review가 `plan-review-preview` API를 사용하도록 정렬되어 review 기준이 create 이후 화면과 일치
 - 부분 완료
   - P2 `Job Detail`을 environment-linked execution view로 재구성
   - P2 `Dedicated Audit` 화면 추가
