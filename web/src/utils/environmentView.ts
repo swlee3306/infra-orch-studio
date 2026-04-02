@@ -1,10 +1,4 @@
-import type { AuditEvent, Environment, EnvironmentSpec, Job } from '../api'
-
-export type ReviewSignal = {
-  label: string
-  detail: string
-  severity: 'high' | 'medium' | 'low'
-}
+import type { AuditEvent, Environment, EnvironmentSpec, Job, ReviewSignal } from '../api'
 
 export type Checkpoint = {
   label: string

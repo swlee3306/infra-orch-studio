@@ -148,6 +148,24 @@ export type TemplateCatalogResponse = {
   modules: TemplateDescriptor[]
 }
 
+export type ReviewSignal = {
+  label: string
+  detail: string
+  severity: 'high' | 'medium' | 'low'
+}
+
+export type ImpactSummary = {
+  downtime: string
+  blast_radius: string
+  cost_delta: string
+}
+
+export type EnvironmentPlanReviewResponse = {
+  review_signals: ReviewSignal[]
+  impact_summary: ImpactSummary
+  plan_job?: Job | null
+}
+
 // VITE_API_URL should point to the API base.
 // - prod (nginx proxy): "/api"
 // - dev: "http://localhost:8080/api"
@@ -222,6 +240,7 @@ export const environments = {
   audit: (id: string) => req<EnvironmentAuditResponse>('/environments/' + id + '/audit'),
   jobs: (id: string) => req<EnvironmentJobsResponse>('/environments/' + id + '/jobs'),
   artifacts: (id: string) => req<EnvironmentArtifactsResponse>('/environments/' + id + '/artifacts'),
+  planReview: (id: string) => req<EnvironmentPlanReviewResponse>('/environments/' + id + '/plan-review'),
 }
 
 export const templates = {

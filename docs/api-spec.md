@@ -168,6 +168,27 @@
 - Auth required.
 - Returns environment-scoped execution records only.
 
+### `GET /api/environments/:id/plan-review`
+- Auth required.
+- Returns:
+```json
+{
+  "review_signals": [
+    {
+      "label": "Subnet capacity pressure",
+      "detail": "Subnet 10.0.0.0/27 suggests limited remaining address space for future changes.",
+      "severity": "high"
+    }
+  ],
+  "impact_summary": {
+    "downtime": "Medium",
+    "blast_radius": "tenant-a / net-a / sub-a",
+    "cost_delta": "Estimated footprint includes 4 instances and 0 security references."
+  },
+  "plan_job": { "...": "job object or null" }
+}
+```
+
 ### `GET /api/environments/:id/artifacts`
 - Auth required.
 - Returns:

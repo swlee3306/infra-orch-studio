@@ -162,8 +162,6 @@
 
 ### API / 상태 구조 보완 제안
 
-- `GET /api/environments/:id/plan-review`
-  - high-risk / low-risk / warnings / impact summary 분리용
 - `checkpoint states`
   - Zone D 수준 UX를 위해 추가 정교화 가능
 
@@ -171,6 +169,8 @@
 
 - `GET /api/environments/:id/jobs`
   - 환경별 최근 작업 목록 조회용
+- `GET /api/environments/:id/plan-review`
+  - review signal, impact summary, current plan job 조회용
 - `GET /api/environments/:id/artifacts`
   - workdir, plan_path, outputs, last plan/apply job 조회용
 - `GET /api/audit`
@@ -224,4 +224,4 @@
 - 미완료
   - template edit/validate/apply 같은 고급 관리 기능은 아직 없음
 - 추가 필요 사항
-  - plan review risk payload 전용 API
+  - approval workflow 정책 강제 수준 검토

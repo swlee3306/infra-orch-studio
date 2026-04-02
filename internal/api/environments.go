@@ -133,6 +133,8 @@ func (s *Server) handleEnvironmentRoute(w http.ResponseWriter, r *http.Request, 
 			return
 		}
 		s.handleEnvironmentDestroy(w, r, user)
+	case strings.HasSuffix(path, "/plan-review"):
+		s.handleEnvironmentPlanReview(w, r)
 	case strings.HasSuffix(path, "/jobs"):
 		s.handleEnvironmentJobs(w, r)
 	case strings.HasSuffix(path, "/artifacts"):
