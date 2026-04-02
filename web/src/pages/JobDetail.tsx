@@ -119,7 +119,7 @@ export default function JobDetailPage() {
           <div className="detail-top">
             <div>
               <p className="muted" style={{ marginTop: 0, marginBottom: 6 }}>
-                <Link to="/jobs">← Jobs</Link>
+                <Link to="/jobs">← Executions</Link>
               </p>
               <h2 style={{ margin: 0 }}>Job {jobId}</h2>
               <p className="helper" style={{ marginBottom: 0 }}>
