@@ -355,3 +355,118 @@ func TestAuditFeedEndpointListsEnvironmentEvents(t *testing.T) {
 		t.Fatalf("unexpected audit feed items: %+v", resp.Items)
 	}
 }
+
+func TestEnvironmentJobsAndArtifactsEndpoints(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-jobs",
+		Status:         domain.EnvironmentStatusActive,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusApproved,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-jobs",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		LastPlanJobID:  uuid.NewString(),
+		LastApplyJobID: uuid.NewString(),
+		Workdir:        "/tmp/workdir",
+		PlanPath:       ".infra-orch/plan/plan.bin",
+		OutputsJSON:    `{"vm_ip":{"value":"10.0.0.10"}}`,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+	for _, job := range []domain.Job{
+		{
+			ID:            env.LastPlanJobID,
+			Type:          domain.JobTypePlan,
+			Status:        domain.JobStatusDone,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+			EnvironmentID: env.ID,
+			Operation:     env.Operation,
+			Environment:   env.Spec,
+			TemplateName:  "basic",
+			Workdir:       env.Workdir,
+			PlanPath:      env.PlanPath,
+		},
+		{
+			ID:            env.LastApplyJobID,
+			Type:          domain.JobTypeApply,
+			Status:        domain.JobStatusDone,
+			CreatedAt:     now.Add(time.Minute),
+			UpdatedAt:     now.Add(time.Minute),
+			EnvironmentID: env.ID,
+			Operation:     env.Operation,
+			Environment:   env.Spec,
+			TemplateName:  "basic",
+			Workdir:       env.Workdir,
+			PlanPath:      env.PlanPath,
+			OutputsJSON:   env.OutputsJSON,
+		},
+		{
+			ID:            uuid.NewString(),
+			Type:          domain.JobTypePlan,
+			Status:        domain.JobStatusDone,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+			EnvironmentID: uuid.NewString(),
+			Operation:     env.Operation,
+			Environment:   env.Spec,
+		},
+	} {
+		if _, err := store.CreateJob(nil, job); err != nil {
+			t.Fatalf("create job: %v", err)
+		}
+	}
+
+	jobsReq := httptest.NewRequest(http.MethodGet, "/api/environments/"+env.ID+"/jobs", nil)
+	jobsReq.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	jobsRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(jobsRR, jobsReq)
+	if jobsRR.Code != http.StatusOK {
+		t.Fatalf("environment jobs status = %d, want %d", jobsRR.Code, http.StatusOK)
+	}
+	var jobsResp struct {
+		Items []domain.Job `json:"items"`
+	}
+	if err := json.Unmarshal(jobsRR.Body.Bytes(), &jobsResp); err != nil {
+		t.Fatalf("decode jobs response: %v", err)
+	}
+	if len(jobsResp.Items) != 2 {
+		t.Fatalf("jobs count = %d, want 2", len(jobsResp.Items))
+	}
+
+	artifactsReq := httptest.NewRequest(http.MethodGet, "/api/environments/"+env.ID+"/artifacts", nil)
+	artifactsReq.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	artifactsRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(artifactsRR, artifactsReq)
+	if artifactsRR.Code != http.StatusOK {
+		t.Fatalf("artifacts status = %d, want %d", artifactsRR.Code, http.StatusOK)
+	}
+	var artifactsResp struct {
+		EnvironmentID string      `json:"environment_id"`
+		Workdir       string      `json:"workdir"`
+		PlanPath      string      `json:"plan_path"`
+		OutputsJSON   string      `json:"outputs_json"`
+		LastPlanJob   *domain.Job `json:"last_plan_job"`
+		LastApplyJob  *domain.Job `json:"last_apply_job"`
+	}
+	if err := json.Unmarshal(artifactsRR.Body.Bytes(), &artifactsResp); err != nil {
+		t.Fatalf("decode artifacts response: %v", err)
+	}
+	if artifactsResp.EnvironmentID != env.ID || artifactsResp.LastPlanJob == nil || artifactsResp.LastApplyJob == nil {
+		t.Fatalf("unexpected artifacts payload: %+v", artifactsResp)
+	}
+}

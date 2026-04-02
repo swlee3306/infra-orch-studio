@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
+	"github.com/swlee3306/infra-orch-studio/internal/storage"
 )
 
 type createEnvironmentRequest struct {
@@ -93,7 +95,8 @@ func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user
 			return
 		}
 		s.recordAudit(r, user, "environment", createdEnv.ID, "environment.created", "environment created and initial plan queued", map[string]any{
-			"job_id": createdJob.ID,
+			"job_id":        createdJob.ID,
+			"template_name": createdJob.TemplateName,
 		})
 		writeJSON(w, http.StatusCreated, map[string]any{"environment": createdEnv, "job": createdJob})
 	default:
@@ -126,6 +129,10 @@ func (s *Server) handleEnvironmentRoute(w http.ResponseWriter, r *http.Request, 
 			return
 		}
 		s.handleEnvironmentDestroy(w, r, user)
+	case strings.HasSuffix(path, "/jobs"):
+		s.handleEnvironmentJobs(w, r)
+	case strings.HasSuffix(path, "/artifacts"):
+		s.handleEnvironmentArtifacts(w, r)
 	case strings.HasSuffix(path, "/audit"):
 		s.handleEnvironmentAudit(w, r)
 	default:
@@ -219,8 +226,9 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.plan_requested", "environment plan queued", map[string]any{
-		"job_id":    createdJob.ID,
-		"operation": operation,
+		"job_id":        createdJob.ID,
+		"operation":     operation,
+		"template_name": createdJob.TemplateName,
 	})
 	writeJSON(w, http.StatusCreated, map[string]any{"environment": updatedEnv, "job": createdJob})
 }
@@ -339,7 +347,8 @@ func (s *Server) handleEnvironmentApply(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.apply_requested", "apply queued from approved plan", map[string]any{
-		"job_id": createdJob.ID,
+		"job_id":        createdJob.ID,
+		"template_name": createdJob.TemplateName,
 	})
 	writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
 }
@@ -409,7 +418,8 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.retry_requested", "retry queued for failed job", map[string]any{
-		"job_id": createdJob.ID,
+		"job_id":        createdJob.ID,
+		"template_name": createdJob.TemplateName,
 	})
 	writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
 }
@@ -466,6 +476,7 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.destroy_requested", "destroy plan queued", map[string]any{
 		"job_id":            createdJob.ID,
+		"template_name":     createdJob.TemplateName,
 		"confirmation_name": req.ConfirmationName,
 		"comment":           req.Comment,
 	})
@@ -488,6 +499,80 @@ func (s *Server) handleEnvironmentAudit(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (s *Server) handleEnvironmentJobs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := environmentActionID(r.URL.Path, "jobs")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if _, err := s.jobs.GetEnvironment(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "environment not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "load environment failed")
+		return
+	}
+	items, err := listJobsForEnvironment(r.Context(), s.jobs, id, 200)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list environment jobs failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (s *Server) handleEnvironmentArtifacts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := environmentActionID(r.URL.Path, "artifacts")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	env, err := s.jobs.GetEnvironment(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "environment not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "load environment failed")
+		return
+	}
+	items, err := listJobsForEnvironment(r.Context(), s.jobs, id, 200)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list environment jobs failed")
+		return
+	}
+
+	var lastPlanJob *domain.Job
+	var lastApplyJob *domain.Job
+	for _, item := range items {
+		if env.LastPlanJobID != "" && item.ID == env.LastPlanJobID {
+			jobCopy := item
+			lastPlanJob = &jobCopy
+		}
+		if env.LastApplyJobID != "" && item.ID == env.LastApplyJobID {
+			jobCopy := item
+			lastApplyJob = &jobCopy
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"environment_id": env.ID,
+		"workdir":        env.Workdir,
+		"plan_path":      env.PlanPath,
+		"outputs_json":   env.OutputsJSON,
+		"last_plan_job":  lastPlanJob,
+		"last_apply_job": lastApplyJob,
+	})
 }
 
 func newEnvironmentPlanJob(env domain.Environment, templateName, requestedBy string, now time.Time) domain.Job {
@@ -519,6 +604,20 @@ func environmentActionID(path, action string) (string, error) {
 		return "", errors.New("invalid environment id")
 	}
 	return id, nil
+}
+
+func listJobsForEnvironment(ctx context.Context, store storage.Store, environmentID string, limit int) ([]domain.Job, error) {
+	items, err := store.ListJobs(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Job, 0, len(items))
+	for _, item := range items {
+		if item.EnvironmentID == environmentID {
+			out = append(out, item)
+		}
+	}
+	return out, nil
 }
 
 func (s *Server) recordAudit(r *http.Request, user domain.User, resourceType, resourceID, action, message string, metadata map[string]any) {

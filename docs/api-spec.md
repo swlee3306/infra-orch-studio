@@ -158,6 +158,24 @@
 }
 ```
 
+### `GET /api/environments/:id/jobs`
+- Auth required.
+- Returns environment-scoped execution records only.
+
+### `GET /api/environments/:id/artifacts`
+- Auth required.
+- Returns:
+```json
+{
+  "environment_id": "uuid",
+  "workdir": "/abs/path",
+  "plan_path": ".infra-orch/plan/plan.bin",
+  "outputs_json": "{\"vm_ip\":{\"value\":\"10.0.0.10\"}}",
+  "last_plan_job": { "...": "job object or null" },
+  "last_apply_job": { "...": "job object or null" }
+}
+```
+
 ## Templates
 
 ### `GET /api/templates`

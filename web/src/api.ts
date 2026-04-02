@@ -112,6 +112,19 @@ export type EnvironmentAuditResponse = {
   items: AuditEvent[]
 }
 
+export type EnvironmentJobsResponse = {
+  items: Job[]
+}
+
+export type EnvironmentArtifactsResponse = {
+  environment_id: string
+  workdir?: string
+  plan_path?: string
+  outputs_json?: string
+  last_plan_job?: Job | null
+  last_apply_job?: Job | null
+}
+
 export type AuditFeedResponse = {
   items: AuditEvent[]
   viewer: User
@@ -203,6 +216,8 @@ export const environments = {
       body: JSON.stringify(payload),
     }),
   audit: (id: string) => req<EnvironmentAuditResponse>('/environments/' + id + '/audit'),
+  jobs: (id: string) => req<EnvironmentJobsResponse>('/environments/' + id + '/jobs'),
+  artifacts: (id: string) => req<EnvironmentArtifactsResponse>('/environments/' + id + '/artifacts'),
 }
 
 export const templates = {

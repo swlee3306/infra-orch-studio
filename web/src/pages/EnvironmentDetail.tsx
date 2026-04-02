@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AuditEvent, auth, Environment, environments, Job, jobs, TemplateDescriptor, templates } from '../api'
+import { AuditEvent, auth, Environment, environments, Job, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 
@@ -165,7 +165,8 @@ export default function EnvironmentDetailPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null)
 
   const environmentId = useMemo(() => id || '', [id])
-  const outputs = useMemo(() => parseJson(environment?.outputs_json), [environment?.outputs_json])
+  const [artifacts, setArtifacts] = useState<{ workdir?: string; plan_path?: string; outputs_json?: string } | null>(null)
+  const outputs = useMemo(() => parseJson(artifacts?.outputs_json || environment?.outputs_json), [artifacts?.outputs_json, environment?.outputs_json])
   const currentPlanJob = useMemo(
     () => environmentJobs.find((item) => item.id === environment?.last_plan_job_id) || null,
     [environment?.last_plan_job_id, environmentJobs],
@@ -184,17 +185,19 @@ export default function EnvironmentDetailPage() {
     if (!environmentId) return
 
     try {
-      const [env, audit, jobsResponse, templateRes] = await Promise.all([
+      const [env, audit, environmentJobsResponse, artifactResponse, templateRes] = await Promise.all([
         environments.get(environmentId),
         environments.audit(environmentId),
-        jobs.list(100),
+        environments.jobs(environmentId),
+        environments.artifacts(environmentId),
         templates.list().catch(() => null),
       ])
       setEnvironment(env)
       setEditingSpec(env.spec)
       setAuditItems(audit.items)
-      const envJobs = jobsResponse.items.filter((item) => item.environment_id === env.id)
+      const envJobs = environmentJobsResponse.items
       setEnvironmentJobs(envJobs)
+      setArtifacts(artifactResponse)
       if (templateRes) {
         setTemplateItems(templateRes.environment_sets)
       } else {
@@ -414,7 +417,7 @@ export default function EnvironmentDetailPage() {
             </div>
             <div className="meta-item">
               <span>Plan artifact</span>
-              <strong>{environment?.plan_path || '-'}</strong>
+              <strong>{artifacts?.plan_path || environment?.plan_path || '-'}</strong>
             </div>
             <div className="meta-item">
               <span>Template</span>
@@ -482,13 +485,13 @@ export default function EnvironmentDetailPage() {
             <div className="stack-row">
               <div>
                 <strong>Workdir</strong>
-                <div className="row-meta">{environment?.workdir || '-'}</div>
+                <div className="row-meta">{artifacts?.workdir || environment?.workdir || '-'}</div>
               </div>
             </div>
             <div className="stack-row">
               <div>
                 <strong>Plan path</strong>
-                <div className="row-meta">{environment?.plan_path || '-'}</div>
+                <div className="row-meta">{artifacts?.plan_path || environment?.plan_path || '-'}</div>
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AuditEvent, auth, Environment, environments, Job, jobs } from '../api'
+import { AuditEvent, auth, Environment, environments, Job } from '../api'
 import { buildApprovalCheckpoints, buildImpactSummary, findLatestPlanJob } from '../utils/environmentView'
 
 export default function ApprovalControlPage() {
@@ -26,10 +26,14 @@ export default function ApprovalControlPage() {
       return
     }
     try {
-      const [env, audit, allJobs] = await Promise.all([environments.get(environmentId), environments.audit(environmentId), jobs.list(100)])
+      const [env, audit, environmentJobs] = await Promise.all([
+        environments.get(environmentId),
+        environments.audit(environmentId),
+        environments.jobs(environmentId),
+      ])
       setEnvironment(env)
       setAuditItems(audit.items)
-      setJobsForEnvironment(allJobs.items.filter((item) => item.environment_id === environmentId))
+      setJobsForEnvironment(environmentJobs.items)
     } catch (err: any) {
       setError(err?.message || 'failed')
     }
