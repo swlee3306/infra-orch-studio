@@ -223,9 +223,9 @@
 - 부분 완료
   - P2 `Job Detail`을 environment-linked execution view로 재구성
   - P2 `Dedicated Audit` 화면 추가
-  - P2 `Template Management`는 repo-backed catalog 조회 화면까지 반영
+  - P2 `Template Management`는 repo-backed catalog 조회와 template/module inspect + validate까지 반영
   - `Destroy Flow polish`는 admin-only + typed confirmation payload + audit comment metadata까지 반영
 - 미완료
-  - template edit/validate/apply 같은 고급 관리 기능은 아직 없음
+  - template edit/apply 같은 고급 관리 기능은 아직 없음
 - 추가 필요 사항
-  - approval workflow 정책 강제 수준 검토
+  - drift detection / chat interface는 아직 제품 범위 밖으로 남아 있음

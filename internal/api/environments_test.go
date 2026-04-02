@@ -615,3 +615,82 @@ func TestPlanReviewPreviewEndpoint(t *testing.T) {
 		t.Fatalf("expected preview signals, got none")
 	}
 }
+
+func TestTemplateInspectAndValidateEndpoints(t *testing.T) {
+	root := t.TempDir()
+	templatesRoot := filepath.Join(root, "templates")
+	modulesRoot := filepath.Join(root, "modules")
+	for _, dir := range []string{
+		filepath.Join(templatesRoot, "basic"),
+		filepath.Join(modulesRoot, "network"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	for _, file := range []string{"main.tf", "outputs.tf", "variables.tf", "versions.tf"} {
+		if err := os.WriteFile(filepath.Join(templatesRoot, "basic", file), []byte("content"), 0o644); err != nil {
+			t.Fatalf("write env template file: %v", err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(templatesRoot, "basic", "README.md"), []byte("readme"), 0o644); err != nil {
+		t.Fatalf("write env template readme: %v", err)
+	}
+	for _, file := range []string{"main.tf", "variables.tf"} {
+		if err := os.WriteFile(filepath.Join(modulesRoot, "network", file), []byte("content"), 0o644); err != nil {
+			t.Fatalf("write module file: %v", err)
+		}
+	}
+
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := NewServer(Config{
+		JobStore:      store,
+		AuthStore:     store,
+		CookieName:    "test_session",
+		TemplatesRoot: templatesRoot,
+		ModulesRoot:   modulesRoot,
+	})
+	cookie := cookieFromToken("admin-session-token", "test_session")
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/templates/environment/basic", nil)
+	getReq.AddCookie(cookie)
+	getRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(getRR, getReq)
+	if getRR.Code != http.StatusOK {
+		t.Fatalf("template inspect status = %d, want %d", getRR.Code, http.StatusOK)
+	}
+	var getResp struct {
+		Validation struct {
+			Valid bool `json:"valid"`
+		} `json:"validation"`
+	}
+	if err := json.Unmarshal(getRR.Body.Bytes(), &getResp); err != nil {
+		t.Fatalf("decode template inspect response: %v", err)
+	}
+	if !getResp.Validation.Valid {
+		t.Fatalf("expected environment template to be valid")
+	}
+
+	validateReq := httptest.NewRequest(http.MethodPost, "/api/templates/module/network/validate", nil)
+	validateReq.AddCookie(cookie)
+	validateRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(validateRR, validateReq)
+	if validateRR.Code != http.StatusOK {
+		t.Fatalf("template validate status = %d, want %d", validateRR.Code, http.StatusOK)
+	}
+	var validateResp struct {
+		Valid   bool     `json:"valid"`
+		Missing []string `json:"missing_files"`
+	}
+	if err := json.Unmarshal(validateRR.Body.Bytes(), &validateResp); err != nil {
+		t.Fatalf("decode template validate response: %v", err)
+	}
+	if validateResp.Valid {
+		t.Fatalf("expected module validation to fail due to missing outputs.tf")
+	}
+	if len(validateResp.Missing) != 1 || validateResp.Missing[0] != "outputs.tf" {
+		t.Fatalf("unexpected missing files: %+v", validateResp.Missing)
+	}
+}

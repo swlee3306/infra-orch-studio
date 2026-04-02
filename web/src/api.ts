@@ -148,6 +148,24 @@ export type TemplateCatalogResponse = {
   modules: TemplateDescriptor[]
 }
 
+export type TemplateValidation = {
+  kind: 'environment' | 'module'
+  name: string
+  path: string
+  files: string[]
+  required_files: string[]
+  missing_files: string[]
+  warnings: string[]
+  valid: boolean
+  description?: string
+  readme_exists: boolean
+}
+
+export type TemplateDetailResponse = {
+  descriptor: TemplateDescriptor
+  validation: TemplateValidation
+}
+
 export type ReviewSignal = {
   label: string
   detail: string
@@ -254,6 +272,8 @@ export const environments = {
 
 export const templates = {
   list: () => req<TemplateCatalogResponse>('/templates'),
+  get: (kind: 'environment' | 'module', name: string) => req<TemplateDetailResponse>(`/templates/${kind}/${name}`),
+  validate: (kind: 'environment' | 'module', name: string) => req<TemplateValidation>(`/templates/${kind}/${name}/validate`, { method: 'POST' }),
 }
 
 export const audit = {
