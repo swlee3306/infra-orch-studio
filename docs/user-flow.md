@@ -1,5 +1,7 @@
 # User Flow
 
+> Historical snapshot: 이 문서는 job-led UI에서 environment-led UX로 옮겨 가기 전 사용 흐름을 기록한다. 현재 실제 흐름은 login -> dashboard -> environments/create -> review -> approval -> detail -> audit 에 더 가깝다.
+
 이 문서는 현재 코드 현실을 기준으로 작성한 사용자 및 운영자 흐름이다. 핵심은 환경 생성, plan 검토, apply 승인, 실행 결과 확인이 하나의 연속된 여정으로 보이게 하는 것이다.
 
 ## 1. Persona

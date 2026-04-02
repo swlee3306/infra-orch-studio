@@ -1,5 +1,7 @@
 # UI Agent Audit
 
+> Historical snapshot: 이 문서는 environment-first UI 재구성 이전 감사 기록이다. 현재 구현 수준은 `docs/design-integration-plan.md`를 우선 기준으로 본다.
+
 ## Scope
 - Target surfaces: `web/src/App.tsx`, `web/src/api.ts`, `web/src/pages/*`, `web/src/components/*`
 - Backend contracts used by the UI: `POST /api/jobs`, `GET /api/jobs`, `GET /api/jobs/:id`, `POST /api/jobs/:id/apply`, `GET /ws`

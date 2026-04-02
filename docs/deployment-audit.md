@@ -1,5 +1,7 @@
 # Deployment Audit
 
+> Historical snapshot: 초기 배포 구조 감사 기록이다. 최신 배포/운영 기준은 `docs/operations-guide.md`, `docs/configuration-reference.md`, `docs/release-checklist.md`를 우선 본다.
+
 ## Current State
 
 The repository currently has two deployment paths:

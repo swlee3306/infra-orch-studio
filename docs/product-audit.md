@@ -1,5 +1,7 @@
 # Product Audit
 
+> Historical snapshot: 이 문서는 job-led MVP에서 environment-led 플랫폼으로 옮겨 가기 전 제품 진단 기록이다. 현재 제품 계약 문서가 아니라 개선 배경 자료로 읽어야 한다.
+
 이 문서는 infra-orch-studio를 "environment 단위 인프라 오케스트레이션 플랫폼"으로 보기 위한 제품 진단이다. 핵심 관점은 현재 시스템이 job 중심인지, environment 중심인지, 그리고 사용자 흐름이 `environment -> plan -> approval -> apply -> result -> 운영`으로 닫혀 있는지 확인하는 것이다.
 
 ## 1. 현재 제품 구조 요약

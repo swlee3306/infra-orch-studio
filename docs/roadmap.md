@@ -1,5 +1,7 @@
 # Roadmap
 
+> Historical snapshot: 초기 MVP 단계별 로드맵 기록이다. 현재 서비스화 우선순위는 `docs/design-integration-plan.md`, `docs/operations-guide.md`, `docs/release-checklist.md`와 함께 다시 읽어야 한다.
+
 ## Phase 0
 - 탐색/계획 (DONE)
 

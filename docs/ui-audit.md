@@ -1,5 +1,7 @@
 # UI Audit
 
+> Historical snapshot: 이 문서는 로그인/job list/job detail 중심 UI 시점의 감사 기록이다. 현재 UI는 dashboard, environment detail, create flow, review, approval, templates, audit 화면까지 포함한다.
+
 ## Scope
 - Target surfaces: `web/src/App.tsx`, `web/src/api.ts`, `web/src/pages/*`, `web/index.html`
 - Audience: operators who create plan jobs, inspect status/logs, and decide when to apply
@@ -39,4 +41,3 @@
 - Add a status badge system and structured job metadata cards to the detail page.
 - Keep the backend contract flexible by avoiding reliance on a dedicated plan endpoint.
 - Keep the UI changes self-contained within `web/**` so backend work can follow independently.
-

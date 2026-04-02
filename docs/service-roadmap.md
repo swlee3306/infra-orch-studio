@@ -1,5 +1,7 @@
 # Service Roadmap
 
+> Historical snapshot: 서비스화 재정렬 초기안이다. 현재 구현이 이 문서의 여러 단계를 이미 지나왔으므로 active implementation checklist로 보지 않는다.
+
 이 로드맵은 현재 코드 현실을 기준으로 서비스화 우선순위를 다시 정렬한 것이다. 기준은 사용자 가치, 운영 안정성, 구조적 완성도, 구현 난이도 대비 효과 순서다.
 
 ## Phase 0. 진단 고정

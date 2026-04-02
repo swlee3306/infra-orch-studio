@@ -1,5 +1,7 @@
 # Upgrade Diagnostic
 
+> Historical snapshot: 이 문서는 environment-first 전환 이전의 업그레이드 기준선을 기록한다. approval, audit, retry, destroy/update lifecycle, environment UI가 이미 구현된 현재 상태와는 일부 차이가 있다.
+
 이 문서는 `infra-orch-studio`를 MVP에서 실서비스 수준의 환경 단위 오케스트레이션 플랫폼으로 끌어올리기 위한 기준선이다.
 
 ## 1. 현재 구조 요약

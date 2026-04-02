@@ -1,5 +1,7 @@
 # Current State Diagnostic
 
+> Historical snapshot: 이 문서는 environment lifecycle, approval, audit, retry, dashboard, plan review, template inspect/validate가 도입되기 전후의 진단 기준선으로 남긴 기록이다. 현재 계약은 `docs/api-spec.md`, `docs/operations-guide.md`, `docs/design-integration-plan.md`, `docs/documentation-map.md`를 우선 본다.
+
 이 문서는 현재 리포지토리의 구현 현실을 기준으로 작성한 진단 보고서다. 목적은 “무엇이 이미 동작하는지”, “어디가 MVP에 머물러 있는지”, “실서비스로 가려면 무엇이 먼저 필요한지”를 분리해 보는 것이다.
 
 ## 1. 현재 시스템 요약

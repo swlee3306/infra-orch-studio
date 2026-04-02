@@ -1,5 +1,7 @@
 # Quality Audit
 
+> Historical snapshot: 초기 품질 상태 진단 기록이다. 현재 품질 게이트와 불일치할 수 있으므로 historical reference로만 사용한다.
+
 ## Current State
 
 The repository already has a clear split between API, runner, renderer, executor, storage, and a small React UI. The strongest parts are the domain model boundaries and the SQLite repository tests. The weakest parts are the contracts at the API boundary and the release gate around the whole system.
@@ -39,4 +41,3 @@ The repository already has a clear split between API, runner, renderer, executor
 2. Add a single verify script and wire it into Makefile and CI.
 3. Document release gates and rollback expectations.
 4. Add UI tests in the next phase when the frontend toolchain is writable.
-

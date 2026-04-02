@@ -1,5 +1,7 @@
 # Product Gap Analysis
 
+> Historical snapshot: environment-first 전환 전 제품 격차 분석 기록이다. 현재 구현 상태 평가는 `docs/design-integration-plan.md`와 최신 API/UI 문서를 우선 기준으로 본다.
+
 ## 1. 제품 정의
 
 이 서비스는 OpenStack 환경을 OpenTofu로 생성/관리하는 환경 단위 오케스트레이션 플랫폼이다. 제품 관점에서 핵심은 “환경을 정의하고, plan을 검토하고, 승인 후 apply를 실행하고, 상태를 추적하는 일”이다.

@@ -1,5 +1,7 @@
 # Implementation Backlog
 
+> Historical snapshot: 이 문서는 job-led MVP 기준 구현 백로그 기록이다. approval, audit, environment UI, template validation이 반영된 현재 상태와는 일부 우선순위가 다르다.
+
 이 백로그는 현재 코드 현실을 기준으로 공통 문제를 모으고, 사용자 가치와 운영 안정성을 우선으로 정렬한 구현 계획이다.
 
 ## 1. 공통 문제점

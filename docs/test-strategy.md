@@ -1,5 +1,7 @@
 # Test Strategy
 
+> Historical snapshot: 초기 contract-test 확대 계획 문서다. 현재는 auth/environment/api 테스트와 MySQL migration hotfix가 이미 반영돼 있어 일부 상태 표기가 오래됐다.
+
 ## Scope
 
 This phase focuses on the backend contract surface that the web UI depends on:
@@ -56,4 +58,3 @@ This phase focuses on the backend contract surface that the web UI depends on:
 ## Known limitation
 
 The repository currently has a separate MySQL package syntax failure outside this phase. Until that is fixed, the verify target intentionally focuses on the contract surface that is writable in this workstream.
-

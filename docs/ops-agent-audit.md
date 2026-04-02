@@ -1,5 +1,7 @@
 # Ops Agent Audit
 
+> Historical snapshot: 운영 감사 기준선 기록이다. ingress/MySQL hotfix 이후 현재 운영 절차는 `docs/operations-guide.md`가 우선이다.
+
 ## Current State
 
 `infra-orch-studio` is no longer a pure MVP skeleton. It now has:
@@ -107,4 +109,3 @@ The operational shape is good enough for a small private platform, but it is not
 - `k8s/mysql/base/*`
 - `deployments/k8s/*`
 - `web/nginx.conf`
-

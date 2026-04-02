@@ -1,5 +1,7 @@
 # Backend Audit
 
+> Historical snapshot: 이 문서는 first-class `Environment`, approval, audit, retry, artifact API가 정착되기 전 백엔드 진단 기록이다. 현재 백엔드 계약은 `docs/api-spec.md`가 우선이다.
+
 ## Scope
 - Read: `cmd/api`, `cmd/runner`, `internal/api`, `internal/domain`, `internal/storage`, `internal/validation`, `internal/executor`, `internal/renderer`
 - Goal: identify backend refactor points for an environment-oriented orchestration platform

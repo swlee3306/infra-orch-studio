@@ -1,5 +1,7 @@
 # API Audit
 
+> Historical snapshot: 이 문서는 job-centric API에서 environment-centric API로 옮겨 가는 과도기 감사 기록이다. 최신 엔드포인트/응답은 `docs/api-spec.md`를 기준으로 한다.
+
 ## Current Shape
 - Active HTTP entrypoint is `internal/api/*`.
 - Auth uses session cookies and MySQL-backed users/sessions.
