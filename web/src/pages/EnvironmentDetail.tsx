@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
+import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
 
 function parseJson(value?: string): any {
   if (!value) return null
@@ -172,6 +173,11 @@ export default function EnvironmentDetailPage() {
     [environment?.last_plan_job_id, environmentJobs],
   )
   const recentJobs = useMemo(() => environmentJobs.slice(0, 4), [environmentJobs])
+  const updateValidation = useMemo(
+    () => (editingSpec ? validateEnvironmentSpecForWizard(editingSpec) : { fieldErrors: {}, stepErrors: {} as Record<number, string[]> }),
+    [editingSpec],
+  )
+  const updateErrorCount = Object.keys(updateValidation.fieldErrors).length
 
   async function load() {
     setError(null)
@@ -234,7 +240,7 @@ export default function EnvironmentDetailPage() {
     }
   }
 
-  const canPlanUpdate = Boolean(environment && editingSpec && busyAction === null)
+  const canPlanUpdate = Boolean(environment && editingSpec && busyAction === null && updateErrorCount === 0)
   const canApprove = Boolean(viewer?.is_admin && environment?.status === 'pending_approval')
   const canApply = Boolean(viewer?.is_admin && environment?.approval_status === 'approved')
   const canRetry = Boolean(environment?.status === 'failed' && (environment.retry_count || 0) < (environment?.max_retries || 0))
@@ -426,6 +432,11 @@ export default function EnvironmentDetailPage() {
           </div>
           <div className="field-group" style={{ marginTop: 16 }}>
             <div className="field-title">Environment spec</div>
+            {updateErrorCount > 0 ? (
+              <div className="error-box" style={{ marginBottom: 14 }}>
+                Resolve {updateErrorCount} input issue(s) before queueing an update plan.
+              </div>
+            ) : null}
             <label className="field" style={{ marginBottom: 14 }}>
               <span>Plan template</span>
               <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
@@ -437,7 +448,7 @@ export default function EnvironmentDetailPage() {
                 ))}
               </select>
             </label>
-            {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} /> : null}
+            {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} errors={updateValidation.fieldErrors} /> : null}
           </div>
         </article>
 

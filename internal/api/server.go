@@ -72,6 +72,7 @@ func NewServer(cfg Config) *Server {
 	mux.Handle("/api/environments", s.withAuth(s.handleEnvironments))
 	mux.Handle("/api/environments/", s.withAuth(s.handleEnvironmentRoute))
 	mux.Handle("/api/templates", s.withAuth(s.handleTemplates))
+	mux.Handle("/api/templates/", s.withAuth(s.handleTemplateRoute))
 	mux.Handle("/api/jobs", s.withAuth(s.handleJobs))
 	mux.Handle("/api/jobs/", s.withAuth(s.handleJobRoute))
 	mux.Handle("/ws", s.withAuth(s.handleWS))

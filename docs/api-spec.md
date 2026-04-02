@@ -251,6 +251,35 @@
 }
 ```
 
+### `GET /api/templates/:kind/:name`
+- Auth required.
+- `kind` is `environment` or `module`.
+- Returns the selected template descriptor plus validation posture:
+```json
+{
+  "descriptor": {
+    "name": "basic",
+    "path": "./templates/opentofu/environments/basic",
+    "files": ["README.md", "main.tf", "outputs.tf", "providers.tf", "terraform.tfvars.json.example", "variables.tf", "versions.tf"]
+  },
+  "validation": {
+    "kind": "environment",
+    "name": "basic",
+    "path": "./templates/opentofu/environments/basic",
+    "required_files": ["main.tf", "variables.tf", "outputs.tf", "versions.tf"],
+    "missing_files": [],
+    "warnings": [],
+    "valid": true,
+    "readme_exists": true
+  }
+}
+```
+
+### `POST /api/templates/:kind/:name/validate`
+- Auth required.
+- Re-runs renderer-facing file validation for the selected environment template or module.
+- Returns the `validation` object shown above.
+
 ## Audit Feed
 
 ### `GET /api/audit`
