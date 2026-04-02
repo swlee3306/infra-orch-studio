@@ -155,6 +155,10 @@ func (s *Server) handlePlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if src.EnvironmentID != "" {
+		writeError(w, http.StatusBadRequest, "environment-managed plans must be queued via POST /api/environments/{id}/plan")
+		return
+	}
 
 	now := time.Now().UTC()
 	job := buildDerivedJob(src, domain.JobTypePlan, now)

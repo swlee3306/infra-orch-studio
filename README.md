@@ -51,6 +51,8 @@ Admin seed:
 - `POST /api/jobs/:id/plan`
 - `POST /api/jobs/:id/apply` (admin only)
 
+`/api/jobs/*` 는 legacy execution view 호환용이다. `environment_id` 가 있는 plan/apply 흐름은 반드시 `/api/environments/*` 를 사용해야 approval, audit, 상태 갱신이 일관되게 유지된다.
+
 ### WebSocket
 - `GET /ws` (cookie auth)
 - client → server: `{ "type": "subscribe", "jobId": "..." }`
