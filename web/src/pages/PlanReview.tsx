@@ -113,6 +113,11 @@ export default function PlanReviewPage() {
           <strong>{environment?.approval_status || '-'}</strong>
           <p>Approval state tracked on the environment resource.</p>
         </article>
+        <article className="metric-card">
+          <span>Template</span>
+          <strong>{planJob?.template_name || 'basic'}</strong>
+          <p>Template set used to render the current plan artifact.</p>
+        </article>
       </section>
 
       <section className="dashboard-grid">

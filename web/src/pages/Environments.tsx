@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { auth, Environment, EnvironmentSpec, environments, User } from '../api'
+import { auth, Environment, EnvironmentSpec, environments, TemplateDescriptor, templates, User } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 
@@ -45,6 +45,8 @@ export default function EnvironmentsPage() {
   const [filter, setFilter] = useState<FilterKey>('all')
   const [search, setSearch] = useState('')
   const [spec, setSpec] = useState<EnvironmentSpec>(createDefaultSpec)
+  const [templateItems, setTemplateItems] = useState<TemplateDescriptor[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState('basic')
 
   async function load() {
     setError(null)
@@ -57,9 +59,9 @@ export default function EnvironmentsPage() {
     }
 
     try {
-      const res = await environments.list(100)
-      setItems(res.items)
-      setViewer(res.viewer)
+      const environmentRes = await environments.list(100)
+      setItems(environmentRes.items)
+      setViewer(environmentRes.viewer)
     } catch (err: any) {
       setError(err?.message || 'failed')
     }
@@ -67,6 +69,23 @@ export default function EnvironmentsPage() {
 
   useEffect(() => {
     load()
+  }, [])
+
+  useEffect(() => {
+    templates
+      .list()
+      .then((templateRes) => {
+        setTemplateItems(templateRes.environment_sets)
+        if (templateRes.environment_sets.length > 0) {
+          setSelectedTemplate((current) =>
+            templateRes.environment_sets.some((item) => item.name === current) ? current : templateRes.environment_sets[0].name,
+          )
+        }
+      })
+      .catch(() => {
+        setTemplateItems([])
+        setSelectedTemplate('basic')
+      })
   }, [])
 
   const summary = useMemo(() => {
@@ -300,7 +319,7 @@ export default function EnvironmentsPage() {
               setCreateError(null)
               setCreating(true)
               try {
-                const created = await environments.create(spec, 'basic')
+                const created = await environments.create(spec, selectedTemplate)
                 nav(`/environments/${created.environment.id}/review`)
               } catch (err: any) {
                 setCreateError(err?.message || 'failed to create environment')
@@ -309,6 +328,17 @@ export default function EnvironmentsPage() {
               }
             }}
           >
+            <label className="field">
+              <span>Template</span>
+              <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
+                {templateItems.length === 0 ? <option value="basic">basic</option> : null}
+                {templateItems.map((item) => (
+                  <option key={item.name} value={item.name}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <EnvironmentSpecForm value={spec} onChange={setSpec} />
             {createError ? <div className="error-box">{createError}</div> : null}
             <div className="detail-actions">

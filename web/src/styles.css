@@ -382,6 +382,7 @@ button:hover:not(:disabled) {
 
 .ops-input,
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   border-radius: 12px;
@@ -393,6 +394,7 @@ button:hover:not(:disabled) {
 
 .ops-input::placeholder,
 .field input::placeholder,
+.field select::placeholder,
 .field textarea::placeholder {
   color: #64748b;
 }
