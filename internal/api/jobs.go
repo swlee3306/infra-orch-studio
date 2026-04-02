@@ -199,6 +199,10 @@ func (s *Server) handleApply(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "source job has no plan artifact")
 		return
 	}
+	if src.EnvironmentID != "" {
+		writeError(w, http.StatusBadRequest, "environment-managed plans must be applied via POST /api/environments/{id}/apply")
+		return
+	}
 	if err := validateEnvironmentSpecStrict(src.Environment); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -226,17 +230,17 @@ func jobActionID(path, action string) (string, error) {
 
 func buildDerivedJob(src domain.Job, jobType domain.JobType, now time.Time) domain.Job {
 	job := domain.Job{
-		ID:           uuid.NewString(),
-		Type:         jobType,
-		Status:       domain.JobStatusQueued,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:            uuid.NewString(),
+		Type:          jobType,
+		Status:        domain.JobStatusQueued,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 		EnvironmentID: src.EnvironmentID,
 		Operation:     src.Operation,
-		Environment:  src.Environment,
-		TemplateName: src.TemplateName,
-		MaxRetries:   src.MaxRetries,
-		RequestedBy:  src.RequestedBy,
+		Environment:   src.Environment,
+		TemplateName:  src.TemplateName,
+		MaxRetries:    src.MaxRetries,
+		RequestedBy:   src.RequestedBy,
 	}
 
 	switch jobType {

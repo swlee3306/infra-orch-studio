@@ -18,22 +18,22 @@ import (
 type fakeStore struct {
 	mu sync.Mutex
 
-	users       map[string]domain.User
-	usersByMail map[string]string
-	sessions    map[string]domain.Session
-	jobs        map[string]domain.Job
+	users        map[string]domain.User
+	usersByMail  map[string]string
+	sessions     map[string]domain.Session
+	jobs         map[string]domain.Job
 	environments map[string]domain.Environment
-	audits      []domain.AuditEvent
+	audits       []domain.AuditEvent
 }
 
 func newFakeStore() *fakeStore {
 	return &fakeStore{
-		users:       map[string]domain.User{},
-		usersByMail: map[string]string{},
-		sessions:    map[string]domain.Session{},
-		jobs:        map[string]domain.Job{},
+		users:        map[string]domain.User{},
+		usersByMail:  map[string]string{},
+		sessions:     map[string]domain.Session{},
+		jobs:         map[string]domain.Job{},
 		environments: map[string]domain.Environment{},
-		audits:      []domain.AuditEvent{},
+		audits:       []domain.AuditEvent{},
 	}
 }
 

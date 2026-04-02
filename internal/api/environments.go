@@ -20,9 +20,9 @@ type createEnvironmentRequest struct {
 }
 
 type planEnvironmentRequest struct {
-	Spec         *domain.EnvironmentSpec      `json:"spec,omitempty"`
-	TemplateName string                       `json:"template_name,omitempty"`
-	Operation    domain.EnvironmentOperation  `json:"operation,omitempty"`
+	Spec         *domain.EnvironmentSpec     `json:"spec,omitempty"`
+	TemplateName string                      `json:"template_name,omitempty"`
+	Operation    domain.EnvironmentOperation `json:"operation,omitempty"`
 }
 
 func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user domain.User) {
@@ -56,17 +56,17 @@ func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user
 
 		now := time.Now().UTC()
 		env := domain.Environment{
-			ID:             uuid.NewString(),
-			Name:           req.Spec.EnvironmentName,
-			Status:         domain.EnvironmentStatusPlanning,
-			Operation:      domain.EnvironmentOperationCreate,
-			ApprovalStatus: domain.ApprovalStatusNotRequested,
-			Spec:           req.Spec,
+			ID:              uuid.NewString(),
+			Name:            req.Spec.EnvironmentName,
+			Status:          domain.EnvironmentStatusPlanning,
+			Operation:       domain.EnvironmentOperationCreate,
+			ApprovalStatus:  domain.ApprovalStatusNotRequested,
+			Spec:            req.Spec,
 			CreatedByUserID: user.ID,
-			CreatedByEmail: user.Email,
-			MaxRetries:     3,
-			CreatedAt:      now,
-			UpdatedAt:      now,
+			CreatedByEmail:  user.Email,
+			MaxRetries:      3,
+			CreatedAt:       now,
+			UpdatedAt:       now,
 		}
 		createdEnv, err := s.jobs.CreateEnvironment(r.Context(), env)
 		if err != nil {
