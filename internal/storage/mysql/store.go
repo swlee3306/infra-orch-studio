@@ -175,20 +175,48 @@ DELETE FROM sessions WHERE expires_at <= UTC_TIMESTAMP(6);
 	if _, err := s.exec(ctx, true, ddl); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
-	for _, stmt := range []string{
-		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS environment_id VARCHAR(64) NOT NULL DEFAULT ''",
-		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS operation VARCHAR(32) NOT NULL DEFAULT ''",
-		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS log_dir VARCHAR(2048) NOT NULL DEFAULT ''",
-		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS outputs_json LONGTEXT NOT NULL",
-		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS retry_count INT NOT NULL DEFAULT 0",
-		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS max_retries INT NOT NULL DEFAULT 0",
-		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS requested_by VARCHAR(255) NOT NULL DEFAULT ''",
+	for _, col := range []struct {
+		name       string
+		definition string
+	}{
+		{name: "environment_id", definition: "VARCHAR(64) NOT NULL DEFAULT ''"},
+		{name: "operation", definition: "VARCHAR(32) NOT NULL DEFAULT ''"},
+		{name: "log_dir", definition: "VARCHAR(2048) NOT NULL DEFAULT ''"},
+		{name: "outputs_json", definition: "LONGTEXT NOT NULL"},
+		{name: "retry_count", definition: "INT NOT NULL DEFAULT 0"},
+		{name: "max_retries", definition: "INT NOT NULL DEFAULT 0"},
+		{name: "requested_by", definition: "VARCHAR(255) NOT NULL DEFAULT ''"},
 	} {
-		if _, err := s.exec(ctx, true, stmt+";"); err != nil {
+		if err := s.addColumnIfMissing(ctx, "jobs", col.name, col.definition); err != nil {
 			return fmt.Errorf("migrate alter jobs: %w", err)
 		}
 	}
 	return nil
+}
+
+func (s *Store) addColumnIfMissing(ctx context.Context, tableName string, columnName string, definition string) error {
+	query := fmt.Sprintf(
+		`SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = %s AND table_name = %s AND column_name = %s;`,
+		quoteString(s.cfg.Database),
+		quoteString(tableName),
+		quoteString(columnName),
+	)
+	out, err := s.exec(ctx, false, query)
+	if err != nil {
+		return err
+	}
+	lines := outputLines(out)
+	if len(lines) > 0 && lines[len(lines)-1] != "0" {
+		return nil
+	}
+	alter := fmt.Sprintf(
+		`ALTER TABLE %s ADD COLUMN %s %s;`,
+		quoteIdentifier(tableName),
+		quoteIdentifier(columnName),
+		definition,
+	)
+	_, err = s.exec(ctx, true, alter)
+	return err
 }
 
 func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error) {
