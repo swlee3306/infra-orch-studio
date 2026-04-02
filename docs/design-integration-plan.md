@@ -219,6 +219,7 @@
   - P1 `Create Environment Flow / Plan Review / Approval`
   - 상태 기반 진입 흐름 `dashboard -> environments -> detail -> review -> approval`
   - create wizard review가 `plan-review-preview` API를 사용하도록 정렬되어 review 기준이 create 이후 화면과 일치
+  - create wizard가 단계별 validation gate와 실제 `security refs` 입력을 제공하여 마지막 review 단계에 오류가 몰리지 않도록 정리
 - 부분 완료
   - P2 `Job Detail`을 environment-linked execution view로 재구성
   - P2 `Dedicated Audit` 화면 추가

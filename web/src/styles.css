@@ -51,6 +51,12 @@ select {
   font: inherit;
 }
 
+input,
+textarea,
+select {
+  width: 100%;
+}
+
 button {
   border: 1px solid transparent;
   border-radius: 12px;
@@ -78,6 +84,24 @@ button:hover:not(:disabled) {
 
 .danger {
   color: var(--danger);
+}
+
+.field-invalid input,
+.field-invalid textarea,
+.field-invalid select {
+  border-color: rgba(248, 113, 113, 0.85);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25);
+}
+
+.field-error,
+.wizard-step-warning {
+  color: var(--danger);
+}
+
+.field-error {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85rem;
 }
 
 .app-shell {

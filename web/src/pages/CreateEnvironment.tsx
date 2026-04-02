@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { auth, environments, EnvironmentPlanReviewResponse, EnvironmentSpec, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
+import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
 
 const STORAGE_KEY = 'infra-orch:create-draft'
 
@@ -15,6 +16,14 @@ const steps = [
   'Security Refs',
   'Validate + Review',
 ]
+
+const stepSections: Record<number, Array<'environment' | 'tenant' | 'network' | 'instances' | 'security'>> = {
+  1: ['tenant'],
+  2: ['environment'],
+  3: ['network'],
+  4: ['instances'],
+  5: ['security'],
+}
 
 export default function CreateEnvironmentPage() {
   const nav = useNavigate()
@@ -76,6 +85,9 @@ export default function CreateEnvironmentPage() {
   }, [])
 
   const summary = useMemo(() => summarizeSpec(spec), [spec])
+  const validation = useMemo(() => validateEnvironmentSpecForWizard(spec), [spec])
+  const currentStepErrors = validation.stepErrors[step] || []
+  const currentStepBlocked = step !== 0 && currentStepErrors.length > 0
   const reviewSignals = preview?.review_signals || []
   const impact = preview?.impact_summary || null
 
@@ -182,6 +194,9 @@ export default function CreateEnvironmentPage() {
                   <strong>
                     {String(index + 1).padStart(2, '0')} {label}
                   </strong>
+                  {index > 0 && validation.stepErrors[index]?.length ? (
+                    <div className="row-meta wizard-step-warning">{validation.stepErrors[index][0]}</div>
+                  ) : null}
                 </div>
               </button>
             ))}
@@ -195,6 +210,12 @@ export default function CreateEnvironmentPage() {
               <h2>{steps[step]}</h2>
             </div>
           </div>
+          {currentStepErrors.length > 0 ? (
+            <div className="error-box">
+              <strong>Resolve before continuing</strong>
+              <div>{currentStepErrors[0]}</div>
+            </div>
+          ) : null}
 
           {step === 0 ? (
             <div className="page-stack">
@@ -237,23 +258,19 @@ export default function CreateEnvironmentPage() {
 
           {step === 1 ? (
             <div className="grid-two">
-              <label className="field">
-                <span>Tenant</span>
-                <input value={spec.tenant_name} onChange={(e) => setSpec({ ...spec, tenant_name: e.target.value })} />
-              </label>
+              <EnvironmentSpecForm value={spec} onChange={setSpec} sections={stepSections[step]} errors={validation.fieldErrors} />
             </div>
           ) : null}
 
           {step === 2 ? (
             <div className="grid-two">
-              <label className="field">
-                <span>Environment name</span>
-                <input value={spec.environment_name} onChange={(e) => setSpec({ ...spec, environment_name: e.target.value })} />
-              </label>
+              <EnvironmentSpecForm value={spec} onChange={setSpec} sections={stepSections[step]} errors={validation.fieldErrors} />
             </div>
           ) : null}
 
-          {step >= 3 && step <= 5 ? <EnvironmentSpecForm value={spec} onChange={setSpec} /> : null}
+          {step >= 3 && step <= 5 ? (
+            <EnvironmentSpecForm value={spec} onChange={setSpec} sections={stepSections[step]} errors={validation.fieldErrors} />
+          ) : null}
 
           {step === 6 ? (
             <div className="page-stack">
@@ -325,6 +342,10 @@ export default function CreateEnvironmentPage() {
                       <span>Mode</span>
                       <strong>{templateMode}</strong>
                     </div>
+                    <div className="meta-item">
+                      <span>Input gates</span>
+                      <strong>{Object.keys(validation.fieldErrors).length === 0 ? 'Clear' : `${Object.keys(validation.fieldErrors).length} issue(s)`}</strong>
+                    </div>
                   </div>
                 </article>
               </div>
@@ -336,11 +357,15 @@ export default function CreateEnvironmentPage() {
               Back
             </button>
             {step < steps.length - 1 ? (
-              <button type="button" onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))}>
+              <button type="button" onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))} disabled={currentStepBlocked}>
                 Continue
               </button>
             ) : (
-              <button type="button" onClick={createEnvironment} disabled={creating || previewLoading || !!previewError}>
+              <button
+                type="button"
+                onClick={createEnvironment}
+                disabled={creating || previewLoading || !!previewError || Object.keys(validation.fieldErrors).length > 0}
+              >
                 {creating ? 'Queueing initial plan...' : previewLoading ? 'Refreshing review...' : previewError ? 'Fix review errors' : 'Review plan'}
               </button>
             )}
