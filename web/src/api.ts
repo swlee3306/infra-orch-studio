@@ -41,10 +41,17 @@ export type Job = {
   status: string
   created_at: string
   updated_at: string
+  environment_id?: string
+  operation?: string
   template_name?: string
   workdir?: string
+  log_dir?: string
   plan_path?: string
   source_job_id?: string
+  outputs_json?: string
+  retry_count?: number
+  max_retries?: number
+  requested_by?: string
   error?: string
   environment?: any
 }
@@ -52,6 +59,57 @@ export type Job = {
 export type JobListResponse = {
   items: Job[]
   viewer: User
+}
+
+export type Environment = {
+  id: string
+  name: string
+  status: string
+  operation: string
+  approval_status: string
+  spec: EnvironmentSpec
+  created_by_user_id?: string
+  created_by_email?: string
+  approved_by_user_id?: string
+  approved_by_email?: string
+  approved_at?: string
+  last_plan_job_id?: string
+  last_apply_job_id?: string
+  last_job_id?: string
+  last_error?: string
+  retry_count?: number
+  max_retries?: number
+  workdir?: string
+  plan_path?: string
+  outputs_json?: string
+  created_at: string
+  updated_at: string
+}
+
+export type AuditEvent = {
+  id: string
+  resource_type: string
+  resource_id: string
+  action: string
+  actor_user_id?: string
+  actor_email?: string
+  message?: string
+  metadata_json?: string
+  created_at: string
+}
+
+export type EnvironmentListResponse = {
+  items: Environment[]
+  viewer: User
+}
+
+export type EnvironmentMutationResponse = {
+  environment: Environment
+  job?: Job
+}
+
+export type EnvironmentAuditResponse = {
+  items: AuditEvent[]
 }
 
 // VITE_API_URL should point to the API base.
@@ -98,6 +156,26 @@ export const jobs = {
   plan: (environment: EnvironmentSpec) =>
     req<Job>('/jobs', { method: 'POST', body: JSON.stringify({ type: 'tofu.plan', environment }) }),
   apply: (id: string) => req<Job>('/jobs/' + id + '/apply', { method: 'POST' }),
+}
+
+export const environments = {
+  list: (limit = 50) => req<EnvironmentListResponse>('/environments?limit=' + limit),
+  get: (id: string) => req<Environment>('/environments/' + id),
+  create: (spec: EnvironmentSpec, templateName?: string) =>
+    req<EnvironmentMutationResponse>('/environments', {
+      method: 'POST',
+      body: JSON.stringify({ spec, template_name: templateName }),
+    }),
+  plan: (id: string, spec?: EnvironmentSpec, operation?: string, templateName?: string) =>
+    req<EnvironmentMutationResponse>('/environments/' + id + '/plan', {
+      method: 'POST',
+      body: JSON.stringify({ spec, operation, template_name: templateName }),
+    }),
+  approve: (id: string) => req<Environment>('/environments/' + id + '/approve', { method: 'POST' }),
+  apply: (id: string) => req<EnvironmentMutationResponse>('/environments/' + id + '/apply', { method: 'POST' }),
+  retry: (id: string) => req<EnvironmentMutationResponse>('/environments/' + id + '/retry', { method: 'POST' }),
+  destroy: (id: string) => req<EnvironmentMutationResponse>('/environments/' + id + '/destroy', { method: 'POST' }),
+  audit: (id: string) => req<EnvironmentAuditResponse>('/environments/' + id + '/audit'),
 }
 
 export function wsUrl(): string {

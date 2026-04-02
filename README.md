@@ -2,10 +2,11 @@
 
 템플릿, API, 웹 UI를 통해 OpenTofu를 활용하여 **OpenStack 인프라 환경(Environment)** 을 선언형으로 생성·관리하는 환경 단위 오케스트레이션 플랫폼.
 
-## MVP scope
-- Environment 생성 요청 → job 생성
-- plan 생성
-- apply 실행(명시적 요청에서만, admin only)
+## Current platform scope
+- Environment 생성 → 초기 plan 큐잉
+- Environment update / destroy plan 큐잉
+- plan 승인(admin) → apply 실행(admin)
+- environment 상태, retry budget, audit trail, artifact 경로 추적
 - job 상태/로그 조회 (WebSocket)
 
 ## Architecture
@@ -31,6 +32,17 @@
 
 Admin seed:
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD` 를 API에 설정하면 시작 시 admin 유저를 upsert 합니다.
+
+### Environments
+- `GET /api/environments?limit=50`
+- `POST /api/environments`
+- `GET /api/environments/:id`
+- `POST /api/environments/:id/plan`
+- `POST /api/environments/:id/approve` (admin only)
+- `POST /api/environments/:id/apply` (admin only)
+- `POST /api/environments/:id/retry`
+- `POST /api/environments/:id/destroy`
+- `GET /api/environments/:id/audit`
 
 ### Jobs
 - `GET /api/jobs?limit=50`
@@ -108,7 +120,9 @@ Open: http://localhost:5173
 
 ## Kubernetes (namespace: infra)
 
-Manifests: `deployments/k8s/`
+Manifests:
+- preferred: `k8s/app/`
+- legacy examples: `deployments/k8s/`
 
 ```bash
 kubectl apply -f deployments/k8s/namespace.yaml

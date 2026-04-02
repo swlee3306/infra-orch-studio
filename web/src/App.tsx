@@ -1,6 +1,8 @@
 import React from 'react'
 import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { auth } from './api'
+import EnvironmentDetailPage from './pages/EnvironmentDetail'
+import EnvironmentsPage from './pages/Environments'
 import JobDetailPage from './pages/JobDetail'
 import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
@@ -15,13 +17,16 @@ export default function App() {
       {isAuthRoute ? null : (
         <div className="shell">
           <header className="shell-header">
-            <Link to="/jobs" style={{ textDecoration: 'none' }}>
+            <Link to="/environments" style={{ textDecoration: 'none' }}>
               <div className="brand">
                 <h1>Infra Orch Studio</h1>
-                <p>Operator console for plan, apply, and runtime visibility</p>
+                <p>Environment orchestration console for plan, approval, apply, and operations</p>
               </div>
             </Link>
             <div className="nav">
+              <Link to="/environments" className="ghost" style={{ textDecoration: 'none', display: 'inline-flex' }}>
+                Environments
+              </Link>
               <Link to="/jobs" className="ghost" style={{ textDecoration: 'none', display: 'inline-flex' }}>
                 Jobs
               </Link>
@@ -44,9 +49,11 @@ export default function App() {
 
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/environments" element={<EnvironmentsPage />} />
+        <Route path="/environments/:id" element={<EnvironmentDetailPage />} />
         <Route path="/jobs" element={<JobsPage />} />
         <Route path="/jobs/:id" element={<JobDetailPage />} />
-        <Route path="*" element={<LoginPage />} />
+        <Route path="*" element={<EnvironmentsPage />} />
       </Routes>
     </>
   )
