@@ -207,7 +207,11 @@ export const environments = {
       method: 'POST',
       body: JSON.stringify({ spec, operation, template_name: templateName }),
     }),
-  approve: (id: string) => req<Environment>('/environments/' + id + '/approve', { method: 'POST' }),
+  approve: (id: string, payload?: { comment?: string }) =>
+    req<Environment>('/environments/' + id + '/approve', {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    }),
   apply: (id: string) => req<EnvironmentMutationResponse>('/environments/' + id + '/apply', { method: 'POST' }),
   retry: (id: string) => req<EnvironmentMutationResponse>('/environments/' + id + '/retry', { method: 'POST' }),
   destroy: (id: string, payload: { confirmation_name: string; comment?: string }) =>

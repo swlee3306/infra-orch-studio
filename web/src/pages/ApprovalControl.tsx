@@ -11,6 +11,7 @@ export default function ApprovalControlPage() {
   const [environment, setEnvironment] = useState<Environment | null>(null)
   const [jobsForEnvironment, setJobsForEnvironment] = useState<Job[]>([])
   const [auditItems, setAuditItems] = useState<AuditEvent[]>([])
+  const [approvalComment, setApprovalComment] = useState('')
   const [typedConfirmation, setTypedConfirmation] = useState('')
   const [destroyComment, setDestroyComment] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -146,9 +147,18 @@ export default function ApprovalControlPage() {
               </div>
             ))}
           </div>
+          <label className="field" style={{ marginTop: 14 }}>
+            <span>Approval comment</span>
+            <textarea
+              value={approvalComment}
+              onChange={(e) => setApprovalComment(e.target.value)}
+              placeholder="Why this plan is safe to approve"
+              rows={3}
+            />
+          </label>
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {canApprove ? (
-              <button onClick={() => run('approve', () => environments.approve(environmentId))} disabled={busy !== null}>
+              <button onClick={() => run('approve', () => environments.approve(environmentId, { comment: approvalComment.trim() }))} disabled={busy !== null}>
                 {busy === 'approve' ? 'Approving...' : 'Approve request'}
               </button>
             ) : null}
