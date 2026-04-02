@@ -38,6 +38,8 @@ Admin seed:
 - `POST /api/environments`
 - `GET /api/environments/:id`
 - `POST /api/environments/:id/plan`
+- `GET /api/environments/:id/plan-review`
+- `POST /api/environments/plan-review-preview`
 - `POST /api/environments/:id/approve` (admin only)
 - `POST /api/environments/:id/apply` (admin only)
 - `POST /api/environments/:id/retry`
@@ -48,6 +50,8 @@ Admin seed:
 
 ### Templates
 - `GET /api/templates`
+- `GET /api/templates/:kind/:name`
+- `POST /api/templates/:kind/:name/validate`
 
 ### Audit
 - `GET /api/audit?resource_type=environment&limit=200`
@@ -121,7 +125,7 @@ curl -s localhost:8080/healthz
 ```bash
 cd web
 npm install
-VITE_API_URL=http://localhost:8080 npm run dev
+VITE_API_URL=http://localhost:8080/api npm run dev
 ```
 
 Open: http://localhost:5173
@@ -134,6 +138,12 @@ Manifests:
 - preferred: `k8s/app/`
 - legacy examples: `deployments/k8s/`
 
+Preferred overlay path:
+```bash
+kustomize build k8s/app/overlays/prod | kubectl apply -f -
+```
+
+Legacy example path:
 ```bash
 kubectl apply -f deployments/k8s/namespace.yaml
 # create mysql secret (example file is base64-encoded)
