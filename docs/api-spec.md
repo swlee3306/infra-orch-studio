@@ -214,12 +214,14 @@
 - Creates a new queued `tofu.plan` job derived from the source job.
 - The new job copies the source environment and stores `source_job_id`.
 - Runner executes the plan asynchronously.
+- If the source job belongs to a first-class environment (`environment_id` present), this route is rejected. Use `POST /api/environments/:id/plan` so environment state and audit stay consistent.
 
 ### `POST /api/jobs/:id/apply`
 - Auth required.
 - Admin only.
 - Source job must be a completed `tofu.plan` job with `workdir` and `plan_path`.
 - Creates a new queued `tofu.apply` job derived from that plan job.
+- If the source plan belongs to a first-class environment (`environment_id` present), this route is rejected. Use `POST /api/environments/:id/apply`.
 
 ## WebSocket
 
