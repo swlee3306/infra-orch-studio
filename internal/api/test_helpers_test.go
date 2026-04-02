@@ -22,6 +22,8 @@ type fakeStore struct {
 	usersByMail map[string]string
 	sessions    map[string]domain.Session
 	jobs        map[string]domain.Job
+	environments map[string]domain.Environment
+	audits      []domain.AuditEvent
 }
 
 func newFakeStore() *fakeStore {
@@ -30,6 +32,8 @@ func newFakeStore() *fakeStore {
 		usersByMail: map[string]string{},
 		sessions:    map[string]domain.Session{},
 		jobs:        map[string]domain.Job{},
+		environments: map[string]domain.Environment{},
+		audits:      []domain.AuditEvent{},
 	}
 }
 
@@ -113,6 +117,87 @@ func (f *fakeStore) ClaimNextQueuedJob(_ context.Context) (domain.Job, bool, err
 	job.UpdatedAt = time.Now().UTC()
 	f.jobs[job.ID] = job
 	return job, true, nil
+}
+
+func (f *fakeStore) CreateEnvironment(_ context.Context, env domain.Environment) (domain.Environment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.environments[env.ID] = env
+	return env, nil
+}
+
+func (f *fakeStore) GetEnvironment(_ context.Context, id string) (domain.Environment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	env, ok := f.environments[id]
+	if !ok {
+		return domain.Environment{}, sql.ErrNoRows
+	}
+	return env, nil
+}
+
+func (f *fakeStore) ListEnvironments(_ context.Context, limit int) ([]domain.Environment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if limit <= 0 {
+		limit = 50
+	}
+	out := make([]domain.Environment, 0, len(f.environments))
+	for _, env := range f.environments {
+		out = append(out, env)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (f *fakeStore) UpdateEnvironment(_ context.Context, env domain.Environment) (domain.Environment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, ok := f.environments[env.ID]; !ok {
+		return domain.Environment{}, sql.ErrNoRows
+	}
+	f.environments[env.ID] = env
+	return env, nil
+}
+
+func (f *fakeStore) CreateAuditEvent(_ context.Context, event domain.AuditEvent) (domain.AuditEvent, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.audits = append(f.audits, event)
+	return event, nil
+}
+
+func (f *fakeStore) ListAuditEvents(_ context.Context, resourceType, resourceID string, limit int) ([]domain.AuditEvent, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if limit <= 0 {
+		limit = 50
+	}
+	out := make([]domain.AuditEvent, 0, len(f.audits))
+	for _, event := range f.audits {
+		if resourceType != "" && event.ResourceType != resourceType {
+			continue
+		}
+		if resourceID != "" && event.ResourceID != resourceID {
+			continue
+		}
+		out = append(out, event)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (f *fakeStore) CreateUser(_ context.Context, user domain.User) (domain.User, error) {
