@@ -66,6 +66,7 @@ This project uses three kinds of configuration:
 
 - `infra-orch-workdirs`
   - Persistent runner workdir storage.
+  - Holds rendered templates, plan artifacts, and streamed logs for environment jobs.
 
 ## Environment Overlay Defaults
 
@@ -89,3 +90,5 @@ This project uses three kinds of configuration:
 - The OpenStack secret is the operator's responsibility and must contain a valid `clouds.yaml`.
 - The runner workdir PVC must be bound before processing jobs.
 - The web app uses Nginx to proxy `/api` and `/ws`; the API service must remain reachable inside the cluster.
+- Environment lifecycle state lives in MySQL. The PVC is for execution artifacts, not as the source of truth for approval or status.
+- Environment-managed plan/apply flows must use `/api/environments/*`; `/api/jobs/*` remains a legacy execution surface for backward compatibility.
