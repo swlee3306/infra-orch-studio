@@ -61,6 +61,8 @@ func NewServer(cfg Config) *Server {
 	mux.HandleFunc("/api/auth/login", s.handleLogin)
 	mux.HandleFunc("/api/auth/logout", s.handleLogout)
 	mux.Handle("/api/auth/me", s.withAuth(s.handleMe))
+	mux.Handle("/api/environments", s.withAuth(s.handleEnvironments))
+	mux.Handle("/api/environments/", s.withAuth(s.handleEnvironmentRoute))
 	mux.Handle("/api/jobs", s.withAuth(s.handleJobs))
 	mux.Handle("/api/jobs/", s.withAuth(s.handleJobRoute))
 	mux.Handle("/ws", s.withAuth(s.handleWS))

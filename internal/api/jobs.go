@@ -57,7 +57,10 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request, user domain.
 			Status:      domain.JobStatusQueued,
 			CreatedAt:   now,
 			UpdatedAt:   now,
+			Operation:   domain.EnvironmentOperationCreate,
 			Environment: req.Environment,
+			MaxRetries:  3,
+			RequestedBy: user.Email,
 		}
 		created, err := s.jobs.CreateJob(r.Context(), job)
 		if err != nil {
@@ -228,8 +231,12 @@ func buildDerivedJob(src domain.Job, jobType domain.JobType, now time.Time) doma
 		Status:       domain.JobStatusQueued,
 		CreatedAt:    now,
 		UpdatedAt:    now,
+		EnvironmentID: src.EnvironmentID,
+		Operation:     src.Operation,
 		Environment:  src.Environment,
 		TemplateName: src.TemplateName,
+		MaxRetries:   src.MaxRetries,
+		RequestedBy:  src.RequestedBy,
 	}
 
 	switch jobType {

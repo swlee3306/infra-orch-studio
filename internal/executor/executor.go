@@ -45,17 +45,29 @@ func (e CommandExecutor) Init(ctx context.Context, workdir string) (RunResult, e
 }
 
 func (e CommandExecutor) Plan(ctx context.Context, workdir, outPlanPath string) (RunResult, error) {
+	return e.plan(ctx, workdir, outPlanPath, false)
+}
+
+func (e CommandExecutor) PlanDestroy(ctx context.Context, workdir, outPlanPath string) (RunResult, error) {
+	return e.plan(ctx, workdir, outPlanPath, true)
+}
+
+func (e CommandExecutor) plan(ctx context.Context, workdir, outPlanPath string, destroy bool) (RunResult, error) {
 	// Ensure plan output directory exists.
 	if dir := filepath.Dir(outPlanPath); dir != "." {
 		_ = os.MkdirAll(filepath.Join(workdir, dir), 0o755)
 	}
-	return e.run(ctx, workdir,
+	args := []string{
 		"plan",
 		"-input=false",
 		"-no-color",
 		"-var-file=terraform.tfvars.json",
 		"-out="+outPlanPath,
-	)
+	}
+	if destroy {
+		args = append(args, "-destroy")
+	}
+	return e.run(ctx, workdir, args...)
 }
 
 func (e CommandExecutor) Apply(ctx context.Context, workdir, planPath string) (RunResult, error) {
@@ -64,6 +76,13 @@ func (e CommandExecutor) Apply(ctx context.Context, workdir, planPath string) (R
 		"-input=false",
 		"-no-color",
 		planPath,
+	)
+}
+
+func (e CommandExecutor) OutputJSON(ctx context.Context, workdir string) (RunResult, error) {
+	return e.run(ctx, workdir,
+		"output",
+		"-json",
 	)
 }
 

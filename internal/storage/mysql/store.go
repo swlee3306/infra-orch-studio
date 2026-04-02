@@ -110,22 +110,83 @@ CREATE TABLE IF NOT EXISTS jobs (
 	status VARCHAR(32) NOT NULL,
 	created_at DATETIME(6) NOT NULL,
 	updated_at DATETIME(6) NOT NULL,
+	environment_id VARCHAR(64) NOT NULL DEFAULT '',
+	operation VARCHAR(32) NOT NULL DEFAULT '',
 	environment_json LONGTEXT NOT NULL,
 	template_name TEXT NOT NULL,
 	workdir TEXT NOT NULL,
+	log_dir TEXT NOT NULL DEFAULT '',
 	plan_path TEXT NOT NULL,
+	outputs_json LONGTEXT NOT NULL,
 	source_job_id VARCHAR(64) NOT NULL,
 	claim_token VARCHAR(128) NOT NULL DEFAULT '',
+	retry_count INT NOT NULL DEFAULT 0,
+	max_retries INT NOT NULL DEFAULT 0,
+	requested_by VARCHAR(255) NOT NULL DEFAULT '',
 	error TEXT NOT NULL,
 	INDEX idx_jobs_created_at (created_at),
 	INDEX idx_jobs_status_created_at (status, created_at),
-	INDEX idx_jobs_claim_token (claim_token)
+	INDEX idx_jobs_claim_token (claim_token),
+	INDEX idx_jobs_environment_id (environment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS environments (
+	id VARCHAR(64) PRIMARY KEY,
+	name VARCHAR(255) NOT NULL,
+	status VARCHAR(32) NOT NULL,
+	operation VARCHAR(32) NOT NULL,
+	approval_status VARCHAR(32) NOT NULL,
+	spec_json LONGTEXT NOT NULL,
+	created_by_user_id VARCHAR(64) NOT NULL DEFAULT '',
+	created_by_email VARCHAR(255) NOT NULL DEFAULT '',
+	approved_by_user_id VARCHAR(64) NOT NULL DEFAULT '',
+	approved_by_email VARCHAR(255) NOT NULL DEFAULT '',
+	approved_at DATETIME(6) NULL,
+	last_plan_job_id VARCHAR(64) NOT NULL DEFAULT '',
+	last_apply_job_id VARCHAR(64) NOT NULL DEFAULT '',
+	last_job_id VARCHAR(64) NOT NULL DEFAULT '',
+	last_error TEXT NOT NULL,
+	retry_count INT NOT NULL DEFAULT 0,
+	max_retries INT NOT NULL DEFAULT 0,
+	workdir TEXT NOT NULL,
+	plan_path TEXT NOT NULL,
+	outputs_json LONGTEXT NOT NULL,
+	created_at DATETIME(6) NOT NULL,
+	updated_at DATETIME(6) NOT NULL,
+	INDEX idx_environments_updated_at (updated_at),
+	INDEX idx_environments_status_updated_at (status, updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS audit_events (
+	id VARCHAR(64) PRIMARY KEY,
+	resource_type VARCHAR(64) NOT NULL,
+	resource_id VARCHAR(64) NOT NULL,
+	action VARCHAR(128) NOT NULL,
+	actor_user_id VARCHAR(64) NOT NULL DEFAULT '',
+	actor_email VARCHAR(255) NOT NULL DEFAULT '',
+	message TEXT NOT NULL,
+	metadata_json LONGTEXT NOT NULL,
+	created_at DATETIME(6) NOT NULL,
+	INDEX idx_audit_resource_created_at (resource_type, resource_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 DELETE FROM sessions WHERE expires_at <= UTC_TIMESTAMP(6);
 `
 	if _, err := s.exec(ctx, true, ddl); err != nil {
 		return fmt.Errorf("migrate: %w", err)
+	}
+	for _, stmt := range []string{
+		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS environment_id VARCHAR(64) NOT NULL DEFAULT ''",
+		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS operation VARCHAR(32) NOT NULL DEFAULT ''",
+		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS log_dir TEXT NOT NULL DEFAULT ''",
+		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS outputs_json LONGTEXT NOT NULL",
+		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS retry_count INT NOT NULL DEFAULT 0",
+		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS max_retries INT NOT NULL DEFAULT 0",
+		"ALTER TABLE jobs ADD COLUMN IF NOT EXISTS requested_by VARCHAR(255) NOT NULL DEFAULT ''",
+	} {
+		if _, err := s.exec(ctx, true, stmt+";"); err != nil {
+			return fmt.Errorf("migrate alter jobs: %w", err)
+		}
 	}
 	return nil
 }
@@ -138,18 +199,25 @@ func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 
 	query := fmt.Sprintf(
 		`INSERT INTO jobs (
-			id, type, status, created_at, updated_at, environment_json, template_name, workdir, plan_path, source_job_id, claim_token, error
-		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '', %s);`,
+			id, type, status, created_at, updated_at, environment_id, operation, environment_json, template_name, workdir, log_dir, plan_path, outputs_json, source_job_id, claim_token, retry_count, max_retries, requested_by, error
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '', %d, %d, %s, %s);`,
 		quoteString(j.ID),
 		quoteString(string(j.Type)),
 		quoteString(string(j.Status)),
 		quoteTime(j.CreatedAt),
 		quoteTime(j.UpdatedAt),
+		quoteString(j.EnvironmentID),
+		quoteString(string(j.Operation)),
 		quoteString(string(envJSON)),
 		quoteString(j.TemplateName),
 		quoteString(j.Workdir),
+		quoteString(j.LogDir),
 		quoteString(j.PlanPath),
+		quoteString(j.OutputsJSON),
 		quoteString(j.SourceJobID),
+		j.RetryCount,
+		j.MaxRetries,
+		quoteString(j.RequestedBy),
 		quoteString(j.Error),
 	)
 	if _, err := s.exec(ctx, true, query); err != nil {
@@ -211,23 +279,37 @@ func (s *Store) UpdateJob(ctx context.Context, j domain.Job) (domain.Job, error)
 		 SET type = %s,
 		     status = %s,
 		     updated_at = %s,
+		     environment_id = %s,
+		     operation = %s,
 		     environment_json = %s,
 		     template_name = %s,
 		     workdir = %s,
+		     log_dir = %s,
 		     plan_path = %s,
+		     outputs_json = %s,
 		     source_job_id = %s,
 		     claim_token = '',
+		     retry_count = %d,
+		     max_retries = %d,
+		     requested_by = %s,
 		     error = %s
 		 WHERE id = %s;
 		 SELECT ROW_COUNT();`,
 		quoteString(string(j.Type)),
 		quoteString(string(j.Status)),
 		quoteTime(j.UpdatedAt),
+		quoteString(j.EnvironmentID),
+		quoteString(string(j.Operation)),
 		quoteString(string(envJSON)),
 		quoteString(j.TemplateName),
 		quoteString(j.Workdir),
+		quoteString(j.LogDir),
 		quoteString(j.PlanPath),
+		quoteString(j.OutputsJSON),
 		quoteString(j.SourceJobID),
+		j.RetryCount,
+		j.MaxRetries,
+		quoteString(j.RequestedBy),
 		quoteString(j.Error),
 		quoteString(j.ID),
 	)
@@ -410,6 +492,202 @@ func (s *Store) DeleteSessionByTokenHash(ctx context.Context, tokenHash string) 
 	return err
 }
 
+func (s *Store) CreateEnvironment(ctx context.Context, env domain.Environment) (domain.Environment, error) {
+	specJSON, err := json.Marshal(env.Spec)
+	if err != nil {
+		return domain.Environment{}, fmt.Errorf("marshal environment spec: %w", err)
+	}
+	approvedAt := "NULL"
+	if env.ApprovedAt != nil {
+		approvedAt = quoteTime(*env.ApprovedAt)
+	}
+	query := fmt.Sprintf(
+		`INSERT INTO environments (
+			id, name, status, operation, approval_status, spec_json, created_by_user_id, created_by_email, approved_by_user_id, approved_by_email, approved_at, last_plan_job_id, last_apply_job_id, last_job_id, last_error, retry_count, max_retries, workdir, plan_path, outputs_json, created_at, updated_at
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %d, %s, %s, %s, %s, %s);`,
+		quoteString(env.ID),
+		quoteString(env.Name),
+		quoteString(string(env.Status)),
+		quoteString(string(env.Operation)),
+		quoteString(string(env.ApprovalStatus)),
+		quoteString(string(specJSON)),
+		quoteString(env.CreatedByUserID),
+		quoteString(env.CreatedByEmail),
+		quoteString(env.ApprovedByUserID),
+		quoteString(env.ApprovedByEmail),
+		approvedAt,
+		quoteString(env.LastPlanJobID),
+		quoteString(env.LastApplyJobID),
+		quoteString(env.LastJobID),
+		quoteString(env.LastError),
+		env.RetryCount,
+		env.MaxRetries,
+		quoteString(env.Workdir),
+		quoteString(env.PlanPath),
+		quoteString(env.OutputsJSON),
+		quoteTime(env.CreatedAt),
+		quoteTime(env.UpdatedAt),
+	)
+	if _, err := s.exec(ctx, true, query); err != nil {
+		return domain.Environment{}, err
+	}
+	return env, nil
+}
+
+func (s *Store) GetEnvironment(ctx context.Context, id string) (domain.Environment, error) {
+	query := fmt.Sprintf(`SELECT %s FROM environments WHERE id = %s LIMIT 1;`, environmentSelectColumns(), quoteString(id))
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
+		return domain.Environment{}, err
+	}
+	lines := outputLines(out)
+	if len(lines) == 0 {
+		return domain.Environment{}, sql.ErrNoRows
+	}
+	return parseEnvironmentLine(lines[0])
+}
+
+func (s *Store) ListEnvironments(ctx context.Context, limit int) ([]domain.Environment, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	query := fmt.Sprintf(`SELECT %s FROM environments ORDER BY updated_at DESC LIMIT %d;`, environmentSelectColumns(), limit)
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
+		return nil, err
+	}
+	lines := outputLines(out)
+	items := make([]domain.Environment, 0, len(lines))
+	for _, line := range lines {
+		env, err := parseEnvironmentLine(line)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, env)
+	}
+	return items, nil
+}
+
+func (s *Store) UpdateEnvironment(ctx context.Context, env domain.Environment) (domain.Environment, error) {
+	specJSON, err := json.Marshal(env.Spec)
+	if err != nil {
+		return domain.Environment{}, fmt.Errorf("marshal environment spec: %w", err)
+	}
+	approvedAt := "NULL"
+	if env.ApprovedAt != nil {
+		approvedAt = quoteTime(*env.ApprovedAt)
+	}
+	query := fmt.Sprintf(
+		`UPDATE environments
+		 SET name = %s,
+		     status = %s,
+		     operation = %s,
+		     approval_status = %s,
+		     spec_json = %s,
+		     created_by_user_id = %s,
+		     created_by_email = %s,
+		     approved_by_user_id = %s,
+		     approved_by_email = %s,
+		     approved_at = %s,
+		     last_plan_job_id = %s,
+		     last_apply_job_id = %s,
+		     last_job_id = %s,
+		     last_error = %s,
+		     retry_count = %d,
+		     max_retries = %d,
+		     workdir = %s,
+		     plan_path = %s,
+		     outputs_json = %s,
+		     updated_at = %s
+		 WHERE id = %s;
+		 SELECT ROW_COUNT();`,
+		quoteString(env.Name),
+		quoteString(string(env.Status)),
+		quoteString(string(env.Operation)),
+		quoteString(string(env.ApprovalStatus)),
+		quoteString(string(specJSON)),
+		quoteString(env.CreatedByUserID),
+		quoteString(env.CreatedByEmail),
+		quoteString(env.ApprovedByUserID),
+		quoteString(env.ApprovedByEmail),
+		approvedAt,
+		quoteString(env.LastPlanJobID),
+		quoteString(env.LastApplyJobID),
+		quoteString(env.LastJobID),
+		quoteString(env.LastError),
+		env.RetryCount,
+		env.MaxRetries,
+		quoteString(env.Workdir),
+		quoteString(env.PlanPath),
+		quoteString(env.OutputsJSON),
+		quoteTime(env.UpdatedAt),
+		quoteString(env.ID),
+	)
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
+		return domain.Environment{}, err
+	}
+	lines := outputLines(out)
+	if len(lines) == 0 || strings.TrimSpace(lines[len(lines)-1]) == "0" {
+		return domain.Environment{}, sql.ErrNoRows
+	}
+	return env, nil
+}
+
+func (s *Store) CreateAuditEvent(ctx context.Context, event domain.AuditEvent) (domain.AuditEvent, error) {
+	query := fmt.Sprintf(
+		`INSERT INTO audit_events (
+			id, resource_type, resource_id, action, actor_user_id, actor_email, message, metadata_json, created_at
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);`,
+		quoteString(event.ID),
+		quoteString(event.ResourceType),
+		quoteString(event.ResourceID),
+		quoteString(event.Action),
+		quoteString(event.ActorUserID),
+		quoteString(event.ActorEmail),
+		quoteString(event.Message),
+		quoteString(event.MetadataJSON),
+		quoteTime(event.CreatedAt),
+	)
+	if _, err := s.exec(ctx, true, query); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	return event, nil
+}
+
+func (s *Store) ListAuditEvents(ctx context.Context, resourceType, resourceID string, limit int) ([]domain.AuditEvent, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	filters := []string{"1=1"}
+	if resourceType != "" {
+		filters = append(filters, "resource_type = "+quoteString(resourceType))
+	}
+	if resourceID != "" {
+		filters = append(filters, "resource_id = "+quoteString(resourceID))
+	}
+	query := fmt.Sprintf(
+		`SELECT %s FROM audit_events WHERE %s ORDER BY created_at DESC LIMIT %d;`,
+		auditSelectColumns(),
+		strings.Join(filters, " AND "),
+		limit,
+	)
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
+		return nil, err
+	}
+	lines := outputLines(out)
+	items := make([]domain.AuditEvent, 0, len(lines))
+	for _, line := range lines {
+		event, err := parseAuditLine(line)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, event)
+	}
+	return items, nil
+}
+
 func (s *Store) exec(ctx context.Context, withDatabase bool, query string) (string, error) {
 	args := []string{
 		"--protocol=TCP",
@@ -458,17 +736,65 @@ func outputLines(out string) []string {
 
 func jobSelectColumns() string {
 	return strings.Join([]string{
-		"TO_BASE64(id)",
-		"TO_BASE64(type)",
-		"TO_BASE64(status)",
+		base64ColumnExpr("id"),
+		base64ColumnExpr("type"),
+		base64ColumnExpr("status"),
 		fmt.Sprintf("DATE_FORMAT(created_at, '%s')", sqlTimeFormat),
 		fmt.Sprintf("DATE_FORMAT(updated_at, '%s')", sqlTimeFormat),
-		"TO_BASE64(environment_json)",
-		"TO_BASE64(template_name)",
-		"TO_BASE64(workdir)",
-		"TO_BASE64(plan_path)",
-		"TO_BASE64(source_job_id)",
-		"TO_BASE64(error)",
+		base64ColumnExpr("environment_id"),
+		base64ColumnExpr("operation"),
+		base64ColumnExpr("environment_json"),
+		base64ColumnExpr("template_name"),
+		base64ColumnExpr("workdir"),
+		base64ColumnExpr("log_dir"),
+		base64ColumnExpr("plan_path"),
+		base64ColumnExpr("outputs_json"),
+		base64ColumnExpr("source_job_id"),
+		"retry_count",
+		"max_retries",
+		base64ColumnExpr("requested_by"),
+		base64ColumnExpr("error"),
+	}, ", ")
+}
+
+func environmentSelectColumns() string {
+	return strings.Join([]string{
+		base64ColumnExpr("id"),
+		base64ColumnExpr("name"),
+		base64ColumnExpr("status"),
+		base64ColumnExpr("operation"),
+		base64ColumnExpr("approval_status"),
+		base64ColumnExpr("spec_json"),
+		base64ColumnExpr("created_by_user_id"),
+		base64ColumnExpr("created_by_email"),
+		base64ColumnExpr("approved_by_user_id"),
+		base64ColumnExpr("approved_by_email"),
+		fmt.Sprintf("IFNULL(DATE_FORMAT(approved_at, '%s'), '')", sqlTimeFormat),
+		base64ColumnExpr("last_plan_job_id"),
+		base64ColumnExpr("last_apply_job_id"),
+		base64ColumnExpr("last_job_id"),
+		base64ColumnExpr("last_error"),
+		"retry_count",
+		"max_retries",
+		base64ColumnExpr("workdir"),
+		base64ColumnExpr("plan_path"),
+		base64ColumnExpr("outputs_json"),
+		fmt.Sprintf("DATE_FORMAT(created_at, '%s')", sqlTimeFormat),
+		fmt.Sprintf("DATE_FORMAT(updated_at, '%s')", sqlTimeFormat),
+	}, ", ")
+}
+
+func auditSelectColumns() string {
+	return strings.Join([]string{
+		base64ColumnExpr("id"),
+		base64ColumnExpr("resource_type"),
+		base64ColumnExpr("resource_id"),
+		base64ColumnExpr("action"),
+		base64ColumnExpr("actor_user_id"),
+		base64ColumnExpr("actor_email"),
+		base64ColumnExpr("message"),
+		base64ColumnExpr("metadata_json"),
+		fmt.Sprintf("DATE_FORMAT(created_at, '%s')", sqlTimeFormat),
 	}, ", ")
 }
 
@@ -505,7 +831,7 @@ func base64ColumnExpr(expr string) string {
 
 func parseJobLine(line string) (domain.Job, error) {
 	fields := strings.Split(line, "\t")
-	if len(fields) != 11 {
+	if len(fields) != 18 {
 		return domain.Job{}, fmt.Errorf("unexpected job field count: %d", len(fields))
 	}
 
@@ -530,29 +856,176 @@ func parseJobLine(line string) (domain.Job, error) {
 	if job.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[4]); err != nil {
 		return domain.Job{}, fmt.Errorf("parse updated_at: %w", err)
 	}
-	envJSON, err := decodeBase64Field(fields[5])
+	if job.EnvironmentID, err = decodeBase64Field(fields[5]); err != nil {
+		return domain.Job{}, err
+	}
+	if v, err := decodeBase64Field(fields[6]); err == nil {
+		job.Operation = domain.EnvironmentOperation(v)
+	} else {
+		return domain.Job{}, err
+	}
+	envJSON, err := decodeBase64Field(fields[7])
 	if err != nil {
 		return domain.Job{}, err
 	}
 	if err := json.Unmarshal([]byte(envJSON), &job.Environment); err != nil {
 		return domain.Job{}, fmt.Errorf("unmarshal environment: %w", err)
 	}
-	if job.TemplateName, err = decodeBase64Field(fields[6]); err != nil {
+	if job.TemplateName, err = decodeBase64Field(fields[8]); err != nil {
 		return domain.Job{}, err
 	}
-	if job.Workdir, err = decodeBase64Field(fields[7]); err != nil {
+	if job.Workdir, err = decodeBase64Field(fields[9]); err != nil {
 		return domain.Job{}, err
 	}
-	if job.PlanPath, err = decodeBase64Field(fields[8]); err != nil {
+	if job.LogDir, err = decodeBase64Field(fields[10]); err != nil {
 		return domain.Job{}, err
 	}
-	if job.SourceJobID, err = decodeBase64Field(fields[9]); err != nil {
+	if job.PlanPath, err = decodeBase64Field(fields[11]); err != nil {
 		return domain.Job{}, err
 	}
-	if job.Error, err = decodeBase64Field(fields[10]); err != nil {
+	if job.OutputsJSON, err = decodeBase64Field(fields[12]); err != nil {
+		return domain.Job{}, err
+	}
+	if job.SourceJobID, err = decodeBase64Field(fields[13]); err != nil {
+		return domain.Job{}, err
+	}
+	if job.RetryCount, err = parseIntField(fields[14]); err != nil {
+		return domain.Job{}, err
+	}
+	if job.MaxRetries, err = parseIntField(fields[15]); err != nil {
+		return domain.Job{}, err
+	}
+	if job.RequestedBy, err = decodeBase64Field(fields[16]); err != nil {
+		return domain.Job{}, err
+	}
+	if job.Error, err = decodeBase64Field(fields[17]); err != nil {
 		return domain.Job{}, err
 	}
 	return job, nil
+}
+
+func parseEnvironmentLine(line string) (domain.Environment, error) {
+	fields := strings.Split(line, "\t")
+	if len(fields) != 22 {
+		return domain.Environment{}, fmt.Errorf("unexpected environment field count: %d", len(fields))
+	}
+
+	var env domain.Environment
+	var err error
+	if env.ID, err = decodeBase64Field(fields[0]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.Name, err = decodeBase64Field(fields[1]); err != nil {
+		return domain.Environment{}, err
+	}
+	if v, err := decodeBase64Field(fields[2]); err == nil {
+		env.Status = domain.EnvironmentStatus(v)
+	} else {
+		return domain.Environment{}, err
+	}
+	if v, err := decodeBase64Field(fields[3]); err == nil {
+		env.Operation = domain.EnvironmentOperation(v)
+	} else {
+		return domain.Environment{}, err
+	}
+	if v, err := decodeBase64Field(fields[4]); err == nil {
+		env.ApprovalStatus = domain.ApprovalStatus(v)
+	} else {
+		return domain.Environment{}, err
+	}
+	specJSON, err := decodeBase64Field(fields[5])
+	if err != nil {
+		return domain.Environment{}, err
+	}
+	if err := json.Unmarshal([]byte(specJSON), &env.Spec); err != nil {
+		return domain.Environment{}, fmt.Errorf("unmarshal spec: %w", err)
+	}
+	if env.CreatedByUserID, err = decodeBase64Field(fields[6]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.CreatedByEmail, err = decodeBase64Field(fields[7]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.ApprovedByUserID, err = decodeBase64Field(fields[8]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.ApprovedByEmail, err = decodeBase64Field(fields[9]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.ApprovedAt, err = parseOptionalTimeField(fields[10]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.LastPlanJobID, err = decodeBase64Field(fields[11]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.LastApplyJobID, err = decodeBase64Field(fields[12]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.LastJobID, err = decodeBase64Field(fields[13]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.LastError, err = decodeBase64Field(fields[14]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.RetryCount, err = parseIntField(fields[15]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.MaxRetries, err = parseIntField(fields[16]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.Workdir, err = decodeBase64Field(fields[17]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.PlanPath, err = decodeBase64Field(fields[18]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.OutputsJSON, err = decodeBase64Field(fields[19]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[20]); err != nil {
+		return domain.Environment{}, fmt.Errorf("parse environment created_at: %w", err)
+	}
+	if env.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[21]); err != nil {
+		return domain.Environment{}, fmt.Errorf("parse environment updated_at: %w", err)
+	}
+	return env, nil
+}
+
+func parseAuditLine(line string) (domain.AuditEvent, error) {
+	fields := strings.Split(line, "\t")
+	if len(fields) != 9 {
+		return domain.AuditEvent{}, fmt.Errorf("unexpected audit field count: %d", len(fields))
+	}
+	var event domain.AuditEvent
+	var err error
+	if event.ID, err = decodeBase64Field(fields[0]); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if event.ResourceType, err = decodeBase64Field(fields[1]); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if event.ResourceID, err = decodeBase64Field(fields[2]); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if event.Action, err = decodeBase64Field(fields[3]); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if event.ActorUserID, err = decodeBase64Field(fields[4]); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if event.ActorEmail, err = decodeBase64Field(fields[5]); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if event.Message, err = decodeBase64Field(fields[6]); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if event.MetadataJSON, err = decodeBase64Field(fields[7]); err != nil {
+		return domain.AuditEvent{}, err
+	}
+	if event.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[8]); err != nil {
+		return domain.AuditEvent{}, fmt.Errorf("parse audit created_at: %w", err)
+	}
+	return event, nil
 }
 
 func parseUserLine(line string) (domain.User, error) {
@@ -622,6 +1095,28 @@ func decodeBase64Field(s string) (string, error) {
 		return "", fmt.Errorf("decode base64 field: %w", err)
 	}
 	return string(b), nil
+}
+
+func parseIntField(s string) (int, error) {
+	if s == "" || s == "NULL" {
+		return 0, nil
+	}
+	var v int
+	if _, err := fmt.Sscanf(s, "%d", &v); err != nil {
+		return 0, fmt.Errorf("parse int field: %w", err)
+	}
+	return v, nil
+}
+
+func parseOptionalTimeField(s string) (*time.Time, error) {
+	if s == "" || s == "NULL" {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return nil, fmt.Errorf("parse optional time: %w", err)
+	}
+	return &t, nil
 }
 
 func quoteString(s string) string {
