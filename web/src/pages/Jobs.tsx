@@ -77,12 +77,12 @@ export default function JobsPage() {
         <section className="panel hero">
           <div className="hero-copy">
             <p className="muted" style={{ marginTop: 0 }}>
-              Operator workspace
+              Execution workspace
             </p>
-            <h2>Queue a plan, inspect progress, and decide when to apply.</h2>
+            <h2>Inspect raw job execution after the environment workflow has queued work.</h2>
             <p className="helper">
-              Plan creation uses the existing `/api/jobs` contract with `type: "tofu.plan"` so the UI stays compatible
-              even if a dedicated plan endpoint appears later.
+              Environment lifecycle actions should start from the environments screen. This page is the lower-level
+              execution ledger for jobs, logs, and derived plan/apply records.
             </p>
             <div className="detail-actions">
               <button onClick={load}>Refresh</button>
@@ -119,9 +119,9 @@ export default function JobsPage() {
           <div className="detail-top" style={{ marginBottom: 12 }}>
             <div>
               <p className="muted" style={{ marginTop: 0, marginBottom: 6 }}>
-                New plan
+                Legacy plan request
               </p>
-              <strong>Create a tofu.plan job from an environment spec.</strong>
+              <strong>Create a raw plan job without a first-class environment aggregate.</strong>
             </div>
             <span className="badge badge-muted">1-2 instances supported</span>
           </div>
@@ -165,10 +165,10 @@ export default function JobsPage() {
       <section className="panel">
         <div className="detail-top" style={{ marginBottom: 12 }}>
           <div>
-            <p className="muted" style={{ marginTop: 0, marginBottom: 6 }}>
-              Recent jobs
-            </p>
-            <strong>Inspect execution state and open detail for logs or apply actions.</strong>
+              <p className="muted" style={{ marginTop: 0, marginBottom: 6 }}>
+                Recent executions
+              </p>
+            <strong>Inspect job state and open detail for logs, artifacts, or legacy apply actions.</strong>
           </div>
         </div>
 
@@ -229,4 +229,3 @@ export default function JobsPage() {
     </div>
   )
 }
-

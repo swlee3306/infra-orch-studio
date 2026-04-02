@@ -28,7 +28,7 @@ export default function App() {
                 Environments
               </Link>
               <Link to="/jobs" className="ghost" style={{ textDecoration: 'none', display: 'inline-flex' }}>
-                Jobs
+                Executions
               </Link>
               <button
                 className="ghost"
