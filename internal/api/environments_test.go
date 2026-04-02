@@ -565,3 +565,53 @@ func TestEnvironmentPlanReviewEndpoint(t *testing.T) {
 		t.Fatalf("expected subnet capacity signal in %+v", resp.ReviewSignals)
 	}
 }
+
+func TestPlanReviewPreviewEndpoint(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/plan-review-preview", strings.NewReader(`{
+		"spec": {
+			"environment_name": "preview-a",
+			"tenant_name": "tenant-a",
+			"network": {"name": "net-a", "cidr": "10.0.0.0/24"},
+			"subnet": {"name": "sub-a", "cidr": "10.0.0.0/27", "enable_dhcp": true},
+			"instances": [
+				{"name": "vm-a", "image": "ubuntu", "flavor": "small", "count": 2},
+				{"name": "vm-b", "image": "ubuntu", "flavor": "small", "count": 2}
+			]
+		},
+		"operation": "create",
+		"template_name": "basic"
+	}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("preview review status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var resp struct {
+		ReviewSignals []struct {
+			Label string `json:"label"`
+		} `json:"review_signals"`
+		ImpactSummary struct {
+			Downtime string `json:"downtime"`
+		} `json:"impact_summary"`
+		PlanJob *domain.Job `json:"plan_job"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode preview review response: %v", err)
+	}
+	if resp.PlanJob == nil || resp.PlanJob.TemplateName != "basic" {
+		t.Fatalf("unexpected preview plan job payload: %+v", resp.PlanJob)
+	}
+	if resp.ImpactSummary.Downtime != "Medium" {
+		t.Fatalf("downtime = %q, want %q", resp.ImpactSummary.Downtime, "Medium")
+	}
+	if len(resp.ReviewSignals) == 0 {
+		t.Fatalf("expected preview signals, got none")
+	}
+}

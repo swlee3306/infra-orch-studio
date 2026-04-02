@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { auth, environments, EnvironmentSpec, TemplateDescriptor, templates } from '../api'
+import { auth, environments, EnvironmentPlanReviewResponse, EnvironmentSpec, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
-import { buildImpactSummary, buildReviewSignals, emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
+import { emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
 
 const STORAGE_KEY = 'infra-orch:create-draft'
 
@@ -27,6 +27,9 @@ export default function CreateEnvironmentPage() {
   const [error, setError] = useState<string | null>(null)
   const [savingDraft, setSavingDraft] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [preview, setPreview] = useState<EnvironmentPlanReviewResponse | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
 
   useEffect(() => {
     auth
@@ -73,8 +76,40 @@ export default function CreateEnvironmentPage() {
   }, [])
 
   const summary = useMemo(() => summarizeSpec(spec), [spec])
-  const reviewSignals = useMemo(() => buildReviewSignals(spec, 'create'), [spec])
-  const impact = useMemo(() => buildImpactSummary(spec, 'create'), [spec])
+  const reviewSignals = preview?.review_signals || []
+  const impact = preview?.impact_summary || null
+
+  useEffect(() => {
+    if (!viewerReady || step !== 6) return
+
+    let cancelled = false
+    setPreviewLoading(true)
+    setPreviewError(null)
+
+    environments
+      .previewPlanReview({
+        spec,
+        operation: 'create',
+        template_name: selectedTemplate,
+      })
+      .then((response) => {
+        if (cancelled) return
+        setPreview(response)
+      })
+      .catch((err: any) => {
+        if (cancelled) return
+        setPreview(null)
+        setPreviewError(err?.message || 'failed to load review preview')
+      })
+      .finally(() => {
+        if (cancelled) return
+        setPreviewLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [viewerReady, step, spec, selectedTemplate])
 
   async function saveDraft() {
     setSavingDraft(true)
@@ -235,10 +270,11 @@ export default function CreateEnvironmentPage() {
                 </article>
                 <article className="metric-card">
                   <span>Downtime risk</span>
-                  <strong>{impact.downtime}</strong>
-                  <p>Estimated operational disruption based on current desired-state shape.</p>
+                  <strong>{impact?.downtime || (previewLoading ? 'Loading...' : '-')}</strong>
+                  <p>Estimated operational disruption based on the same server-side review contract used after create.</p>
                 </article>
               </div>
+              {previewError ? <div className="error-box">{previewError}</div> : null}
               <div className="dashboard-grid">
                 <article className="console-card">
                   <div className="section-head">
@@ -248,6 +284,10 @@ export default function CreateEnvironmentPage() {
                     </div>
                   </div>
                   <div className="stack-list">
+                    {previewLoading && reviewSignals.length === 0 ? <div className="empty-state">Loading server-side review signals...</div> : null}
+                    {!previewLoading && reviewSignals.length === 0 ? (
+                      <div className="empty-state">No review signals were returned for this desired state.</div>
+                    ) : null}
                     {reviewSignals.map((signal) => (
                       <div key={signal.label} className={`stack-row ${signal.severity === 'high' ? 'stack-row-danger' : ''}`}>
                         <div>
@@ -271,15 +311,15 @@ export default function CreateEnvironmentPage() {
                   <div className="info-grid">
                     <div className="meta-item">
                       <span>Blast radius</span>
-                      <strong>{impact.blastRadius}</strong>
+                      <strong>{impact?.blast_radius || '-'}</strong>
                     </div>
                     <div className="meta-item">
                       <span>Cost / capacity</span>
-                      <strong>{impact.costDelta}</strong>
+                      <strong>{impact?.cost_delta || '-'}</strong>
                     </div>
                     <div className="meta-item">
                       <span>Template</span>
-                      <strong>{selectedTemplate}</strong>
+                      <strong>{preview?.plan_job?.template_name || selectedTemplate}</strong>
                     </div>
                     <div className="meta-item">
                       <span>Mode</span>
@@ -300,8 +340,8 @@ export default function CreateEnvironmentPage() {
                 Continue
               </button>
             ) : (
-              <button type="button" onClick={createEnvironment} disabled={creating}>
-                {creating ? 'Queueing initial plan...' : 'Review plan'}
+              <button type="button" onClick={createEnvironment} disabled={creating || previewLoading || !!previewError}>
+                {creating ? 'Queueing initial plan...' : previewLoading ? 'Refreshing review...' : previewError ? 'Fix review errors' : 'Review plan'}
               </button>
             )}
           </div>
