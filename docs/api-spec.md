@@ -126,8 +126,17 @@
 
 ### `POST /api/environments/:id/destroy`
 - Auth required.
+- Admin required.
 - Queues a destroy plan for the environment.
 - The destroy plan still requires approval before apply.
+- Request body:
+```json
+{
+  "confirmation_name": "prod-a",
+  "comment": "sunset request CHG-42"
+}
+```
+- `confirmation_name` must match the current environment name.
 
 ### `GET /api/environments/:id/audit`
 - Auth required.
@@ -146,6 +155,61 @@
       "created_at": "2026-04-02T00:00:00Z"
     }
   ]
+}
+```
+
+## Templates
+
+### `GET /api/templates`
+- Auth required.
+- Returns:
+```json
+{
+  "templates_root": "./templates/opentofu/environments",
+  "modules_root": "./templates/opentofu/modules",
+  "environment_sets": [
+    {
+      "name": "basic",
+      "path": "./templates/opentofu/environments/basic",
+      "files": ["README.md", "main.tf", "outputs.tf", "providers.tf", "terraform.tfvars.json.example", "variables.tf", "versions.tf"]
+    }
+  ],
+  "modules": [
+    {
+      "name": "network",
+      "path": "./templates/opentofu/modules/network",
+      "files": ["main.tf", "outputs.tf", "variables.tf"]
+    }
+  ]
+}
+```
+
+## Audit Feed
+
+### `GET /api/audit`
+- Auth required.
+- Query params:
+  - `limit`
+  - `resource_type`
+  - `resource_id`
+- Returns:
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "resource_type": "environment",
+      "resource_id": "uuid",
+      "action": "environment.approved",
+      "actor_email": "admin@example.com",
+      "message": "plan approved for apply",
+      "metadata_json": "{\"plan_job_id\":\"uuid\"}",
+      "created_at": "2026-04-02T00:00:00Z"
+    }
+  ],
+  "resource_type": "environment",
+  "resource_id": "",
+  "limit": 200
 }
 ```
 

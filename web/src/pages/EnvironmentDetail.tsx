@@ -13,13 +13,151 @@ function parseJson(value?: string): any {
   }
 }
 
+type WorkflowStep = {
+  label: string
+  detail: string
+  state: 'complete' | 'current' | 'blocked'
+}
+
+function buildWorkflow(environment: Environment | null): WorkflowStep[] {
+  if (!environment) {
+    return [
+      { label: 'Plan', detail: 'Loading environment state.', state: 'blocked' },
+      { label: 'Approval', detail: 'Waiting for environment data.', state: 'blocked' },
+      { label: 'Apply', detail: 'Waiting for environment data.', state: 'blocked' },
+      { label: 'Result', detail: 'Waiting for environment data.', state: 'blocked' },
+    ]
+  }
+
+  const planDone = Boolean(environment.last_plan_job_id) && environment.status !== 'planning'
+  const applyDone = ['active', 'destroyed'].includes(environment.status)
+
+  return [
+    {
+      label: 'Plan',
+      detail:
+        environment.status === 'planning'
+          ? 'Runner is generating the current plan artifact.'
+          : 'The latest plan artifact is attached to this environment.',
+      state: environment.status === 'planning' ? 'current' : planDone ? 'complete' : 'blocked',
+    },
+    {
+      label: 'Approval',
+      detail:
+        environment.approval_status === 'approved'
+          ? `Approved by ${environment.approved_by_email || 'admin'}.`
+          : environment.status === 'pending_approval'
+            ? 'Awaiting approval before apply can be queued.'
+            : 'Approval opens after a successful plan.',
+      state:
+        environment.approval_status === 'approved'
+          ? 'complete'
+          : environment.status === 'pending_approval'
+            ? 'current'
+            : 'blocked',
+    },
+    {
+      label: 'Apply',
+      detail:
+        applyDone
+          ? 'The approved plan has already been executed.'
+          : environment.status === 'applying'
+            ? 'Apply is currently running.'
+            : environment.approval_status === 'approved'
+              ? 'Apply can now be queued from the approved plan.'
+              : 'Apply remains blocked until approval is recorded.',
+      state: applyDone ? 'complete' : environment.status === 'applying' || environment.approval_status === 'approved' ? 'current' : 'blocked',
+    },
+    {
+      label: 'Result',
+      detail:
+        environment.status === 'active'
+          ? 'Environment is active and available for further operations.'
+          : environment.status === 'destroyed'
+            ? 'Environment is destroyed and preserved as a historical record.'
+            : environment.status === 'failed'
+              ? 'Lifecycle paused on failure. Review artifacts and retry budget.'
+              : 'Result is available after apply finishes.',
+      state: ['active', 'destroyed', 'failed'].includes(environment.status) ? 'current' : 'blocked',
+    },
+  ]
+}
+
+function nextActionHint(
+  environment: Environment | null,
+  viewer: { email: string; is_admin?: boolean } | null,
+  canRetry: boolean,
+): { tone: 'info' | 'warning' | 'danger' | 'success'; title: string; detail: string } {
+  if (!environment) {
+    return { tone: 'info', title: 'Loading environment', detail: 'Fetch the latest environment state before taking action.' }
+  }
+  if (environment.status === 'failed') {
+    return canRetry
+      ? {
+          tone: 'warning',
+          title: 'Retry budget is available',
+          detail: 'Inspect the failed execution and retry the last failed step if the error looks transient.',
+        }
+      : {
+          tone: 'danger',
+          title: 'Retry budget exhausted',
+          detail: 'Manual investigation is required before a new plan should be requested.',
+        }
+  }
+  if (environment.status === 'pending_approval') {
+    return viewer?.is_admin
+      ? {
+          tone: 'warning',
+          title: 'Plan review is waiting for approval',
+          detail: 'Review artifacts and approve only if the plan and risk posture are acceptable.',
+        }
+      : {
+          tone: 'info',
+          title: 'Waiting for admin approval',
+          detail: 'The plan is ready. An admin must approve it before apply can be queued.',
+        }
+  }
+  if (environment.approval_status === 'approved' && environment.status === 'approved') {
+    return viewer?.is_admin
+      ? {
+          tone: 'success',
+          title: 'Apply can be queued now',
+          detail: 'The environment has cleared the approval gate and is ready for apply.',
+        }
+      : {
+          tone: 'info',
+          title: 'Approved and waiting for execution',
+          detail: 'This environment is approved. An admin can now queue apply.',
+        }
+  }
+  if (environment.status === 'planning' || environment.status === 'applying') {
+    return {
+      tone: 'info',
+      title: 'Execution is in progress',
+      detail: 'Follow the latest linked job and artifact updates while runner execution continues.',
+    }
+  }
+  if (environment.status === 'active') {
+    return {
+      tone: 'success',
+      title: 'Environment is operating normally',
+      detail: 'Queue an update plan for desired-state changes or use the guarded destroy path when retiring it.',
+    }
+  }
+  return {
+    tone: 'info',
+    title: 'Review lifecycle state',
+    detail: 'Use metadata, recent jobs, outputs, and audit events to decide the next action.',
+  }
+}
+
 export default function EnvironmentDetailPage() {
   const nav = useNavigate()
   const { id } = useParams()
   const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
   const [environment, setEnvironment] = useState<Environment | null>(null)
   const [auditItems, setAuditItems] = useState<AuditEvent[]>([])
-  const [lastJob, setLastJob] = useState<Job | null>(null)
+  const [recentJobs, setRecentJobs] = useState<Job[]>([])
   const [editingSpec, setEditingSpec] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
@@ -39,16 +177,15 @@ export default function EnvironmentDetailPage() {
     if (!environmentId) return
 
     try {
-      const [env, audit] = await Promise.all([environments.get(environmentId), environments.audit(environmentId)])
+      const [env, audit, jobsResponse] = await Promise.all([
+        environments.get(environmentId),
+        environments.audit(environmentId),
+        jobs.list(100),
+      ])
       setEnvironment(env)
       setEditingSpec(env.spec)
       setAuditItems(audit.items)
-      if (env.last_job_id) {
-        const job = await jobs.get(env.last_job_id)
-        setLastJob(job)
-      } else {
-        setLastJob(null)
-      }
+      setRecentJobs(jobsResponse.items.filter((item) => item.environment_id === env.id).slice(0, 4))
     } catch (err: any) {
       setError(err?.message || 'failed')
     }
@@ -58,7 +195,14 @@ export default function EnvironmentDetailPage() {
     load()
   }, [environmentId])
 
-  async function runAction(action: string, fn: () => Promise<any>) {
+  async function runAction(
+    action: string,
+    fn: () => Promise<any>,
+    options?: { confirmMessage?: string },
+  ) {
+    if (options?.confirmMessage && !window.confirm(options.confirmMessage)) {
+      return
+    }
     setBusyAction(action)
     setError(null)
     try {
@@ -78,184 +222,348 @@ export default function EnvironmentDetailPage() {
   const canDestroy = Boolean(
     environment && !['destroyed', 'destroying', 'planning', 'applying'].includes(environment.status),
   )
+  const workflow = buildWorkflow(environment)
+  const actionHint = nextActionHint(environment, viewer, canRetry)
+  const reviewRoute = environment ? `/environments/${environment.id}/review` : ''
+  const approvalRoute = environment ? `/environments/${environment.id}/approval` : ''
 
   return (
-    <div className="shell">
-      <div className="grid">
-        <section className="panel">
-          <div className="detail-top">
-            <div>
-              <p className="muted" style={{ marginTop: 0, marginBottom: 6 }}>
-                <Link to="/environments">← Environments</Link>
-              </p>
-              <h2 style={{ margin: 0 }}>{environment?.name || environmentId}</h2>
-              <p className="helper" style={{ marginBottom: 0 }}>
-                {viewer?.email || 'Unknown viewer'} {viewer?.is_admin ? '· admin' : '· operator'}
-              </p>
-            </div>
-            <div className="detail-actions">
-              <button onClick={load}>Refresh</button>
-              <button
-                className="ghost"
-                disabled={!canPlanUpdate || busyAction !== null}
-                onClick={() =>
-                  runAction('update-plan', () => environments.plan(environmentId, editingSpec, 'update', 'basic'))
-                }
-              >
-                {busyAction === 'update-plan' ? 'Queueing...' : 'Queue update plan'}
-              </button>
-              {canApprove ? (
-                <button disabled={busyAction !== null} onClick={() => runAction('approve', () => environments.approve(environmentId))}>
-                  {busyAction === 'approve' ? 'Approving...' : 'Approve'}
-                </button>
-              ) : null}
-              {canApply ? (
-                <button disabled={busyAction !== null} onClick={() => runAction('apply', () => environments.apply(environmentId))}>
-                  {busyAction === 'apply' ? 'Applying...' : 'Apply approved plan'}
-                </button>
-              ) : null}
-              {canRetry ? (
-                <button className="ghost" disabled={busyAction !== null} onClick={() => runAction('retry', () => environments.retry(environmentId))}>
-                  {busyAction === 'retry' ? 'Retrying...' : 'Retry failed step'}
-                </button>
-              ) : null}
-              {canDestroy ? (
-                <button className="ghost danger" disabled={busyAction !== null} onClick={() => runAction('destroy', () => environments.destroy(environmentId))}>
-                  {busyAction === 'destroy' ? 'Queueing destroy...' : 'Queue destroy plan'}
-                </button>
-              ) : null}
-            </div>
+    <div className="page-stack">
+      <section className="hero-panel">
+        <div>
+          <div className="page-kicker">
+            <Link to="/environments" className="text-link">
+              Ops / Environments
+            </Link>{' '}
+            / Detail
           </div>
-        </section>
-
-        <div className="split">
-          <section className="panel">
-            <div className="grid-three">
-              <div className="meta-item">
-                <span>Status</span>
-                <StatusBadge status={environment?.status || ''} />
-              </div>
-              <div className="meta-item">
-                <span>Approval</span>
-                <StatusBadge status={environment?.approval_status || ''} />
-              </div>
-              <div className="meta-item">
-                <span>Operation</span>
-                <strong>{environment?.operation || '-'}</strong>
-              </div>
-              <div className="meta-item">
-                <span>Created by</span>
-                <strong>{environment?.created_by_email || '-'}</strong>
-              </div>
-              <div className="meta-item">
-                <span>Approved by</span>
-                <strong>{environment?.approved_by_email || '-'}</strong>
-              </div>
-              <div className="meta-item">
-                <span>Retries</span>
-                <strong>
-                  {environment?.retry_count || 0} / {environment?.max_retries || 0}
-                </strong>
-              </div>
-              <div className="meta-item">
-                <span>Workdir</span>
-                <strong>{environment?.workdir || '-'}</strong>
-              </div>
-              <div className="meta-item">
-                <span>Plan artifact</span>
-                <strong>{environment?.plan_path || '-'}</strong>
-              </div>
-              <div className="meta-item">
-                <span>Last execution</span>
-                <strong>
-                  {environment?.last_job_id ? <Link to={`/jobs/${environment.last_job_id}`}>{environment.last_job_id.slice(0, 8)}</Link> : '-'}
-                </strong>
-              </div>
-            </div>
-
-            {environment?.last_error ? <div className="error-box" style={{ marginTop: 14 }}>Last error: {environment.last_error}</div> : null}
-            {error ? <div className="error-box" style={{ marginTop: 14 }}>{error}</div> : null}
-
-            <div className="field-group" style={{ marginTop: 14 }}>
-              <div className="field-title">Environment spec</div>
-              {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} /> : null}
-            </div>
-          </section>
-
-          <div className="grid">
-            <section className="panel">
-              <div className="detail-top" style={{ marginBottom: 12 }}>
-                <div>
-                  <p className="muted" style={{ marginTop: 0, marginBottom: 6 }}>
-                    Execution context
-                  </p>
-                  <strong>Current lifecycle state, latest job, and produced outputs.</strong>
-                </div>
-              </div>
-              <div className="grid-two">
-                <div className="meta-item">
-                  <span>Latest job type</span>
-                  <strong>{lastJob?.type || '-'}</strong>
-                </div>
-                <div className="meta-item">
-                  <span>Latest job status</span>
-                  <StatusBadge status={lastJob?.status || ''} />
-                </div>
-                <div className="meta-item">
-                  <span>Requested by</span>
-                  <strong>{lastJob?.requested_by || '-'}</strong>
-                </div>
-                <div className="meta-item">
-                  <span>Last updated</span>
-                  <strong>{lastJob?.updated_at ? new Date(lastJob.updated_at).toLocaleString() : '-'}</strong>
-                </div>
-              </div>
-
-              {outputs ? (
-                <div className="field-group" style={{ marginTop: 14 }}>
-                  <div className="field-title">Outputs</div>
-                  <pre className="json-block">{JSON.stringify(outputs, null, 2)}</pre>
-                </div>
-              ) : (
-                <div className="muted" style={{ marginTop: 14 }}>
-                  No outputs recorded yet.
-                </div>
-              )}
-            </section>
-
-            <section className="panel">
-              <div className="detail-top" style={{ marginBottom: 12 }}>
-                <div>
-                  <p className="muted" style={{ marginTop: 0, marginBottom: 6 }}>
-                    Audit trail
-                  </p>
-                  <strong>Who requested, approved, retried, and destroyed each lifecycle step.</strong>
-                </div>
-              </div>
-              <div className="audit-list">
-                {auditItems.length === 0 ? (
-                  <div className="muted">No audit events yet.</div>
-                ) : (
-                  auditItems.map((item) => {
-                    const metadata = parseJson(item.metadata_json)
-                    return (
-                      <div className="audit-item" key={item.id}>
-                        <div className="detail-top" style={{ alignItems: 'center' }}>
-                          <strong>{item.action}</strong>
-                          <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
-                        </div>
-                        <div className="muted">{item.actor_email || 'system'}</div>
-                        {item.message ? <div style={{ marginTop: 6 }}>{item.message}</div> : null}
-                        {metadata ? <pre className="json-block" style={{ marginTop: 10 }}>{JSON.stringify(metadata, null, 2)}</pre> : null}
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </section>
-          </div>
+          <h1 className="page-title">{environment?.name || environmentId}</h1>
+          <p className="page-copy">
+            Operate the environment as a durable platform object with lifecycle, approval, result artifacts, and immutable audit context.
+          </p>
         </div>
-      </div>
+        <div className="hero-actions">
+          <button className="ghost" onClick={load}>
+            Refresh
+          </button>
+          {environment ? (
+            <Link to={reviewRoute} className="ghost action-link">
+              Open review
+            </Link>
+          ) : null}
+          {environment && (environment.approval_status === 'approved' || environment.status === 'pending_approval') ? (
+            <Link to={approvalRoute} className="ghost action-link">
+              Approval control
+            </Link>
+          ) : null}
+          <button
+            className="ghost"
+            disabled={!canPlanUpdate || busyAction !== null}
+            onClick={() =>
+              runAction('update-plan', () => environments.plan(environmentId, editingSpec, 'update', 'basic'))
+            }
+          >
+            {busyAction === 'update-plan' ? 'Queueing...' : 'Queue update plan'}
+          </button>
+          {canApprove ? (
+            <button onClick={() => runAction('approve', () => environments.approve(environmentId))} disabled={busyAction !== null}>
+              {busyAction === 'approve' ? 'Approving...' : 'Approve'}
+            </button>
+          ) : null}
+          {canApply ? (
+            <button
+              onClick={() =>
+                runAction('apply', () => environments.apply(environmentId), {
+                  confirmMessage: 'Queue apply for the currently approved plan?',
+                })
+              }
+              disabled={busyAction !== null}
+            >
+              {busyAction === 'apply' ? 'Applying...' : 'Apply approved plan'}
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      {error ? <section className="error-box">{error}</section> : null}
+
+      <section className="console-card">
+        <div className={`callout callout-${actionHint.tone}`}>
+          <strong>{actionHint.title}</strong>
+          <p style={{ margin: '6px 0 0' }}>{actionHint.detail}</p>
+        </div>
+      </section>
+
+      <section className="dashboard-grid">
+        <article className="console-card console-card-span">
+          <div className="section-head">
+            <div>
+              <div className="section-kicker">Overview</div>
+              <h2>Metadata summary</h2>
+            </div>
+          </div>
+          <div className="info-grid info-grid-three">
+            <div className="meta-item">
+              <span>Lifecycle</span>
+              <StatusBadge status={environment?.status || ''} />
+            </div>
+            <div className="meta-item">
+              <span>Approval</span>
+              <StatusBadge status={environment?.approval_status || ''} />
+            </div>
+            <div className="meta-item">
+              <span>Operation</span>
+              <strong>{environment?.operation || '-'}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Environment ID</span>
+              <strong>{environment?.id || '-'}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Owner</span>
+              <strong>{environment?.created_by_email || '-'}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Approved by</span>
+              <strong>{environment?.approved_by_email || '-'}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Created</span>
+              <strong>{environment?.created_at ? new Date(environment.created_at).toLocaleString() : '-'}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Updated</span>
+              <strong>{environment?.updated_at ? new Date(environment.updated_at).toLocaleString() : '-'}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Retry budget</span>
+              <strong>
+                {environment?.retry_count || 0} / {environment?.max_retries || 0}
+              </strong>
+            </div>
+          </div>
+        </article>
+
+        <article className="console-card">
+          <div className="section-head">
+            <div>
+              <div className="section-kicker">Workflow</div>
+              <h2>Plan {'->'} approval {'->'} apply {'->'} result</h2>
+            </div>
+          </div>
+          <div className="workflow-steps">
+            {workflow.map((step) => (
+              <div className={`workflow-step workflow-step-${step.state}`} key={step.label}>
+                <div className="workflow-step-head">
+                  <strong>{step.label}</strong>
+                  <span className="badge badge-muted">{step.state}</span>
+                </div>
+                <p>{step.detail}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+      </section>
+
+      <section className="dashboard-grid">
+        <article className="console-card">
+          <div className="section-head">
+            <div>
+              <div className="section-kicker">Desired state</div>
+              <h2>Resource and specification inventory</h2>
+            </div>
+          </div>
+          <div className="info-grid">
+            <div className="meta-item">
+              <span>Tenant</span>
+              <strong>{environment?.spec.tenant_name || '-'}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Network</span>
+              <strong>{environment?.spec.network.name || '-'}</strong>
+              <div className="row-meta">{environment?.spec.network.cidr || '-'}</div>
+            </div>
+            <div className="meta-item">
+              <span>Subnet</span>
+              <strong>{environment?.spec.subnet.name || '-'}</strong>
+              <div className="row-meta">{environment?.spec.subnet.cidr || '-'}</div>
+            </div>
+            <div className="meta-item">
+              <span>Instances</span>
+              <strong>{environment?.spec.instances.length || 0}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Security groups</span>
+              <strong>{environment?.spec.security_groups?.length || 0}</strong>
+            </div>
+            <div className="meta-item">
+              <span>Plan artifact</span>
+              <strong>{environment?.plan_path || '-'}</strong>
+            </div>
+          </div>
+          <div className="field-group" style={{ marginTop: 16 }}>
+            <div className="field-title">Environment spec</div>
+            {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} /> : null}
+          </div>
+        </article>
+
+        <article className="console-card">
+          <div className="section-head">
+            <div>
+              <div className="section-kicker">Recent jobs</div>
+              <h2>Execution records</h2>
+            </div>
+          </div>
+          <div className="stack-list">
+            {recentJobs.length === 0 ? (
+              <div className="empty-state">No environment-scoped jobs were found.</div>
+            ) : (
+              recentJobs.map((item) => (
+                <Link key={item.id} to={`/jobs/${item.id}`} className="stack-row stack-row-link">
+                  <div>
+                    <strong>{item.type}</strong>
+                    <div className="row-meta">
+                      {item.id.slice(0, 8)} · {item.requested_by || '-'} · {item.updated_at ? new Date(item.updated_at).toLocaleString() : '-'}
+                    </div>
+                  </div>
+                  <StatusBadge status={item.status} />
+                </Link>
+              ))
+            )}
+          </div>
+          {environment?.last_error ? (
+            <div className="error-box" style={{ marginTop: 14 }}>
+              Last error: {environment.last_error}
+            </div>
+          ) : null}
+        </article>
+      </section>
+
+      <section className="dashboard-grid">
+        <article className="console-card">
+          <div className="section-head">
+            <div>
+              <div className="section-kicker">Outputs</div>
+              <h2>Artifacts and result pointers</h2>
+            </div>
+          </div>
+          <div className="stack-list">
+            <div className="stack-row">
+              <div>
+                <strong>Workdir</strong>
+                <div className="row-meta">{environment?.workdir || '-'}</div>
+              </div>
+            </div>
+            <div className="stack-row">
+              <div>
+                <strong>Plan path</strong>
+                <div className="row-meta">{environment?.plan_path || '-'}</div>
+              </div>
+            </div>
+          </div>
+          {outputs ? (
+            <pre className="json-block" style={{ marginTop: 14 }}>
+              {JSON.stringify(outputs, null, 2)}
+            </pre>
+          ) : (
+            <div className="empty-state" style={{ marginTop: 14 }}>
+              No outputs recorded yet.
+            </div>
+          )}
+        </article>
+
+        <article className="console-card">
+          <div className="section-head">
+            <div>
+              <div className="section-kicker">Audit</div>
+              <h2>Approval / audit timeline</h2>
+            </div>
+          </div>
+          <div className="audit-list">
+            {auditItems.length === 0 ? (
+              <div className="empty-state">No audit events yet.</div>
+            ) : (
+              auditItems.map((item) => {
+                const metadata = parseJson(item.metadata_json)
+                return (
+                  <div className="audit-item" key={item.id}>
+                    <div className="detail-top" style={{ alignItems: 'center' }}>
+                      <strong>{item.action}</strong>
+                      <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
+                    </div>
+                    <div className="row-meta">{item.actor_email || 'system'}</div>
+                    {item.message ? <div style={{ marginTop: 6 }}>{item.message}</div> : null}
+                    {metadata ? (
+                      <pre className="json-block" style={{ marginTop: 10 }}>
+                        {JSON.stringify(metadata, null, 2)}
+                      </pre>
+                    ) : null}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </article>
+      </section>
+
+      <section className="dashboard-grid">
+        <article className="console-card">
+          <div className="section-head">
+            <div>
+              <div className="section-kicker">Safe action hierarchy</div>
+              <h2>Guarded operations</h2>
+            </div>
+          </div>
+          <div className="stack-list">
+            {environment ? (
+              <Link to={reviewRoute} className="stack-row stack-row-link">
+                <div>
+                  <strong>Open plan review</strong>
+                  <div className="row-meta">Inspect risk signals, impact summary, and approval readiness for this environment.</div>
+                </div>
+              </Link>
+            ) : null}
+            {environment && (environment.approval_status === 'approved' || environment.status === 'pending_approval') ? (
+              <Link to={approvalRoute} className="stack-row stack-row-link">
+                <div>
+                  <strong>Open approval control</strong>
+                  <div className="row-meta">Use the dedicated guarded surface for approve, apply, and destructive confirmation.</div>
+                </div>
+              </Link>
+            ) : null}
+            <div className="stack-row">
+              <div>
+                <strong>Operate now</strong>
+                <div className="row-meta">Refresh current state and inspect the linked execution records.</div>
+              </div>
+            </div>
+            <div className="stack-row">
+              <div>
+                <strong>Schedule update</strong>
+                <div className="row-meta">Edit desired state and queue a fresh plan before any mutation is applied.</div>
+              </div>
+            </div>
+            <div className="stack-row stack-row-danger">
+              <div>
+                <strong>Destroy environment</strong>
+                <div className="row-meta">Dangerous operation. Requires explicit confirmation before the destroy plan is queued.</div>
+              </div>
+            </div>
+          </div>
+          <div className="detail-actions" style={{ marginTop: 14 }}>
+            {canRetry ? (
+              <button className="ghost" onClick={() => runAction('retry', () => environments.retry(environmentId))} disabled={busyAction !== null}>
+                {busyAction === 'retry' ? 'Retrying...' : 'Retry failed step'}
+              </button>
+            ) : null}
+            {canDestroy && environment ? (
+              <Link to={approvalRoute} className="ghost action-link danger">
+                Open destroy control
+              </Link>
+            ) : null}
+          </div>
+        </article>
+      </section>
     </div>
   )
 }
