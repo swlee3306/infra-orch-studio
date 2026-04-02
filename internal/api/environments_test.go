@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -176,5 +178,180 @@ func TestEnvironmentRetryBudget(t *testing.T) {
 	srv.mux.ServeHTTP(retryRR2, retryReq2)
 	if retryRR2.Code != http.StatusBadRequest {
 		t.Fatalf("retry exhausted status = %d, want %d", retryRR2.Code, http.StatusBadRequest)
+	}
+}
+
+func TestEnvironmentDestroyRequiresAdminAndConfirmationName(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	operator := mustUser(t, "operator@example.com", false, "password123")
+	seedSession(store, admin, "admin-session-token")
+	seedSession(store, operator, "operator-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-destroy",
+		Status:         domain.EnvironmentStatusActive,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusNotRequested,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-destroy",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		MaxRetries: 3,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+
+	operatorReq := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/destroy", strings.NewReader(`{"confirmation_name":"env-destroy"}`))
+	operatorReq.AddCookie(cookieFromToken("operator-session-token", srv.cookieName))
+	operatorRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(operatorRR, operatorReq)
+	if operatorRR.Code != http.StatusForbidden {
+		t.Fatalf("operator destroy status = %d, want %d", operatorRR.Code, http.StatusForbidden)
+	}
+
+	badReq := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/destroy", strings.NewReader(`{"confirmation_name":"wrong-name"}`))
+	badReq.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	badRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(badRR, badReq)
+	if badRR.Code != http.StatusBadRequest {
+		t.Fatalf("bad confirmation status = %d, want %d", badRR.Code, http.StatusBadRequest)
+	}
+
+	okReq := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/destroy", strings.NewReader(`{"confirmation_name":"env-destroy","comment":"sunset request CHG-42"}`))
+	okReq.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	okRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(okRR, okReq)
+	if okRR.Code != http.StatusCreated {
+		t.Fatalf("destroy status = %d, want %d", okRR.Code, http.StatusCreated)
+	}
+
+	audits, err := store.ListAuditEvents(nil, "environment", env.ID, 10)
+	if err != nil {
+		t.Fatalf("list audit events: %v", err)
+	}
+	if len(audits) == 0 || !strings.Contains(audits[0].MetadataJSON, "CHG-42") {
+		t.Fatalf("expected destroy audit metadata to include comment, got %+v", audits)
+	}
+}
+
+func TestTemplatesEndpointListsRepoBackedCatalog(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+
+	root := t.TempDir()
+	templatesRoot := filepath.Join(root, "templates")
+	modulesRoot := filepath.Join(root, "modules")
+	for _, dir := range []string{
+		filepath.Join(templatesRoot, "basic"),
+		filepath.Join(modulesRoot, "network"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(templatesRoot, "basic", "main.tf"), []byte("module {}"), 0o644); err != nil {
+		t.Fatalf("write template file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(modulesRoot, "network", "variables.tf"), []byte("variable {}"), 0o644); err != nil {
+		t.Fatalf("write module file: %v", err)
+	}
+
+	srv := NewServer(Config{
+		JobStore:       store,
+		AuthStore:      store,
+		CookieName:     "test_session",
+		SessionTTL:     time.Hour,
+		AllowedOrigins: []string{"http://localhost:5173"},
+		TemplatesRoot:  templatesRoot,
+		ModulesRoot:    modulesRoot,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/templates", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("templates status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var resp struct {
+		EnvironmentSets []struct {
+			Name  string   `json:"name"`
+			Files []string `json:"files"`
+		} `json:"environment_sets"`
+		Modules []struct {
+			Name  string   `json:"name"`
+			Files []string `json:"files"`
+		} `json:"modules"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode templates response: %v", err)
+	}
+	if len(resp.EnvironmentSets) != 1 || resp.EnvironmentSets[0].Name != "basic" {
+		t.Fatalf("unexpected environment sets: %+v", resp.EnvironmentSets)
+	}
+	if len(resp.Modules) != 1 || resp.Modules[0].Name != "network" {
+		t.Fatalf("unexpected modules: %+v", resp.Modules)
+	}
+}
+
+func TestAuditFeedEndpointListsEnvironmentEvents(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	envID := uuid.NewString()
+	if _, err := store.CreateAuditEvent(nil, domain.AuditEvent{
+		ID:           uuid.NewString(),
+		ResourceType: "environment",
+		ResourceID:   envID,
+		Action:       "environment.approved",
+		ActorEmail:   "admin@example.com",
+		Message:      "approved",
+		CreatedAt:    now,
+	}); err != nil {
+		t.Fatalf("create audit event: %v", err)
+	}
+	if _, err := store.CreateAuditEvent(nil, domain.AuditEvent{
+		ID:           uuid.NewString(),
+		ResourceType: "job",
+		ResourceID:   uuid.NewString(),
+		Action:       "job.succeeded",
+		ActorEmail:   "system",
+		Message:      "job done",
+		CreatedAt:    now.Add(-time.Minute),
+	}); err != nil {
+		t.Fatalf("create audit event: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/audit?resource_type=environment&limit=5", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("audit feed status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var resp struct {
+		Items []domain.AuditEvent `json:"items"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode audit feed response: %v", err)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].ResourceType != "environment" {
+		t.Fatalf("unexpected audit feed items: %+v", resp.Items)
 	}
 }

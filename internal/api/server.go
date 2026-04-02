@@ -15,6 +15,8 @@ type Config struct {
 	CookieName     string
 	SessionTTL     time.Duration
 	AllowedOrigins []string
+	TemplatesRoot  string
+	ModulesRoot    string
 }
 
 type Server struct {
@@ -24,6 +26,8 @@ type Server struct {
 	cookieName     string
 	sessionTTL     time.Duration
 	allowedOrigins map[string]struct{}
+	templatesRoot  string
+	modulesRoot    string
 }
 
 func NewServer(cfg Config) *Server {
@@ -46,6 +50,8 @@ func NewServer(cfg Config) *Server {
 		cookieName:     cookieName,
 		sessionTTL:     sessionTTL,
 		allowedOrigins: make(map[string]struct{}, len(origins)),
+		templatesRoot:  cfg.TemplatesRoot,
+		modulesRoot:    cfg.ModulesRoot,
 	}
 	for _, origin := range origins {
 		origin = strings.TrimSpace(origin)
@@ -61,8 +67,10 @@ func NewServer(cfg Config) *Server {
 	mux.HandleFunc("/api/auth/login", s.handleLogin)
 	mux.HandleFunc("/api/auth/logout", s.handleLogout)
 	mux.Handle("/api/auth/me", s.withAuth(s.handleMe))
+	mux.Handle("/api/audit", s.withAuth(s.handleAuditFeed))
 	mux.Handle("/api/environments", s.withAuth(s.handleEnvironments))
 	mux.Handle("/api/environments/", s.withAuth(s.handleEnvironmentRoute))
+	mux.Handle("/api/templates", s.withAuth(s.handleTemplates))
 	mux.Handle("/api/jobs", s.withAuth(s.handleJobs))
 	mux.Handle("/api/jobs/", s.withAuth(s.handleJobRoute))
 	mux.Handle("/ws", s.withAuth(s.handleWS))

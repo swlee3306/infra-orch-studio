@@ -25,6 +25,11 @@ type planEnvironmentRequest struct {
 	Operation    domain.EnvironmentOperation `json:"operation,omitempty"`
 }
 
+type destroyEnvironmentRequest struct {
+	ConfirmationName string `json:"confirmation_name,omitempty"`
+	Comment          string `json:"comment,omitempty"`
+}
+
 func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user domain.User) {
 	switch r.Method {
 	case http.MethodGet:
@@ -116,6 +121,10 @@ func (s *Server) handleEnvironmentRoute(w http.ResponseWriter, r *http.Request, 
 	case strings.HasSuffix(path, "/retry"):
 		s.handleEnvironmentRetry(w, r, user)
 	case strings.HasSuffix(path, "/destroy"):
+		if !user.IsAdmin {
+			writeError(w, http.StatusForbidden, "admin access required")
+			return
+		}
 		s.handleEnvironmentDestroy(w, r, user)
 	case strings.HasSuffix(path, "/audit"):
 		s.handleEnvironmentAudit(w, r)
@@ -424,6 +433,15 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusInternalServerError, "load environment failed")
 		return
 	}
+	var req destroyEnvironmentRequest
+	if err := decodeJSON(r.Body, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.ConfirmationName != env.Name {
+		writeError(w, http.StatusBadRequest, "confirmation name must match environment name")
+		return
+	}
 	now := time.Now().UTC()
 	env.Operation = domain.EnvironmentOperationDestroy
 	env.Status = domain.EnvironmentStatusPlanning
@@ -447,7 +465,9 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.destroy_requested", "destroy plan queued", map[string]any{
-		"job_id": createdJob.ID,
+		"job_id":            createdJob.ID,
+		"confirmation_name": req.ConfirmationName,
+		"comment":           req.Comment,
 	})
 	writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
 }

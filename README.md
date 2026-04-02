@@ -41,8 +41,14 @@ Admin seed:
 - `POST /api/environments/:id/approve` (admin only)
 - `POST /api/environments/:id/apply` (admin only)
 - `POST /api/environments/:id/retry`
-- `POST /api/environments/:id/destroy`
+- `POST /api/environments/:id/destroy` (admin only, requires confirmation payload)
 - `GET /api/environments/:id/audit`
+
+### Templates
+- `GET /api/templates`
+
+### Audit
+- `GET /api/audit?resource_type=environment&limit=200`
 
 ### Jobs
 - `GET /api/jobs?limit=50`

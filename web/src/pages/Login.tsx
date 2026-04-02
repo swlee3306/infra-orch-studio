@@ -42,7 +42,7 @@ export default function LoginPage() {
               } else {
                 await auth.signup(email, password)
               }
-              nav('/jobs')
+              nav('/dashboard')
             } catch (err: any) {
               setError(err?.message || 'failed')
             } finally {
