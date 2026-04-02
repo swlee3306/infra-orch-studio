@@ -27,6 +27,10 @@ type planEnvironmentRequest struct {
 	Operation    domain.EnvironmentOperation `json:"operation,omitempty"`
 }
 
+type approveEnvironmentRequest struct {
+	Comment string `json:"comment,omitempty"`
+}
+
 type destroyEnvironmentRequest struct {
 	ConfirmationName string `json:"confirmation_name,omitempty"`
 	Comment          string `json:"comment,omitempty"`
@@ -265,6 +269,13 @@ func (s *Server) handleEnvironmentApprove(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "plan job must be done before approval")
 		return
 	}
+	var req approveEnvironmentRequest
+	if r.Body != nil {
+		if err := decodeJSON(r.Body, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+	}
 	now := time.Now().UTC()
 	env.ApprovalStatus = domain.ApprovalStatusApproved
 	env.Status = domain.EnvironmentStatusApproved
@@ -278,7 +289,9 @@ func (s *Server) handleEnvironmentApprove(w http.ResponseWriter, r *http.Request
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.approved", "plan approved for apply", map[string]any{
-		"plan_job_id": env.LastPlanJobID,
+		"plan_job_id":   env.LastPlanJobID,
+		"template_name": job.TemplateName,
+		"comment":       req.Comment,
 	})
 	writeJSON(w, http.StatusOK, env)
 }

@@ -111,6 +111,12 @@
 - Admin only.
 - Requires the latest plan job to be `done`.
 - Marks the environment as approved and records approver metadata.
+- Optional body:
+```json
+{
+  "comment": "approved after CAB review"
+}
+```
 
 ### `POST /api/environments/:id/apply`
 - Auth required.

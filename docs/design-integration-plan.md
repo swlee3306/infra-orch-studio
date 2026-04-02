@@ -164,8 +164,8 @@
 
 - `GET /api/environments/:id/plan-review`
   - high-risk / low-risk / warnings / impact summary 분리용
-- `approval comment`, `destroy typed confirmation`, `checkpoint states`
-  - Zone D 수준 UX를 위해 필요
+- `checkpoint states`
+  - Zone D 수준 UX를 위해 추가 정교화 가능
 
 ### 현재 반영된 API
 
@@ -225,4 +225,3 @@
   - template edit/validate/apply 같은 고급 관리 기능은 아직 없음
 - 추가 필요 사항
   - plan review risk payload 전용 API
-  - approval comment를 저장하는 계약

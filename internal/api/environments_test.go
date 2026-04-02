@@ -73,7 +73,7 @@ func TestEnvironmentLifecycleApprovalAndAudit(t *testing.T) {
 		t.Fatalf("update environment: %v", err)
 	}
 
-	approveReq := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/approve", nil)
+	approveReq := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/approve", strings.NewReader(`{"comment":"approved after CAB review"}`))
 	approveReq.AddCookie(sessionCookie)
 	approveRR := httptest.NewRecorder()
 	srv.mux.ServeHTTP(approveRR, approveReq)
@@ -115,6 +115,16 @@ func TestEnvironmentLifecycleApprovalAndAudit(t *testing.T) {
 	}
 	if len(auditResp.Items) < 3 {
 		t.Fatalf("audit events = %d, want >= 3", len(auditResp.Items))
+	}
+	foundApprovalComment := false
+	for _, item := range auditResp.Items {
+		if item.Action == "environment.approved" && strings.Contains(item.MetadataJSON, "CAB review") {
+			foundApprovalComment = true
+			break
+		}
+	}
+	if !foundApprovalComment {
+		t.Fatalf("approval audit metadata missing comment: %+v", auditResp.Items)
 	}
 }
 

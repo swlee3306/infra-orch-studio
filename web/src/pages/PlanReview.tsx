@@ -12,6 +12,7 @@ export default function PlanReviewPage() {
   const [auditItems, setAuditItems] = useState<AuditEvent[]>([])
   const [jobItems, setJobItems] = useState<Job[]>([])
   const [ack, setAck] = useState(false)
+  const [approvalComment, setApprovalComment] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -176,9 +177,18 @@ export default function PlanReviewPage() {
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
             <span>I reviewed all high-risk changes and warnings before approval.</span>
           </label>
+          <label className="field" style={{ marginTop: 14 }}>
+            <span>Approval comment</span>
+            <textarea
+              value={approvalComment}
+              onChange={(e) => setApprovalComment(e.target.value)}
+              placeholder="Approval rationale, CAB reference, or operational note"
+              rows={3}
+            />
+          </label>
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {viewer?.is_admin && environment?.status === 'pending_approval' ? (
-              <button onClick={() => run('approve', () => environments.approve(environmentId))} disabled={!ack || busy !== null}>
+              <button onClick={() => run('approve', () => environments.approve(environmentId, { comment: approvalComment.trim() }))} disabled={!ack || busy !== null}>
                 {busy === 'approve' ? 'Approving...' : 'Approve'}
               </button>
             ) : null}
