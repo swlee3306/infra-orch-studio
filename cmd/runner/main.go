@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
 	"github.com/swlee3306/infra-orch-studio/internal/executor"
@@ -108,6 +111,7 @@ func main() {
 			job.Workdir = src.Workdir
 			job.PlanPath = src.PlanPath
 			job.TemplateName = src.TemplateName
+			job.LogDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
 			job.Error = ""
 			job.UpdatedAt = time.Now().UTC()
 			if _, err := store.UpdateJob(context.Background(), job); err != nil {
@@ -126,6 +130,11 @@ func main() {
 				failJob(store, job, err.Error())
 				continue
 			}
+			if job.Operation != domain.EnvironmentOperationDestroy {
+				if outputRes, err := exec.OutputJSON(context.Background(), job.Workdir); err == nil {
+					job.OutputsJSON = strings.TrimSpace(string(outputRes.Stdout))
+				}
+			}
 			job.Status = domain.JobStatusDone
 			job.Error = ""
 			job.UpdatedAt = time.Now().UTC()
@@ -133,6 +142,7 @@ func main() {
 				log.Printf("update job failed: id=%s err=%v", job.ID, err)
 				continue
 			}
+			recordRunnerEnvironmentSuccess(store, job)
 			log.Printf("finished job id=%s status=%s workdir=%s", job.ID, job.Status, job.Workdir)
 			continue
 		}
@@ -162,6 +172,7 @@ func main() {
 		}
 		job.TemplateName = effectiveTemplateName
 		job.Workdir = wd.Dir
+		job.LogDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
 		job.Error = ""
 		job.UpdatedAt = time.Now().UTC()
 		if _, err := store.UpdateJob(context.Background(), job); err != nil {
@@ -184,7 +195,12 @@ func main() {
 			continue
 		}
 
-		planRes, err := exec.Plan(context.Background(), job.Workdir, planRelPath)
+		planRes, err := func() (executor.RunResult, error) {
+			if job.Operation == domain.EnvironmentOperationDestroy {
+				return exec.PlanDestroy(context.Background(), job.Workdir, planRelPath)
+			}
+			return exec.Plan(context.Background(), job.Workdir, planRelPath)
+		}()
 		if err != nil {
 			log.Printf("plan command failed: id=%s exit=%d stderr=%s", job.ID, planRes.ExitCode, strings.TrimSpace(string(planRes.Stderr)))
 			failJob(store, job, err.Error())
@@ -201,6 +217,7 @@ func main() {
 			log.Printf("update job failed: id=%s err=%v", job.ID, err)
 			continue
 		}
+		recordRunnerEnvironmentSuccess(store, job)
 		log.Printf("finished job id=%s status=%s workdir=%s", job.ID, job.Status, job.Workdir)
 	}
 }
@@ -226,4 +243,76 @@ func failJob(store *storemysql.Store, job domain.Job, message string) {
 	job.Error = message
 	job.UpdatedAt = time.Now().UTC()
 	_, _ = store.UpdateJob(context.Background(), job)
+	if job.EnvironmentID == "" {
+		return
+	}
+	env, err := store.GetEnvironment(context.Background(), job.EnvironmentID)
+	if err != nil {
+		return
+	}
+	env.Status = domain.EnvironmentStatusFailed
+	env.LastError = message
+	env.LastJobID = job.ID
+	env.UpdatedAt = time.Now().UTC()
+	_, _ = store.UpdateEnvironment(context.Background(), env)
+	recordSystemAudit(store, "environment", env.ID, "job.failed", "runner marked environment failed", map[string]any{
+		"job_id": job.ID,
+		"error":  message,
+	})
+}
+
+func recordRunnerEnvironmentSuccess(store *storemysql.Store, job domain.Job) {
+	if job.EnvironmentID == "" {
+		return
+	}
+	env, err := store.GetEnvironment(context.Background(), job.EnvironmentID)
+	if err != nil {
+		return
+	}
+	env.LastJobID = job.ID
+	env.LastError = ""
+	env.Workdir = job.Workdir
+	env.PlanPath = job.PlanPath
+	env.OutputsJSON = job.OutputsJSON
+	env.UpdatedAt = time.Now().UTC()
+
+	switch job.Type {
+	case domain.JobTypePlan:
+		env.LastPlanJobID = job.ID
+		env.Status = domain.EnvironmentStatusPendingApproval
+		env.ApprovalStatus = domain.ApprovalStatusPending
+	case domain.JobTypeApply:
+		env.LastApplyJobID = job.ID
+		if job.Operation == domain.EnvironmentOperationDestroy {
+			env.Status = domain.EnvironmentStatusDestroyed
+		} else {
+			env.Status = domain.EnvironmentStatusActive
+		}
+	}
+	if _, err := store.UpdateEnvironment(context.Background(), env); err == nil {
+		recordSystemAudit(store, "environment", env.ID, "job.succeeded", "runner updated environment state from job", map[string]any{
+			"job_id":    job.ID,
+			"job_type":  job.Type,
+			"operation": job.Operation,
+		})
+	}
+}
+
+func recordSystemAudit(store *storemysql.Store, resourceType, resourceID, action, message string, metadata map[string]any) {
+	metadataJSON := ""
+	if len(metadata) > 0 {
+		if b, err := json.Marshal(metadata); err == nil {
+			metadataJSON = string(b)
+		}
+	}
+	_, _ = store.CreateAuditEvent(context.Background(), domain.AuditEvent{
+		ID:           uuid.NewString(),
+		ResourceType: resourceType,
+		ResourceID:   resourceID,
+		Action:       action,
+		ActorEmail:   "runner@system",
+		Message:      message,
+		MetadataJSON: metadataJSON,
+		CreatedAt:    time.Now().UTC(),
+	})
 }

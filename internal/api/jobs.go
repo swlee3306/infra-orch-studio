@@ -57,7 +57,10 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request, user domain.
 			Status:      domain.JobStatusQueued,
 			CreatedAt:   now,
 			UpdatedAt:   now,
+			Operation:   domain.EnvironmentOperationCreate,
 			Environment: req.Environment,
+			MaxRetries:  3,
+			RequestedBy: user.Email,
 		}
 		created, err := s.jobs.CreateJob(r.Context(), job)
 		if err != nil {
@@ -152,6 +155,10 @@ func (s *Server) handlePlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if src.EnvironmentID != "" {
+		writeError(w, http.StatusBadRequest, "environment-managed plans must be queued via POST /api/environments/{id}/plan")
+		return
+	}
 
 	now := time.Now().UTC()
 	job := buildDerivedJob(src, domain.JobTypePlan, now)
@@ -196,6 +203,10 @@ func (s *Server) handleApply(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "source job has no plan artifact")
 		return
 	}
+	if src.EnvironmentID != "" {
+		writeError(w, http.StatusBadRequest, "environment-managed plans must be applied via POST /api/environments/{id}/apply")
+		return
+	}
 	if err := validateEnvironmentSpecStrict(src.Environment); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -223,13 +234,17 @@ func jobActionID(path, action string) (string, error) {
 
 func buildDerivedJob(src domain.Job, jobType domain.JobType, now time.Time) domain.Job {
 	job := domain.Job{
-		ID:           uuid.NewString(),
-		Type:         jobType,
-		Status:       domain.JobStatusQueued,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-		Environment:  src.Environment,
-		TemplateName: src.TemplateName,
+		ID:            uuid.NewString(),
+		Type:          jobType,
+		Status:        domain.JobStatusQueued,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		EnvironmentID: src.EnvironmentID,
+		Operation:     src.Operation,
+		Environment:   src.Environment,
+		TemplateName:  src.TemplateName,
+		MaxRetries:    src.MaxRetries,
+		RequestedBy:   src.RequestedBy,
 	}
 
 	switch jobType {

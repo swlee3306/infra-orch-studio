@@ -49,8 +49,10 @@ func main() {
 	}()
 
 	srv := api.NewServer(api.Config{
-		JobStore:  jobStore,
-		AuthStore: authStore,
+		JobStore:      jobStore,
+		AuthStore:     authStore,
+		TemplatesRoot: env("TEMPLATES_ROOT", "./templates/opentofu/environments"),
+		ModulesRoot:   env("MODULES_ROOT", "./templates/opentofu/modules"),
 	})
 	if err := srv.ListenAndServe(addr); err != nil {
 		log.Fatalf("listen: %v", err)
