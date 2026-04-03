@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth, TemplateCatalogResponse, TemplateDetailResponse, TemplateValidation, templates } from '../api'
+import { summarizeOperatorError } from '../utils/uiCopy'
 
 export default function TemplatesPage() {
   const nav = useNavigate()
@@ -67,6 +68,8 @@ export default function TemplatesPage() {
     }
   }
 
+  const emptyCatalog = Boolean(catalog && catalog.environment_sets.length === 0 && catalog.modules.length === 0)
+
   return (
     <div className="page-stack">
       <section className="hero-panel">
@@ -74,7 +77,7 @@ export default function TemplatesPage() {
           <div className="page-kicker">Template management / repo-backed source</div>
           <h1 className="page-title">OpenTofu template catalog</h1>
           <p className="page-copy">
-            This surface reflects the committed template directories used by the renderer. It is intentionally repo-backed so operators can see what environment sets and modules are actually available.
+            Inspect the template inventory currently visible to the API and runner before queuing create, update, or destroy plans.
           </p>
         </div>
         <div className="hero-actions">
@@ -87,9 +90,18 @@ export default function TemplatesPage() {
         </div>
       </section>
 
-      {error ? <section className="error-box">{error}</section> : null}
+      {error ? <section className="error-box">{summarizeOperatorError(error)}</section> : null}
 
-      <section className="stats-grid">
+      {emptyCatalog ? (
+        <section className="callout callout-warning">
+          <strong>No templates are currently visible to the server</strong>
+          <p style={{ margin: '6px 0 0' }}>
+            Place environment templates under <code>{catalog?.templates_root || '-'}</code> and shared modules under <code>{catalog?.modules_root || '-'}</code>, then refresh this page.
+          </p>
+        </section>
+      ) : null}
+
+      <section className="stats-grid template-stats-grid">
         <article className="metric-card metric-card-primary">
           <span>Environment templates</span>
           <strong>{catalog?.environment_sets.length || 0}</strong>
@@ -102,12 +114,12 @@ export default function TemplatesPage() {
         </article>
         <article className="metric-card">
           <span>Templates root</span>
-          <strong>{catalog?.templates_root || '-'}</strong>
+          <strong className="metric-path">{catalog?.templates_root || '-'}</strong>
           <p>Filesystem root read by the API for environment template sets.</p>
         </article>
         <article className="metric-card">
           <span>Modules root</span>
-          <strong>{catalog?.modules_root || '-'}</strong>
+          <strong className="metric-path">{catalog?.modules_root || '-'}</strong>
           <p>Filesystem root read by the API for shared modules.</p>
         </article>
       </section>
@@ -143,7 +155,7 @@ export default function TemplatesPage() {
                 </button>
               ))
             ) : (
-              <div className="empty-state">No environment templates were found.</div>
+              <div className="empty-state">No environment templates were found in the configured server path.</div>
             )}
           </div>
         </article>
@@ -301,7 +313,7 @@ export default function TemplatesPage() {
               </button>
             ))
           ) : (
-            <div className="empty-state">No modules were found.</div>
+            <div className="empty-state">No shared modules were found in the configured server path.</div>
           )}
         </div>
       </section>
