@@ -4,6 +4,7 @@ import { AuditEvent, auth, Environment, environments, Job, TemplateDescriptor, t
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
+import { errorLooksRaw, summarizeOperatorError } from '../utils/uiCopy'
 
 function parseJson(value?: string): any {
   if (!value) return null
@@ -310,7 +311,17 @@ export default function EnvironmentDetailPage() {
         </div>
       </section>
 
-      {error ? <section className="error-box">{error}</section> : null}
+      {error ? (
+        <section className="error-box">
+          <strong>{summarizeOperatorError(error)}</strong>
+          {errorLooksRaw(error) && summarizeOperatorError(error) !== error ? (
+            <details style={{ marginTop: 8 }}>
+              <summary>Show raw error</summary>
+              <div style={{ marginTop: 8 }}>{error}</div>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="console-card">
         <div className={`callout callout-${actionHint.tone}`}>
@@ -478,7 +489,14 @@ export default function EnvironmentDetailPage() {
           </div>
           {environment?.last_error ? (
             <div className="error-box" style={{ marginTop: 14 }}>
-              Last error: {environment.last_error}
+              <strong>Last error</strong>
+              <div style={{ marginTop: 6 }}>{summarizeOperatorError(environment.last_error)}</div>
+              {errorLooksRaw(environment.last_error) && summarizeOperatorError(environment.last_error) !== environment.last_error ? (
+                <details style={{ marginTop: 8 }}>
+                  <summary>Show raw error</summary>
+                  <div style={{ marginTop: 8 }}>{environment.last_error}</div>
+                </details>
+              ) : null}
             </div>
           ) : null}
         </article>

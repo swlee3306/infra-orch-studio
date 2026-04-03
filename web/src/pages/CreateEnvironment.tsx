@@ -4,6 +4,7 @@ import { auth, environments, EnvironmentPlanReviewResponse, EnvironmentSpec, Tem
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
+import { summarizeOperatorError } from '../utils/uiCopy'
 
 const STORAGE_KEY = 'infra-orch:create-draft'
 
@@ -171,7 +172,7 @@ export default function CreateEnvironmentPage() {
         </div>
       </section>
 
-      {error ? <section className="error-box">{error}</section> : null}
+      {error ? <section className="error-box">{summarizeOperatorError(error)}</section> : null}
 
       <section className="dashboard-grid">
         <article className="console-card">
@@ -219,23 +220,38 @@ export default function CreateEnvironmentPage() {
 
           {step === 0 ? (
             <div className="page-stack">
-              <div className="dashboard-grid">
-                <article className={`stack-row stack-row-link ${templateMode === 'template' ? 'stack-row-selected' : ''}`} onClick={() => setTemplateMode('template')}>
+              <div className="stack-list">
+                <button
+                  type="button"
+                  className={`stack-row stack-row-link wizard-mode-card ${templateMode === 'template' ? 'stack-row-selected' : ''}`}
+                  onClick={() => setTemplateMode('template')}
+                >
                   <div>
                     <strong>Template mode</strong>
-                    <div className="row-meta">Uses a repo-backed environment set and baseline modules.</div>
+                    <div className="row-meta">Use the server-backed environment catalog and baseline modules for the initial plan.</div>
                   </div>
-                </article>
-                <article className={`stack-row stack-row-link ${templateMode === 'custom' ? 'stack-row-selected' : ''}`} onClick={() => setTemplateMode('custom')}>
+                  <span className="badge badge-muted">Preferred</span>
+                </button>
+                <button
+                  type="button"
+                  className={`stack-row stack-row-link wizard-mode-card ${templateMode === 'custom' ? 'stack-row-selected' : ''}`}
+                  onClick={() => setTemplateMode('custom')}
+                >
                   <div>
                     <strong>Custom mode</strong>
-                    <div className="row-meta">Keeps the same template backend, but emphasizes direct desired-state control in the form.</div>
+                    <div className="row-meta">Keep the same renderer contract, but drive the desired state directly from the form inputs.</div>
                   </div>
-                </article>
+                  <span className="badge badge-muted">Direct spec</span>
+                </button>
               </div>
               <div className="stack-list">
                 {templateItems.length === 0 ? (
-                  <div className="empty-state">No template catalog entries were loaded.</div>
+                  <div className="callout callout-warning">
+                    <strong>Template catalog is empty</strong>
+                    <p style={{ margin: '6px 0 0' }}>
+                      The server did not return any environment templates. You can continue in custom mode, but plan execution will stay blocked until a template set is available.
+                    </p>
+                  </div>
                 ) : (
                   templateItems.map((item) => (
                     <button
@@ -291,7 +307,7 @@ export default function CreateEnvironmentPage() {
                   <p>Estimated operational disruption based on the same server-side review contract used after create.</p>
                 </article>
               </div>
-              {previewError ? <div className="error-box">{previewError}</div> : null}
+              {previewError ? <div className="error-box">{summarizeOperatorError(previewError)}</div> : null}
               <div className="dashboard-grid wizard-review-grid">
                 <article className="console-card">
                   <div className="section-head">
