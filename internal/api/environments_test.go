@@ -316,6 +316,43 @@ func TestTemplatesEndpointListsRepoBackedCatalog(t *testing.T) {
 	}
 }
 
+func TestTemplatesEndpointHandlesMissingRootsAsEmptyCatalog(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+
+	root := t.TempDir()
+	srv := NewServer(Config{
+		JobStore:      store,
+		AuthStore:     store,
+		CookieName:    "test_session",
+		TemplatesRoot: filepath.Join(root, "missing-templates"),
+		ModulesRoot:   filepath.Join(root, "missing-modules"),
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/templates", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("templates status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var resp struct {
+		EnvironmentSets []any `json:"environment_sets"`
+		Modules         []any `json:"modules"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode templates response: %v", err)
+	}
+	if len(resp.EnvironmentSets) != 0 {
+		t.Fatalf("environment_sets = %+v, want empty", resp.EnvironmentSets)
+	}
+	if len(resp.Modules) != 0 {
+		t.Fatalf("modules = %+v, want empty", resp.Modules)
+	}
+}
+
 func TestAuditFeedEndpointListsEnvironmentEvents(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")
