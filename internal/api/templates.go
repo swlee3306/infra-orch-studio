@@ -179,6 +179,9 @@ func readTemplateDirectories(root string) ([]templateDescriptor, error) {
 	}
 	entries, err := os.ReadDir(root)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []templateDescriptor{}, nil
+		}
 		return nil, err
 	}
 	out := make([]templateDescriptor, 0, len(entries))

@@ -753,11 +753,10 @@ func outputLines(out string) []string {
 	raw := strings.Split(strings.ReplaceAll(out, "\r\n", "\n"), "\n")
 	lines := make([]string, 0, len(raw))
 	for _, line := range raw {
-		line = strings.TrimSpace(line)
-		if line == "" {
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		lines = append(lines, line)
+		lines = append(lines, strings.TrimRight(line, "\r"))
 	}
 	return lines
 }

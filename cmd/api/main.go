@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/swlee3306/infra-orch-studio/internal/api"
@@ -51,9 +52,10 @@ func main() {
 	srv := api.NewServer(api.Config{
 		JobStore:      jobStore,
 		AuthStore:     authStore,
-		TemplatesRoot: env("TEMPLATES_ROOT", "./templates/opentofu/environments"),
-		ModulesRoot:   env("MODULES_ROOT", "./templates/opentofu/modules"),
+		TemplatesRoot: resolvePath(env("TEMPLATES_ROOT", "./templates/opentofu/environments")),
+		ModulesRoot:   resolvePath(env("MODULES_ROOT", "./templates/opentofu/modules")),
 	})
+	log.Printf("template roots: environments=%s modules=%s", resolvePath(env("TEMPLATES_ROOT", "./templates/opentofu/environments")), resolvePath(env("MODULES_ROOT", "./templates/opentofu/modules")))
 	if err := srv.ListenAndServe(addr); err != nil {
 		log.Fatalf("listen: %v", err)
 	}
@@ -64,4 +66,39 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func resolvePath(path string) string {
+	if path == "" {
+		return ""
+	}
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	candidates := make([]string, 0, 3)
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(wd, path))
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(exeDir, path),
+			filepath.Join(exeDir, "..", path),
+		)
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			abs, absErr := filepath.Abs(candidate)
+			if absErr == nil {
+				return abs
+			}
+			return candidate
+		}
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return abs
 }
