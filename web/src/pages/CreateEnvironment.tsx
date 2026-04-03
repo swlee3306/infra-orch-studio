@@ -273,8 +273,8 @@ export default function CreateEnvironmentPage() {
           ) : null}
 
           {step === 6 ? (
-            <div className="page-stack">
-              <div className="stats-grid">
+            <div className="page-stack wizard-review">
+              <div className="stats-grid wizard-review-metrics">
                 <article className="metric-card metric-card-primary">
                   <span>Instances</span>
                   <strong>{summary.instanceTotal}</strong>
@@ -292,7 +292,7 @@ export default function CreateEnvironmentPage() {
                 </article>
               </div>
               {previewError ? <div className="error-box">{previewError}</div> : null}
-              <div className="dashboard-grid">
+              <div className="dashboard-grid wizard-review-grid">
                 <article className="console-card">
                   <div className="section-head">
                     <div>
@@ -306,7 +306,7 @@ export default function CreateEnvironmentPage() {
                       <div className="empty-state">No review signals were returned for this desired state.</div>
                     ) : null}
                     {reviewSignals.map((signal) => (
-                      <div key={signal.label} className={`stack-row ${signal.severity === 'high' ? 'stack-row-danger' : ''}`}>
+                      <div key={signal.label} className={`stack-row wizard-review-signal ${signal.severity === 'high' ? 'stack-row-danger' : ''}`}>
                         <div>
                           <strong>{signal.label}</strong>
                           <div className="row-meta">{signal.detail}</div>
@@ -325,24 +325,24 @@ export default function CreateEnvironmentPage() {
                       <h2>Pre-apply posture</h2>
                     </div>
                   </div>
-                  <div className="info-grid">
-                    <div className="meta-item">
+                  <div className="info-grid wizard-review-summary">
+                    <div className="meta-item wizard-review-meta">
                       <span>Blast radius</span>
                       <strong>{impact?.blast_radius || '-'}</strong>
                     </div>
-                    <div className="meta-item">
+                    <div className="meta-item wizard-review-meta">
                       <span>Cost / capacity</span>
                       <strong>{impact?.cost_delta || '-'}</strong>
                     </div>
-                    <div className="meta-item">
+                    <div className="meta-item wizard-review-meta">
                       <span>Template</span>
                       <strong>{preview?.plan_job?.template_name || selectedTemplate}</strong>
                     </div>
-                    <div className="meta-item">
+                    <div className="meta-item wizard-review-meta">
                       <span>Mode</span>
                       <strong>{templateMode}</strong>
                     </div>
-                    <div className="meta-item">
+                    <div className="meta-item wizard-review-meta">
                       <span>Input gates</span>
                       <strong>{Object.keys(validation.fieldErrors).length === 0 ? 'Clear' : `${Object.keys(validation.fieldErrors).length} issue(s)`}</strong>
                     </div>
