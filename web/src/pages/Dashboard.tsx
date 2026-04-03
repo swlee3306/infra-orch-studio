@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, environments, Environment, User } from '../api'
 import StatusBadge from '../components/StatusBadge'
+import { summarizeOperatorError } from '../utils/uiCopy'
 
 function formatUpdated(value?: string): string {
   if (!value) return '-'
@@ -78,19 +79,18 @@ export default function DashboardPage() {
           <div className="page-kicker">Ops // Core</div>
           <h1 className="page-title">Environment orchestration control</h1>
           <p className="page-copy">
-            Live execution posture across environment lifecycle, approvals, guarded apply, and operational recovery.
+            Start from environment posture, then drill into approvals, failures, and recent lifecycle changes.
           </p>
+          <div className="row-meta" style={{ marginTop: 12 }}>
+            Viewer {viewer?.email || 'loading...'} · {viewer?.is_admin ? 'admin' : 'operator'}
+          </div>
         </div>
         <div className="hero-actions">
-          <span className="badge badge-muted">Viewer: {viewer?.email || 'loading...'}</span>
-          <span className={`badge ${viewer?.is_admin ? 'badge-running' : 'badge-muted'}`}>
-            {viewer?.is_admin ? 'admin' : 'operator'}
-          </span>
-          <button onClick={load}>Refresh dashboard</button>
+          <button className="ghost" onClick={load}>Refresh dashboard</button>
         </div>
       </section>
 
-      {error ? <section className="error-box">{error}</section> : null}
+      {error ? <section className="error-box">{summarizeOperatorError(error)}</section> : null}
 
       <section className="stats-grid">
         <article className="metric-card metric-card-primary">
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                 <Link key={item.id} to={`/environments/${item.id}`} className="stack-row stack-row-link">
                   <div>
                     <strong>{item.name}</strong>
-                    <div className="row-meta">{item.last_error || 'Execution failed. Review detail.'}</div>
+                    <div className="row-meta">{summarizeOperatorError(item.last_error || 'Execution failed. Review detail.')}</div>
                   </div>
                   <StatusBadge status={item.status} />
                 </Link>
