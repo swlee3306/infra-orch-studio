@@ -73,6 +73,71 @@ type CopyShape = {
       noWarnings: string
     }
   }
+  review: {
+    kicker: string
+    title: string
+    copy: string
+    refresh: string
+    approvalControl: string
+    environmentDetail: string
+    approve: string
+    approving: string
+    apply: string
+    applying: string
+    openGuardedControl: string
+    ack: string
+    approvalComment: string
+    approvalPlaceholder: string
+  }
+  approval: {
+    kicker: string
+    title: string
+    copy: string
+    refresh: string
+    planReview: string
+    environmentDetail: string
+    approvalComment: string
+    approvalPlaceholder: string
+    approveRequest: string
+    approving: string
+    queueUpdate: string
+    applying: string
+    typedConfirmation: string
+    destroyComment: string
+    destroyPlaceholder: string
+    queueDestroy: string
+    queueingDestroy: string
+    destroyDisabled: string
+  }
+  detail: {
+    kicker: string
+    copy: string
+    refresh: string
+    openReview: string
+    approvalControl: string
+    queueUpdate: string
+    queueing: string
+    approve: string
+    approving: string
+    applyApproved: string
+    applying: string
+    openDestroyControl: string
+    retry: string
+    retrying: string
+  }
+  jobDetail: {
+    kicker: string
+    title: string
+    copy: string
+    viewer: string
+    refresh: string
+    environment: string
+    approvalControl: string
+    applyPlan: string
+    applying: string
+    wsConnected: string
+    wsOffline: string
+  }
   templates: {
     kicker: string
     title: string
@@ -188,6 +253,71 @@ const COPY: Record<Locale, CopyShape> = {
         nextStep: 'Next step',
         noWarnings: 'No extra warnings were generated for this prompt.',
       },
+    },
+    review: {
+      kicker: 'Plan review',
+      title: 'Change evaluation / pre-apply',
+      copy: 'Review the latest environment plan, inspect inferred risk signals, and clear the approval gate only when the plan and impact look acceptable.',
+      refresh: 'Refresh',
+      approvalControl: 'Approval control',
+      environmentDetail: 'Environment detail',
+      approve: 'Approve',
+      approving: 'Approving...',
+      apply: 'Apply',
+      applying: 'Applying...',
+      openGuardedControl: 'Open guarded control',
+      ack: 'I reviewed all high-risk changes and warnings before approval.',
+      approvalComment: 'Approval comment',
+      approvalPlaceholder: 'Approval rationale, CAB reference, or operational note',
+    },
+    approval: {
+      kicker: 'Approval control',
+      title: 'Guarded production workflow',
+      copy: 'Use hard checkpoints before approval, apply, update, and destroy. This page adds explicit operator safety over the existing environment lifecycle APIs.',
+      refresh: 'Refresh',
+      planReview: 'Plan review',
+      environmentDetail: 'Environment detail',
+      approvalComment: 'Approval comment',
+      approvalPlaceholder: 'Why this plan is safe to approve',
+      approveRequest: 'Approve request',
+      approving: 'Approving...',
+      queueUpdate: 'Queue guarded update',
+      applying: 'Applying...',
+      typedConfirmation: 'Typed confirmation',
+      destroyComment: 'Destroy comment',
+      destroyPlaceholder: 'Reason for destroy, incident, or change request reference',
+      queueDestroy: 'Queue destroy plan',
+      queueingDestroy: 'Queueing destroy...',
+      destroyDisabled: 'Destroy disabled',
+    },
+    detail: {
+      kicker: 'Detail',
+      copy: 'Track lifecycle state, queue guarded changes, and inspect plan, result, and audit evidence from one surface.',
+      refresh: 'Refresh',
+      openReview: 'Open review',
+      approvalControl: 'Approval control',
+      queueUpdate: 'Queue update plan',
+      queueing: 'Queueing...',
+      approve: 'Approve',
+      approving: 'Approving...',
+      applyApproved: 'Apply approved plan',
+      applying: 'Applying...',
+      openDestroyControl: 'Open destroy control',
+      retry: 'Retry failed step',
+      retrying: 'Retrying...',
+    },
+    jobDetail: {
+      kicker: 'Job detail',
+      title: 'Execution chain',
+      copy: 'Inspect the execution record in environment context: source lineage, artifact pointers, live logs, and the next guarded action.',
+      viewer: 'Viewer',
+      refresh: 'Refresh',
+      environment: 'Environment',
+      approvalControl: 'Approval control',
+      applyPlan: 'Apply plan',
+      applying: 'Applying...',
+      wsConnected: 'connected',
+      wsOffline: 'offline',
     },
     templates: {
       kicker: 'Template management / renderer contract',
@@ -346,6 +476,71 @@ const COPY: Record<Locale, CopyShape> = {
         nextStep: '다음 단계',
         noWarnings: '이 프롬프트에서는 추가 주의 사항이 생성되지 않았습니다.',
       },
+    },
+    review: {
+      kicker: '플랜 검토',
+      title: '변경 영향 검토',
+      copy: '최신 환경 플랜과 리스크 신호를 확인하고, 영향도가 수용 가능한 경우에만 승인 게이트를 해제합니다.',
+      refresh: '새로고침',
+      approvalControl: '승인 제어',
+      environmentDetail: '환경 상세',
+      approve: '승인',
+      approving: '승인 중...',
+      apply: '적용',
+      applying: '적용 중...',
+      openGuardedControl: '보호된 제어 열기',
+      ack: '승인 전에 모든 고위험 변경과 경고를 확인했습니다.',
+      approvalComment: '승인 코멘트',
+      approvalPlaceholder: '승인 근거, CAB 참조, 운영 메모',
+    },
+    approval: {
+      kicker: '승인 제어',
+      title: '보호된 운영 워크플로',
+      copy: '승인, 적용, 수정, 삭제 전에 명시적 체크포인트를 거칩니다. 기존 환경 생명주기 API 위에 운영자 안전 장치를 추가한 화면입니다.',
+      refresh: '새로고침',
+      planReview: '플랜 검토',
+      environmentDetail: '환경 상세',
+      approvalComment: '승인 코멘트',
+      approvalPlaceholder: '이 플랜을 안전하게 승인할 수 있는 이유',
+      approveRequest: '요청 승인',
+      approving: '승인 중...',
+      queueUpdate: '보호된 업데이트 큐잉',
+      applying: '적용 중...',
+      typedConfirmation: '이름 확인 입력',
+      destroyComment: '삭제 코멘트',
+      destroyPlaceholder: '삭제 사유, 장애 번호, 변경 요청 번호',
+      queueDestroy: '삭제 플랜 큐잉',
+      queueingDestroy: '삭제 큐잉 중...',
+      destroyDisabled: '삭제 비활성',
+    },
+    detail: {
+      kicker: '상세',
+      copy: '생명주기 상태를 추적하고, 보호된 변경을 큐잉하며, 플랜과 결과, 감사 근거를 한 화면에서 확인합니다.',
+      refresh: '새로고침',
+      openReview: '검토 열기',
+      approvalControl: '승인 제어',
+      queueUpdate: '업데이트 플랜 큐잉',
+      queueing: '큐잉 중...',
+      approve: '승인',
+      approving: '승인 중...',
+      applyApproved: '승인된 플랜 적용',
+      applying: '적용 중...',
+      openDestroyControl: '삭제 제어 열기',
+      retry: '실패 단계 재시도',
+      retrying: '재시도 중...',
+    },
+    jobDetail: {
+      kicker: '실행 상세',
+      title: '실행 체인',
+      copy: '환경 맥락에서 실행 기록을 확인합니다. 소스 계보, 산출물 경로, 실시간 로그, 다음 보호된 액션까지 한 화면에서 봅니다.',
+      viewer: '사용자',
+      refresh: '새로고침',
+      environment: '환경',
+      approvalControl: '승인 제어',
+      applyPlan: '플랜 적용',
+      applying: '적용 중...',
+      wsConnected: '연결됨',
+      wsOffline: '오프라인',
     },
     templates: {
       kicker: '템플릿 관리 / 렌더러 계약',

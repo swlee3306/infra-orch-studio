@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job } from '../api'
+import { useI18n } from '../i18n'
 import { buildApprovalCheckpoints, buildImpactSummary, findLatestPlanJob } from '../utils/environmentView'
 
 export default function ApprovalControlPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const { id } = useParams()
   const environmentId = id || ''
   const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
@@ -85,25 +87,23 @@ export default function ApprovalControlPage() {
             <Link to="/environments" className="text-link">
               Environments
             </Link>{' '}
-            / Approval control
+            / {copy.approval.kicker}
           </div>
-          <h1 className="page-title">Guarded production workflow</h1>
-          <p className="page-copy">
-            Use hard checkpoints before approval, apply, update, and destroy. This page adds explicit operator safety over the existing environment lifecycle APIs.
-          </p>
+          <h1 className="page-title">{copy.approval.title}</h1>
+          <p className="page-copy">{copy.approval.copy}</p>
         </div>
         <div className="hero-actions">
           <button className="ghost" onClick={load}>
-            Refresh
+            {copy.approval.refresh}
           </button>
           {environment ? (
             <Link to={`/environments/${environment.id}/review`} className="ghost action-link action-link-button">
-              Plan review
+              {copy.approval.planReview}
             </Link>
           ) : null}
           {environment ? (
             <Link to={`/environments/${environment.id}`} className="ghost action-link action-link-button">
-              Environment detail
+              {copy.approval.environmentDetail}
             </Link>
           ) : null}
         </div>
@@ -148,18 +148,18 @@ export default function ApprovalControlPage() {
             ))}
           </div>
           <label className="field" style={{ marginTop: 14 }}>
-            <span>Approval comment</span>
+            <span>{copy.approval.approvalComment}</span>
             <textarea
               value={approvalComment}
               onChange={(e) => setApprovalComment(e.target.value)}
-              placeholder="Why this plan is safe to approve"
+              placeholder={copy.approval.approvalPlaceholder}
               rows={3}
             />
           </label>
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {canApprove ? (
               <button onClick={() => run('approve', () => environments.approve(environmentId, { comment: approvalComment.trim() }))} disabled={busy !== null}>
-                {busy === 'approve' ? 'Approving...' : 'Approve request'}
+                {busy === 'approve' ? copy.approval.approving : copy.approval.approveRequest}
               </button>
             ) : null}
             {canApply ? (
@@ -167,7 +167,7 @@ export default function ApprovalControlPage() {
                 onClick={() => run('apply', () => environments.apply(environmentId), { confirm: 'Queue apply from the approved plan?' })}
                 disabled={busy !== null}
               >
-                {busy === 'apply' ? 'Applying...' : 'Queue guarded update'}
+                {busy === 'apply' ? copy.approval.applying : copy.approval.queueUpdate}
               </button>
             ) : null}
           </div>
@@ -205,15 +205,15 @@ export default function ApprovalControlPage() {
               </div>
             </div>
             <label className="field" style={{ marginTop: 12 }}>
-              <span>Typed confirmation</span>
+              <span>{copy.approval.typedConfirmation}</span>
               <input value={typedConfirmation} onChange={(e) => setTypedConfirmation(e.target.value)} placeholder={environment?.name || 'environment-name'} />
             </label>
             <label className="field" style={{ marginTop: 12 }}>
-              <span>Destroy comment</span>
+              <span>{copy.approval.destroyComment}</span>
               <textarea
                 value={destroyComment}
                 onChange={(e) => setDestroyComment(e.target.value)}
-                placeholder="Reason for destroy, incident, or change request reference"
+                placeholder={copy.approval.destroyPlaceholder}
                 rows={4}
               />
             </label>
@@ -232,11 +232,11 @@ export default function ApprovalControlPage() {
                 }
                 disabled={busy !== null}
               >
-                {busy === 'destroy' ? 'Queueing destroy...' : 'Queue destroy plan'}
+                {busy === 'destroy' ? copy.approval.queueingDestroy : copy.approval.queueDestroy}
               </button>
             ) : (
               <button className="ghost danger" disabled>
-                Destroy disabled
+                {copy.approval.destroyDisabled}
               </button>
             )}
           </div>

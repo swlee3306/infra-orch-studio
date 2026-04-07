@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { auth, jobs, Job, wsUrl } from '../api'
 import StatusBadge from '../components/StatusBadge'
+import { useI18n } from '../i18n'
 
 type WsEvent =
   | { type: 'log'; jobId: string; file?: string; message: string }
@@ -36,6 +37,7 @@ function approvalRoute(job: Job | null): string | null {
 
 export default function JobDetailPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const { id } = useParams()
   const [job, setJob] = useState<Job | null>(null)
   const [status, setStatus] = useState<string>('')
@@ -143,27 +145,25 @@ export default function JobDetailPage() {
             <Link to="/jobs" className="text-link">
               Executions
             </Link>{' '}
-            / Job detail
+            / {copy.jobDetail.kicker}
           </div>
-          <h1 className="page-title">Execution chain / {jobId.slice(0, 8) || 'job'}</h1>
-          <p className="page-copy">
-            Inspect the execution record in environment context: source lineage, artifact pointers, live logs, and the next guarded action.
-          </p>
+          <h1 className="page-title">{copy.jobDetail.title} / {jobId.slice(0, 8) || 'job'}</h1>
+          <p className="page-copy">{copy.jobDetail.copy}</p>
         </div>
         <div className="hero-actions">
-          <span className="badge badge-muted">Viewer: {viewer?.email || 'loading...'}</span>
-          <span className={`badge ${connected ? 'badge-running' : 'badge-muted'}`}>WS: {connected ? 'connected' : 'offline'}</span>
+          <span className="badge badge-muted">{copy.jobDetail.viewer}: {viewer?.email || 'loading...'}</span>
+          <span className={`badge ${connected ? 'badge-running' : 'badge-muted'}`}>WS: {connected ? copy.jobDetail.wsConnected : copy.jobDetail.wsOffline}</span>
           <button className="ghost" onClick={loadJob}>
-            Refresh
+            {copy.jobDetail.refresh}
           </button>
           {envLink ? (
             <Link to={envLink} className="ghost action-link action-link-button">
-              Environment
+              {copy.jobDetail.environment}
             </Link>
           ) : null}
           {canOpenControl && controlLink ? (
             <Link to={controlLink} className="ghost action-link action-link-button">
-              Approval control
+              {copy.jobDetail.approvalControl}
             </Link>
           ) : null}
           {canApply ? (
@@ -183,7 +183,7 @@ export default function JobDetailPage() {
                 }
               }}
             >
-              {applying ? 'Applying...' : 'Apply plan'}
+              {applying ? copy.jobDetail.applying : copy.jobDetail.applyPlan}
             </button>
           ) : null}
         </div>
