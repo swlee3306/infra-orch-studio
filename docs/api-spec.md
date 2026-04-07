@@ -130,11 +130,13 @@ This endpoint is available only when `ALLOW_PUBLIC_SIGNUP=true`.
 ### `POST /api/environments/:id/plan`
 - Auth required.
 - Queues a plan for the target environment.
+- This route only supports `create` and `update`.
+- Destroy plans must use `POST /api/environments/:id/destroy`.
 - Optional body:
 ```json
 {
   "spec": { "...": "optional updated spec" },
-  "operation": "update | destroy",
+  "operation": "create | update",
   "template_name": "basic"
 }
 ```

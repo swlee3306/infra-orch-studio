@@ -306,7 +306,7 @@ func TestEnvironmentDestroyRequiresAdminAndConfirmationName(t *testing.T) {
 	}
 }
 
-func TestEnvironmentPlanRejectsDestroyOperationForNonAdmin(t *testing.T) {
+func TestEnvironmentPlanRejectsDestroyOperation(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")
 	operator := mustUser(t, "operator@example.com", false, "password123")
@@ -336,12 +336,23 @@ func TestEnvironmentPlanRejectsDestroyOperationForNonAdmin(t *testing.T) {
 		t.Fatalf("create environment: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/plan", strings.NewReader(`{"operation":"destroy"}`))
-	req.AddCookie(cookieFromToken("operator-session-token", srv.cookieName))
-	rr := httptest.NewRecorder()
-	srv.mux.ServeHTTP(rr, req)
-	if rr.Code != http.StatusForbidden {
-		t.Fatalf("destroy plan by operator status = %d, want %d", rr.Code, http.StatusForbidden)
+	for _, tc := range []struct {
+		name       string
+		token      string
+		wantStatus int
+	}{
+		{name: "operator", token: "operator-session-token", wantStatus: http.StatusBadRequest},
+		{name: "admin", token: "admin-session-token", wantStatus: http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/plan", strings.NewReader(`{"operation":"destroy"}`))
+			req.AddCookie(cookieFromToken(tc.token, srv.cookieName))
+			rr := httptest.NewRecorder()
+			srv.mux.ServeHTTP(rr, req)
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("destroy plan status = %d, want %d", rr.Code, tc.wantStatus)
+			}
+		})
 	}
 }
 
