@@ -14,6 +14,7 @@ import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
 import PlanReviewPage from './pages/PlanReview'
 import TemplatesPage from './pages/Templates'
+import UsersPage from './pages/Users'
 
 export default function App() {
   const nav = useNavigate()
@@ -24,6 +25,7 @@ export default function App() {
     if (location.pathname.startsWith('/create-environment')) return 'create'
     if (location.pathname.startsWith('/audit')) return 'audit'
     if (location.pathname.startsWith('/templates')) return 'templates'
+    if (location.pathname.startsWith('/users')) return 'users'
     if (location.pathname.includes('/review')) return 'review'
     if (location.pathname.includes('/approval')) return 'approval'
     if (location.pathname.startsWith('/environments/')) return 'environmentDetail'
@@ -71,6 +73,10 @@ export default function App() {
                 <Link to="/audit" className={`nav-item nav-item-compact ${location.pathname.startsWith('/audit') ? 'nav-item-active' : ''}`}>
                   <span className="nav-index">06</span>
                   <span>{copy.shell.nav.audit}</span>
+                </Link>
+                <Link to="/users" className={`nav-item nav-item-compact ${location.pathname.startsWith('/users') ? 'nav-item-active' : ''}`}>
+                  <span className="nav-index">07</span>
+                  <span>{copy.shell.nav.users}</span>
                 </Link>
               </nav>
             </div>
@@ -126,6 +132,7 @@ export default function App() {
                 <Route path="/jobs/:id" element={<JobDetailPage />} />
                 <Route path="/templates" element={<TemplatesPage />} />
                 <Route path="/audit" element={<AuditPage />} />
+                <Route path="/users" element={<UsersPage />} />
                 <Route path="*" element={<DashboardPage />} />
               </Routes>
             </div>

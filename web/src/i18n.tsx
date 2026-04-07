@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 export type Locale = 'en' | 'ko'
-type RouteGuideKey = 'dashboard' | 'environments' | 'create' | 'environmentDetail' | 'review' | 'approval' | 'jobs' | 'jobDetail' | 'templates' | 'audit'
+type RouteGuideKey = 'dashboard' | 'environments' | 'create' | 'environmentDetail' | 'review' | 'approval' | 'jobs' | 'jobDetail' | 'templates' | 'audit' | 'users'
 
 type CopyShape = {
   shell: {
     brandTitle: string
     brandSubtitle: string
-    nav: Record<'dashboard' | 'environments' | 'create' | 'jobs' | 'templates' | 'audit', string>
+    nav: Record<'dashboard' | 'environments' | 'create' | 'jobs' | 'templates' | 'audit' | 'users', string>
     logout: string
     topbarKicker: string
     routeTitles: Record<RouteGuideKey, string>
@@ -153,6 +153,19 @@ type CopyShape = {
     viewer: string
     refresh: string
   }
+  users: {
+    kicker: string
+    title: string
+    copy: string
+    refresh: string
+    createUser: string
+    creating: string
+    email: string
+    password: string
+    admin: string
+    recentProvisioning: string
+    adminOnly: string
+  }
   guide: {
     title: string
     cycleTitle: string
@@ -176,6 +189,7 @@ const COPY: Record<Locale, CopyShape> = {
         jobs: 'Executions',
         templates: 'Templates',
         audit: 'Audit',
+        users: 'Users',
       },
       logout: 'Logout',
       topbarKicker: 'Environment operations',
@@ -190,6 +204,7 @@ const COPY: Record<Locale, CopyShape> = {
         jobDetail: 'Execution Detail',
         templates: 'Templates',
         audit: 'Audit',
+        users: 'Users',
       },
     },
     login: {
@@ -334,6 +349,19 @@ const COPY: Record<Locale, CopyShape> = {
       viewer: 'Viewer',
       refresh: 'Refresh',
     },
+    users: {
+      kicker: 'Admin onboarding / managed access',
+      title: 'User provisioning',
+      copy: 'Create managed user accounts after public signup has been disabled, then review the latest provisioning activity.',
+      refresh: 'Refresh',
+      createUser: 'Create user',
+      creating: 'Creating user...',
+      email: 'Email',
+      password: 'Password',
+      admin: 'Admin access',
+      recentProvisioning: 'Recent provisioning activity',
+      adminOnly: 'Only admins can provision users from this page.',
+    },
     guide: {
       title: 'Operator guide',
       cycleTitle: 'One-cycle guide',
@@ -385,6 +413,10 @@ const COPY: Record<Locale, CopyShape> = {
           summary: 'Use the audit feed to reconstruct approval, apply, retry, and destroy activity across environments.',
           items: ['Filter by approvals, mutations, destroy, or failures.', 'Open linked environments from the feed when deeper context is needed.', 'Use metadata only as supporting detail after the human-readable event summary.'],
         },
+        users: {
+          summary: 'Use this page for managed onboarding when public signup is disabled.',
+          items: ['Create accounts only from an admin session.', 'Use admin access sparingly and record why it was needed.', 'Review recent provisioning entries after each onboarding change.'],
+        },
       },
     },
   },
@@ -399,6 +431,7 @@ const COPY: Record<Locale, CopyShape> = {
         jobs: '실행 이력',
         templates: '템플릿',
         audit: '감사 로그',
+        users: '사용자',
       },
       logout: '로그아웃',
       topbarKicker: '환경 운영',
@@ -413,6 +446,7 @@ const COPY: Record<Locale, CopyShape> = {
         jobDetail: '실행 상세',
         templates: '템플릿',
         audit: '감사 로그',
+        users: '사용자 관리',
       },
     },
     login: {
@@ -557,6 +591,19 @@ const COPY: Record<Locale, CopyShape> = {
       viewer: '사용자',
       refresh: '새로고침',
     },
+    users: {
+      kicker: '관리자 온보딩 / 접근 제어',
+      title: '사용자 프로비저닝',
+      copy: '공개 가입을 끈 뒤 관리자 세션에서 계정을 생성하고 최근 온보딩 이력을 검토합니다.',
+      refresh: '새로고침',
+      createUser: '사용자 생성',
+      creating: '사용자 생성 중...',
+      email: '이메일',
+      password: '비밀번호',
+      admin: '관리자 권한',
+      recentProvisioning: '최근 계정 생성 이력',
+      adminOnly: '이 페이지에서 사용자를 생성할 수 있는 권한은 관리자에게만 있습니다.',
+    },
     guide: {
       title: '운영 가이드',
       cycleTitle: '한 사이클 가이드',
@@ -607,6 +654,10 @@ const COPY: Record<Locale, CopyShape> = {
         audit: {
           summary: '여러 환경에 걸친 승인, 적용, 재시도, 삭제 이력을 복원하는 화면입니다.',
           items: ['승인, 변경, 삭제, 실패 필터를 사용합니다.', '더 깊은 맥락이 필요하면 연결된 환경 상세로 이동합니다.', '메타데이터는 사람이 읽는 이벤트 설명 다음에 확인합니다.'],
+        },
+        users: {
+          summary: '공개 가입이 꺼진 환경에서 관리자 주도로 계정을 여는 화면입니다.',
+          items: ['반드시 관리자 세션에서만 사용합니다.', '관리자 권한 부여는 꼭 필요한 경우에만 사용합니다.', '생성 후 최근 이력에서 감사 흔적을 확인합니다.'],
         },
       },
     },
