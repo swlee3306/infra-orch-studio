@@ -198,6 +198,12 @@ export type PublicConfig = {
   allow_public_signup: boolean
 }
 
+export type AdminProvisionUserRequest = {
+  email: string
+  password: string
+  is_admin?: boolean
+}
+
 // VITE_API_URL should point to the API base.
 // - prod (nginx proxy): "/api"
 // - dev: "http://localhost:8080/api"
@@ -233,6 +239,8 @@ export const auth = {
     req<User>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => req<void>('/auth/logout', { method: 'POST' }),
   me: () => req<User>('/auth/me'),
+  createUser: (payload: AdminProvisionUserRequest) =>
+    req<User>('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
 }
 
 export const jobs = {
