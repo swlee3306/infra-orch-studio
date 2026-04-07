@@ -18,7 +18,8 @@ function nextEnvironmentRoute(item: Environment): string {
 
 export default function DashboardPage() {
   const nav = useNavigate()
-  const { copy } = useI18n()
+  const { locale, copy } = useI18n()
+  const ko = locale === 'ko'
   const [viewer, setViewer] = useState<User | null>(null)
   const [items, setItems] = useState<Environment[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -94,24 +95,24 @@ export default function DashboardPage() {
 
       <section className="stats-grid">
         <article className="metric-card metric-card-primary">
-          <span>Active environments</span>
+          <span>{ko ? '활성 환경' : 'Active environments'}</span>
           <strong>{summary.active}</strong>
-          <p>Environments currently running after a successful apply.</p>
+          <p>{ko ? '적용이 성공적으로 끝나 현재 운영 중인 환경입니다.' : 'Environments currently running after a successful apply.'}</p>
         </article>
         <article className="metric-card">
-          <span>Pending approvals</span>
+          <span>{ko ? '승인 대기' : 'Pending approvals'}</span>
           <strong>{summary.pending}</strong>
-          <p>Plans blocked at approval before apply can be queued.</p>
+          <p>{ko ? '적용 전에 승인이 필요해 멈춰 있는 플랜 수입니다.' : 'Plans blocked at approval before apply can be queued.'}</p>
         </article>
         <article className="metric-card">
-          <span>Failed executions</span>
+          <span>{ko ? '실패 실행' : 'Failed executions'}</span>
           <strong>{summary.failed}</strong>
-          <p>Environments paused on a failed plan or apply step.</p>
+          <p>{ko ? '플랜 또는 적용 단계 실패로 멈춘 환경 수입니다.' : 'Environments paused on a failed plan or apply step.'}</p>
         </article>
         <article className="metric-card">
-          <span>In flight</span>
+          <span>{ko ? '진행 중' : 'In flight'}</span>
           <strong>{summary.planning + summary.applying}</strong>
-          <p>Plans and applies currently moving through the runner.</p>
+          <p>{ko ? '현재 러너에서 처리 중인 플랜과 적용 작업입니다.' : 'Plans and applies currently moving through the runner.'}</p>
         </article>
       </section>
 
@@ -120,15 +121,15 @@ export default function DashboardPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Approvals</div>
-              <h2>Approval required</h2>
+              <h2>{ko ? '승인 필요' : 'Approval required'}</h2>
             </div>
             <Link to="/environments" className="text-link">
-              View all
+              {ko ? '전체 보기' : 'View all'}
             </Link>
           </div>
           <div className="stack-list">
             {pendingApprovals.length === 0 ? (
-              <div className="empty-state">No plans are waiting for approval.</div>
+              <div className="empty-state">{ko ? '승인을 기다리는 플랜이 없습니다.' : 'No plans are waiting for approval.'}</div>
             ) : (
               pendingApprovals.map((item) => (
                 <Link key={item.id} to={nextEnvironmentRoute(item)} className="stack-row stack-row-link">
@@ -147,21 +148,21 @@ export default function DashboardPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Failures</div>
-              <h2>Failed environments</h2>
+              <h2>{ko ? '실패 환경' : 'Failed environments'}</h2>
             </div>
             <Link to="/jobs" className="text-link">
-              Open executions
+              {ko ? '실행 이력 열기' : 'Open executions'}
             </Link>
           </div>
           <div className="stack-list">
             {incidents.length === 0 ? (
-              <div className="empty-state">No failed environments in the current snapshot.</div>
+              <div className="empty-state">{ko ? '현재 스냅샷에는 실패한 환경이 없습니다.' : 'No failed environments in the current snapshot.'}</div>
             ) : (
               incidents.map((item) => (
                 <Link key={item.id} to={`/environments/${item.id}`} className="stack-row stack-row-link">
                   <div>
                     <strong>{item.name}</strong>
-                    <div className="row-meta">{summarizeOperatorError(item.last_error || 'Execution failed. Review detail.')}</div>
+                    <div className="row-meta">{summarizeOperatorError(item.last_error || (ko ? '실행이 실패했습니다. 상세 화면을 확인하세요.' : 'Execution failed. Review detail.'))}</div>
                   </div>
                   <StatusBadge status={item.status} />
                 </Link>
@@ -176,21 +177,21 @@ export default function DashboardPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Environment list</div>
-              <h2>Recent lifecycle records</h2>
+              <h2>{ko ? '최근 생명주기 이력' : 'Recent lifecycle records'}</h2>
             </div>
             <Link to="/environments" className="text-link">
-              Open environment list
+              {ko ? '환경 목록 열기' : 'Open environment list'}
             </Link>
           </div>
           <div className="table-scroll">
             <table className="ops-table">
               <thead>
                 <tr>
-                  <th>Environment</th>
-                  <th>Lifecycle</th>
-                  <th>Approval</th>
-                  <th className="dashboard-col-mobile-optional">Owner</th>
-                  <th className="dashboard-col-mobile-optional">Updated</th>
+                  <th>{ko ? '환경' : 'Environment'}</th>
+                  <th>{ko ? '생명주기' : 'Lifecycle'}</th>
+                  <th>{ko ? '승인' : 'Approval'}</th>
+                  <th className="dashboard-col-mobile-optional">{ko ? '소유자' : 'Owner'}</th>
+                  <th className="dashboard-col-mobile-optional">{ko ? '수정 시각' : 'Updated'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -221,36 +222,37 @@ export default function DashboardPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Lifecycle</div>
-              <h2>Environment lifecycle control</h2>
+              <h2>{ko ? '환경 생명주기 제어' : 'Environment lifecycle control'}</h2>
             </div>
           </div>
           <div className="lifecycle-strip">
             <div className="lifecycle-step">
-              <span>01 Request</span>
+              <span>{ko ? '01 요청' : '01 Request'}</span>
               <strong>{summary.total}</strong>
             </div>
             <div className="lifecycle-step">
-              <span>02 Plan</span>
+              <span>{ko ? '02 플랜' : '02 Plan'}</span>
               <strong>{summary.planning}</strong>
             </div>
             <div className="lifecycle-step">
-              <span>03 Approval</span>
+              <span>{ko ? '03 승인' : '03 Approval'}</span>
               <strong>{summary.pending}</strong>
             </div>
             <div className="lifecycle-step">
-              <span>04 Apply</span>
+              <span>{ko ? '04 적용' : '04 Apply'}</span>
               <strong>{summary.applying}</strong>
             </div>
             <div className="lifecycle-step">
-              <span>05 Result</span>
+              <span>{ko ? '05 결과' : '05 Result'}</span>
               <strong>{summary.active}</strong>
             </div>
           </div>
           <div className="note-card">
-            <strong>Environment-first posture</strong>
+            <strong>{ko ? '환경 중심 운영' : 'Environment-first posture'}</strong>
             <p>
-              Jobs remain visible as execution records, but operators should start from the environment object and only drill down
-              when a run needs inspection.
+              {ko
+                ? '작업 이력은 실행 기록으로 계속 보이지만, 운영자는 환경 객체에서 시작하고 필요할 때만 상세 실행으로 내려가야 합니다.'
+                : 'Jobs remain visible as execution records, but operators should start from the environment object and only drill down when a run needs inspection.'}
             </p>
           </div>
         </article>
