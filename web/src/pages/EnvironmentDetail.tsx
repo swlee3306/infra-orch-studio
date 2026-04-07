@@ -265,7 +265,7 @@ export default function EnvironmentDetailPage() {
           </div>
           <h1 className="page-title">{environment?.name || environmentId}</h1>
           <p className="page-copy">
-            Operate the environment as a durable platform object with lifecycle, approval, result artifacts, and immutable audit context.
+            Track lifecycle state, queue guarded changes, and inspect plan, result, and audit evidence from one surface.
           </p>
         </div>
         <div className="hero-actions">
@@ -335,7 +335,7 @@ export default function EnvironmentDetailPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Overview</div>
-              <h2>Metadata summary</h2>
+              <h2>Operating summary</h2>
             </div>
           </div>
           <div className="info-grid info-grid-three">
@@ -406,7 +406,7 @@ export default function EnvironmentDetailPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Desired state</div>
-              <h2>Resource and specification inventory</h2>
+              <h2>Desired-state snapshot</h2>
             </div>
           </div>
           <div className="info-grid">
@@ -434,33 +434,43 @@ export default function EnvironmentDetailPage() {
             </div>
             <div className="meta-item">
               <span>Plan artifact</span>
-              <strong>{artifacts?.plan_path || environment?.plan_path || '-'}</strong>
+              <strong>{currentPlanJob?.template_name || selectedTemplate}</strong>
+              <div className="row-meta">Template</div>
             </div>
             <div className="meta-item">
-              <span>Template</span>
-              <strong>{currentPlanJob?.template_name || selectedTemplate}</strong>
+              <span>Plan artifact</span>
+              <strong>{artifacts?.plan_path || environment?.plan_path || '-'}</strong>
             </div>
           </div>
-          <div className="field-group" style={{ marginTop: 16 }}>
-            <div className="field-title">Environment spec</div>
-            {updateErrorCount > 0 ? (
-              <div className="error-box" style={{ marginBottom: 14 }}>
-                Resolve {updateErrorCount} input issue(s) before queueing an update plan.
-              </div>
-            ) : null}
-            <label className="field" style={{ marginBottom: 14 }}>
-              <span>Plan template</span>
-              <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
-                {templateItems.length === 0 ? <option value="basic">basic</option> : null}
-                {templateItems.map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} errors={updateValidation.fieldErrors} /> : null}
+          <div className="callout callout-info" style={{ marginTop: 16 }}>
+            <strong>Update planning stays gated behind the desired-state editor</strong>
+            <p style={{ margin: '6px 0 0' }}>
+              Open the editor only when you need to prepare a new plan. The current environment posture remains visible above.
+            </p>
           </div>
+          <details className="console-details">
+            <summary>Edit desired state and queue an update plan</summary>
+            <div className="field-group" style={{ marginTop: 14 }}>
+              <div className="field-title">Environment spec</div>
+              {updateErrorCount > 0 ? (
+                <div className="error-box" style={{ marginBottom: 14 }}>
+                  Resolve {updateErrorCount} input issue(s) before queueing an update plan.
+                </div>
+              ) : null}
+              <label className="field" style={{ marginBottom: 14 }}>
+                <span>Plan template</span>
+                <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
+                  {templateItems.length === 0 ? <option value="basic">basic</option> : null}
+                  {templateItems.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} errors={updateValidation.fieldErrors} /> : null}
+            </div>
+          </details>
         </article>
 
         <article className="console-card">
@@ -525,9 +535,12 @@ export default function EnvironmentDetailPage() {
             </div>
           </div>
           {outputs ? (
-            <pre className="json-block" style={{ marginTop: 14 }}>
-              {JSON.stringify(outputs, null, 2)}
-            </pre>
+            <details className="console-details">
+              <summary>Show structured outputs</summary>
+              <pre className="json-block" style={{ marginTop: 14 }}>
+                {JSON.stringify(outputs, null, 2)}
+              </pre>
+            </details>
           ) : (
             <div className="empty-state" style={{ marginTop: 14 }}>
               No outputs recorded yet.
@@ -557,9 +570,12 @@ export default function EnvironmentDetailPage() {
                     <div className="row-meta">{item.actor_email || 'system'}</div>
                     {item.message ? <div style={{ marginTop: 6 }}>{item.message}</div> : null}
                     {metadata ? (
-                      <pre className="json-block" style={{ marginTop: 10 }}>
-                        {JSON.stringify(metadata, null, 2)}
-                      </pre>
+                      <details className="console-details console-details-inline">
+                        <summary>Show metadata</summary>
+                        <pre className="json-block" style={{ marginTop: 10 }}>
+                          {JSON.stringify(metadata, null, 2)}
+                        </pre>
+                      </details>
                     ) : null}
                   </div>
                 )
