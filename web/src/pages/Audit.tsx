@@ -30,6 +30,7 @@ function primaryEnvironmentRoute(environmentId: string, items: Environment[]): s
 
 function displayAuditAction(action: string, ko: boolean): string {
   const map: Record<string, string> = {
+    'user.provisioned': ko ? '사용자 계정 생성' : 'User account provisioned',
     'environment.created': ko ? '환경 생성' : 'Environment created',
     'environment.plan_requested': ko ? '환경 계획 요청' : 'Environment plan requested',
     'environment.approved': ko ? '환경 승인' : 'Environment approved',
@@ -70,7 +71,7 @@ export default function AuditPage() {
     try {
       const [environmentRes, auditRes] = await Promise.all([
         environments.list(200),
-        audit.list({ limit: 200, resource_type: 'environment' }),
+        audit.list({ limit: 200 }),
       ])
       setEnvironmentItems(environmentRes.items)
       const merged = auditRes.items
@@ -78,8 +79,8 @@ export default function AuditPage() {
           const environment = environmentRes.items.find((env) => env.id === item.resource_id)
           return {
             ...item,
-            environmentName: environment?.name,
-            environmentStatus: environment?.status,
+            environmentName: item.resource_type === 'environment' ? environment?.name : undefined,
+            environmentStatus: item.resource_type === 'environment' ? environment?.status : undefined,
           }
         })
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -225,11 +226,15 @@ export default function AuditPage() {
                   </div>
                   <div className="info-grid info-grid-three" style={{ marginTop: 10 }}>
                     <div className="meta-item">
-                      <span>{ko ? '환경' : 'Environment'}</span>
+                      <span>{ko ? '리소스' : 'Resource'}</span>
                       <strong>
-                        <Link to={primaryEnvironmentRoute(item.resource_id, environmentItems)} className="text-link">
-                          {item.environmentName || item.resource_id}
-                        </Link>
+                        {item.resource_type === 'environment' ? (
+                          <Link to={primaryEnvironmentRoute(item.resource_id, environmentItems)} className="text-link">
+                            {item.environmentName || item.resource_id}
+                          </Link>
+                        ) : (
+                          item.resource_id
+                        )}
                       </strong>
                     </div>
                     <div className="meta-item">
@@ -237,8 +242,8 @@ export default function AuditPage() {
                       <strong>{item.actor_email || (ko ? '시스템' : 'system')}</strong>
                     </div>
                     <div className="meta-item">
-                      <span>{ko ? '상태' : 'Status'}</span>
-                      <strong>{item.environmentStatus || '-'}</strong>
+                      <span>{ko ? '유형 / 상태' : 'Type / Status'}</span>
+                      <strong>{item.resource_type === 'environment' ? item.environmentStatus || 'environment' : item.resource_type}</strong>
                     </div>
                   </div>
                   {item.message ? <div style={{ marginTop: 10 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
