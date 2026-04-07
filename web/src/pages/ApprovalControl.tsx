@@ -50,16 +50,17 @@ export default function ApprovalControlPage() {
   const planJob = useMemo(() => findLatestPlanJob(environment, jobsForEnvironment), [environment, jobsForEnvironment])
   const typedConfirmationReady = typedConfirmation === (environment?.name || '')
   const checkpoints = useMemo(
-    () => buildApprovalCheckpoints(environment, planJob, typedConfirmationReady),
-    [environment, planJob, typedConfirmationReady],
+    () => buildApprovalCheckpoints(environment, planJob, typedConfirmationReady, ko),
+    [environment, ko, planJob, typedConfirmationReady],
   )
   const impact = useMemo(
     () =>
       buildImpactSummary(
         environment?.spec || { environment_name: '', tenant_name: '', network: { name: '', cidr: '' }, subnet: { name: '', cidr: '', enable_dhcp: true }, instances: [] },
         environment?.operation || 'update',
+        ko,
       ),
-    [environment],
+    [environment, ko],
   )
 
   async function run(action: string, fn: () => Promise<any>, opts?: { confirm?: string }) {

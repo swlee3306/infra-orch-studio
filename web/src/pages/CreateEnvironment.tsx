@@ -19,7 +19,8 @@ const stepSections: Record<number, Array<'environment' | 'tenant' | 'network' | 
 
 export default function CreateEnvironmentPage() {
   const nav = useNavigate()
-  const { copy } = useI18n()
+  const { locale, copy } = useI18n()
+  const ko = locale === 'ko'
   const [viewerReady, setViewerReady] = useState(false)
   const [step, setStep] = useState(0)
   const [spec, setSpec] = useState<EnvironmentSpec>(emptyEnvironmentSpec)
@@ -389,19 +390,19 @@ export default function CreateEnvironmentPage() {
             <div className="page-stack wizard-review">
               <div className="stats-grid wizard-review-metrics">
                 <article className="metric-card metric-card-primary">
-                  <span>Instances</span>
+                  <span>{ko ? '인스턴스' : 'Instances'}</span>
                   <strong>{summary.instanceTotal}</strong>
-                  <p>Total requested instance count derived from the current spec.</p>
+                  <p>{ko ? '현재 스펙에서 계산된 전체 요청 인스턴스 수입니다.' : 'Total requested instance count derived from the current spec.'}</p>
                 </article>
                 <article className="metric-card">
-                  <span>Security refs</span>
+                  <span>{ko ? '보안 참조' : 'Security refs'}</span>
                   <strong>{summary.securityGroupTotal}</strong>
-                  <p>Security groups or inherited references carried into the plan.</p>
+                  <p>{ko ? '계획에 포함될 보안 그룹 또는 상속 참조 수입니다.' : 'Security groups or inherited references carried into the plan.'}</p>
                 </article>
                 <article className="metric-card">
-                  <span>Downtime risk</span>
-                  <strong>{impact?.downtime || (previewLoading ? 'Loading...' : '-')}</strong>
-                  <p>Estimated operational disruption based on the same server-side review contract used after create.</p>
+                  <span>{ko ? '다운타임 위험' : 'Downtime risk'}</span>
+                  <strong>{impact?.downtime || (previewLoading ? (ko ? '불러오는 중...' : 'Loading...') : '-')}</strong>
+                  <p>{ko ? '생성 후에도 같은 서버 측 검토 계약으로 계산한 운영 영향 추정입니다.' : 'Estimated operational disruption based on the same server-side review contract used after create.'}</p>
                 </article>
               </div>
               {previewError ? <div className="error-box">{summarizeOperatorError(previewError)}</div> : null}
@@ -409,14 +410,14 @@ export default function CreateEnvironmentPage() {
                 <article className="console-card">
                   <div className="section-head">
                     <div>
-                      <div className="section-kicker">Validation + help</div>
-                      <h2>Review signals</h2>
+                      <div className="section-kicker">{ko ? '검증 + 도움말' : 'Validation + help'}</div>
+                      <h2>{ko ? '검토 신호' : 'Review signals'}</h2>
                     </div>
                   </div>
                   <div className="stack-list">
-                    {previewLoading && reviewSignals.length === 0 ? <div className="empty-state">Loading server-side review signals...</div> : null}
+                    {previewLoading && reviewSignals.length === 0 ? <div className="empty-state">{ko ? '서버 측 검토 신호를 불러오는 중...' : 'Loading server-side review signals...'}</div> : null}
                     {!previewLoading && reviewSignals.length === 0 ? (
-                      <div className="empty-state">No review signals were returned for this desired state.</div>
+                      <div className="empty-state">{ko ? '이 목표 상태에 대한 검토 신호가 없습니다.' : 'No review signals were returned for this desired state.'}</div>
                     ) : null}
                     {reviewSignals.map((signal) => (
                       <div key={signal.label} className={`stack-row wizard-review-signal ${signal.severity === 'high' ? 'stack-row-danger' : ''}`}>
@@ -425,7 +426,7 @@ export default function CreateEnvironmentPage() {
                           <div className="row-meta">{signal.detail}</div>
                         </div>
                         <span className={`badge ${signal.severity === 'high' ? 'badge-failed' : signal.severity === 'medium' ? 'badge-queued' : 'badge-done'}`}>
-                          {signal.severity}
+                          {ko ? signal.severity === 'high' ? '높음' : signal.severity === 'medium' ? '중간' : '낮음' : signal.severity}
                         </span>
                       </div>
                     ))}
@@ -434,30 +435,30 @@ export default function CreateEnvironmentPage() {
                 <article className="console-card">
                   <div className="section-head">
                     <div>
-                      <div className="section-kicker">Impact summary</div>
-                      <h2>Pre-apply posture</h2>
+                      <div className="section-kicker">{ko ? '영향 요약' : 'Impact summary'}</div>
+                      <h2>{ko ? '적용 전 상태' : 'Pre-apply posture'}</h2>
                     </div>
                   </div>
                   <div className="info-grid wizard-review-summary">
                     <div className="meta-item wizard-review-meta">
-                      <span>Blast radius</span>
+                      <span>{ko ? '영향 범위' : 'Blast radius'}</span>
                       <strong>{impact?.blast_radius || '-'}</strong>
                     </div>
                     <div className="meta-item wizard-review-meta">
-                      <span>Cost / capacity</span>
+                      <span>{ko ? '비용 / 용량' : 'Cost / capacity'}</span>
                       <strong>{impact?.cost_delta || '-'}</strong>
                     </div>
                     <div className="meta-item wizard-review-meta">
-                      <span>Template</span>
+                      <span>{ko ? '템플릿' : 'Template'}</span>
                       <strong>{preview?.plan_job?.template_name || selectedTemplate}</strong>
                     </div>
                     <div className="meta-item wizard-review-meta">
-                      <span>Mode</span>
+                      <span>{ko ? '모드' : 'Mode'}</span>
                       <strong>{templateMode}</strong>
                     </div>
                     <div className="meta-item wizard-review-meta">
-                      <span>Input gates</span>
-                      <strong>{Object.keys(validation.fieldErrors).length === 0 ? 'Clear' : `${Object.keys(validation.fieldErrors).length} issue(s)`}</strong>
+                      <span>{ko ? '입력 게이트' : 'Input gates'}</span>
+                      <strong>{Object.keys(validation.fieldErrors).length === 0 ? (ko ? '정상' : 'Clear') : ko ? `문제 ${Object.keys(validation.fieldErrors).length}개` : `${Object.keys(validation.fieldErrors).length} issue(s)`}</strong>
                     </div>
                   </div>
                 </article>

@@ -80,34 +80,34 @@ export function buildReviewSignals(spec: EnvironmentSpec, operation: string): Re
   return items
 }
 
-export function buildImpactSummary(spec: EnvironmentSpec, operation: string) {
+export function buildImpactSummary(spec: EnvironmentSpec, operation: string, ko = false) {
   const summary = summarizeSpec(spec)
-  const downtime = operation === 'destroy' ? 'High' : summary.instanceTotal >= 4 ? 'Medium' : 'Low'
+  const downtime = operation === 'destroy' ? (ko ? '높음' : 'High') : summary.instanceTotal >= 4 ? (ko ? '중간' : 'Medium') : ko ? '낮음' : 'Low'
   const blastRadius = `${spec.tenant_name || '-'} / ${spec.network.name || '-'} / ${spec.subnet.name || '-'}`
   const costDelta =
     operation === 'destroy'
-      ? 'Negative spend delta expected after destroy is applied.'
-      : `Estimated footprint includes ${summary.instanceTotal} instances and ${summary.securityGroupTotal} security references.`
+      ? ko ? 'destroy 적용 후 비용이 감소할 것으로 예상됩니다.' : 'Negative spend delta expected after destroy is applied.'
+      : ko ? `예상 자원 영향은 인스턴스 ${summary.instanceTotal}개와 보안 참조 ${summary.securityGroupTotal}개입니다.` : `Estimated footprint includes ${summary.instanceTotal} instances and ${summary.securityGroupTotal} security references.`
 
   return { downtime, blastRadius, costDelta }
 }
 
-export function buildApprovalCheckpoints(environment: Environment | null, planJob: Job | null, typedConfirmationReady: boolean): Checkpoint[] {
+export function buildApprovalCheckpoints(environment: Environment | null, planJob: Job | null, typedConfirmationReady: boolean, ko = false): Checkpoint[] {
   return [
     {
-      label: 'Plan job completed',
+      label: ko ? '계획 작업 완료' : 'Plan job completed',
       state: planJob?.status === 'done' ? 'ok' : 'wait',
     },
     {
-      label: 'Plan artifact available',
+      label: ko ? '계획 산출물 사용 가능' : 'Plan artifact available',
       state: planJob?.plan_path && planJob?.workdir ? 'ok' : 'wait',
     },
     {
-      label: 'Approval gate cleared',
+      label: ko ? '승인 게이트 통과' : 'Approval gate cleared',
       state: environment?.approval_status === 'approved' ? 'ok' : 'wait',
     },
     {
-      label: 'Typed destroy confirmation',
+      label: ko ? '삭제 확인 입력' : 'Typed destroy confirmation',
       state: typedConfirmationReady ? 'ok' : 'wait',
     },
   ]
