@@ -74,6 +74,21 @@ export default function TemplatesPage() {
   const emptyCatalog = Boolean(catalog && catalog.environment_sets.length === 0 && catalog.modules.length === 0)
   const selectedDescriptor = detail?.descriptor || null
 
+  const displayTemplateDescription = (value?: string) => {
+    if (!value) return ko ? '설명이 없습니다.' : 'No description available.'
+    if (!ko) return value
+    return value
+      .replace('Root environment template used by create, update, and destroy plans.', '생성, 업데이트, 삭제 계획에 사용하는 루트 환경 템플릿입니다.')
+      .replace('Reusable module rendered under the selected environment template.', '선택한 환경 템플릿 아래에서 렌더링되는 재사용 가능한 모듈입니다.')
+  }
+
+  const displayTemplateWarning = (value: string) => {
+    if (!ko) return value
+    return value
+      .replace('README.md is missing, so operator guidance is reduced.', 'README.md가 없어 운영자 가이드가 부족합니다.')
+      .replace('terraform.tfvars.json.example is missing, so local smoke testing guidance is incomplete.', 'terraform.tfvars.json.example이 없어 로컬 스모크 테스트 가이드가 불완전합니다.')
+  }
+
   return (
     <div className="page-stack">
       <section className="hero-panel">
@@ -140,7 +155,7 @@ export default function TemplatesPage() {
                 >
                   <div>
                     <strong>{item.name}</strong>
-                    <div className="row-meta">{item.description || (ko ? '생성, 업데이트, 삭제 계획에 사용할 수 있는 환경 세트입니다.' : 'Environment set visible to create, update, and destroy planning.')}</div>
+                    <div className="row-meta">{displayTemplateDescription(item.description || (ko ? '생성, 업데이트, 삭제 계획에 사용할 수 있는 환경 세트입니다.' : 'Environment set visible to create, update, and destroy planning.'))}</div>
                     <div className="chip-row" style={{ marginTop: 10 }}>
                       {item.files.map((file) => (
                         <span className="badge badge-muted" key={file}>
@@ -220,7 +235,7 @@ export default function TemplatesPage() {
                 <div className="stack-row">
                   <div>
                     <strong>{ko ? '설명' : 'Description'}</strong>
-                    <div className="row-meta">{validation?.description || (ko ? '설명이 없습니다.' : 'No description available.')}</div>
+                    <div className="row-meta">{displayTemplateDescription(validation?.description)}</div>
                   </div>
                 </div>
                 {selectedDescriptor ? (
@@ -253,7 +268,7 @@ export default function TemplatesPage() {
                     <strong>{ko ? '경고' : 'Warnings'}</strong>
                     {validation.warnings.map((item) => (
                       <p key={item} style={{ margin: '6px 0 0' }}>
-                        {item}
+                        {displayTemplateWarning(item)}
                       </p>
                     ))}
                   </div>
@@ -307,7 +322,7 @@ export default function TemplatesPage() {
               >
                 <div>
                   <strong>{item.name}</strong>
-                  <div className="row-meta">{item.description || (ko ? '환경 세트에서 사용할 수 있는 재사용 가능한 인프라 구성 요소입니다.' : 'Reusable infrastructure building block available to environment sets.')}</div>
+                  <div className="row-meta">{displayTemplateDescription(item.description || (ko ? '환경 세트에서 사용할 수 있는 재사용 가능한 인프라 구성 요소입니다.' : 'Reusable infrastructure building block available to environment sets.'))}</div>
                   <div className="chip-row" style={{ marginTop: 10 }}>
                     {item.files.map((file) => (
                       <span className="badge badge-muted" key={file}>
