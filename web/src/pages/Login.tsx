@@ -56,7 +56,7 @@ export default function LoginPage() {
               }
               nav('/dashboard')
             } catch (err: any) {
-              setError(err?.message || 'failed')
+              setError(err?.message || (locale === 'ko' ? '요청 실패' : 'failed'))
             } finally {
               setLoading(false)
             }
@@ -80,11 +80,11 @@ export default function LoginPage() {
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
+              placeholder={locale === 'ko' ? '최소 8자 이상' : 'At least 8 characters'}
             />
           </label>
           <button type="submit" disabled={loading}>
-            {loading ? 'Working...' : mode === 'login' ? copy.login.login : copy.login.createAccount}
+            {loading ? (locale === 'ko' ? '처리 중...' : 'Working...') : mode === 'login' ? copy.login.login : copy.login.createAccount}
           </button>
         </form>
 
