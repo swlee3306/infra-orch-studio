@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/api"
@@ -66,10 +67,11 @@ func main() {
 	}
 
 	srv := api.NewServer(api.Config{
-		JobStore:      jobStore,
-		AuthStore:     authStore,
-		TemplatesRoot: templatesRoot,
-		ModulesRoot:   modulesRoot,
+		JobStore:          jobStore,
+		AuthStore:         authStore,
+		TemplatesRoot:     templatesRoot,
+		ModulesRoot:       modulesRoot,
+		AllowPublicSignup: envBool("ALLOW_PUBLIC_SIGNUP", false),
 	})
 	log.Printf("template roots: environments=%s modules=%s", templatesRoot, modulesRoot)
 	if err := srv.ListenAndServe(addr); err != nil {
@@ -80,6 +82,18 @@ func main() {
 func env(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return def
+}
+
+func envBool(key string, def bool) bool {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		switch strings.ToLower(v) {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
+		}
 	}
 	return def
 }

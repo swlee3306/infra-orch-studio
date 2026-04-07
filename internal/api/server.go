@@ -10,24 +10,26 @@ import (
 )
 
 type Config struct {
-	JobStore       storage.Store
-	AuthStore      storage.AuthStore
-	CookieName     string
-	SessionTTL     time.Duration
-	AllowedOrigins []string
-	TemplatesRoot  string
-	ModulesRoot    string
+	JobStore          storage.Store
+	AuthStore         storage.AuthStore
+	CookieName        string
+	SessionTTL        time.Duration
+	AllowedOrigins    []string
+	TemplatesRoot     string
+	ModulesRoot       string
+	AllowPublicSignup bool
 }
 
 type Server struct {
-	mux            *http.ServeMux
-	jobs           storage.Store
-	auth           storage.AuthStore
-	cookieName     string
-	sessionTTL     time.Duration
-	allowedOrigins map[string]struct{}
-	templatesRoot  string
-	modulesRoot    string
+	mux               *http.ServeMux
+	jobs              storage.Store
+	auth              storage.AuthStore
+	cookieName        string
+	sessionTTL        time.Duration
+	allowedOrigins    map[string]struct{}
+	templatesRoot     string
+	modulesRoot       string
+	allowPublicSignup bool
 }
 
 func NewServer(cfg Config) *Server {
@@ -45,13 +47,14 @@ func NewServer(cfg Config) *Server {
 	}
 
 	s := &Server{
-		jobs:           cfg.JobStore,
-		auth:           cfg.AuthStore,
-		cookieName:     cookieName,
-		sessionTTL:     sessionTTL,
-		allowedOrigins: make(map[string]struct{}, len(origins)),
-		templatesRoot:  cfg.TemplatesRoot,
-		modulesRoot:    cfg.ModulesRoot,
+		jobs:              cfg.JobStore,
+		auth:              cfg.AuthStore,
+		cookieName:        cookieName,
+		sessionTTL:        sessionTTL,
+		allowedOrigins:    make(map[string]struct{}, len(origins)),
+		templatesRoot:     cfg.TemplatesRoot,
+		modulesRoot:       cfg.ModulesRoot,
+		allowPublicSignup: cfg.AllowPublicSignup,
 	}
 	for _, origin := range origins {
 		origin = strings.TrimSpace(origin)
