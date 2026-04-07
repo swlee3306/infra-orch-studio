@@ -114,12 +114,12 @@ export default function TemplatesPage() {
         </article>
         <article className="metric-card">
           <span>Templates root</span>
-          <strong className="metric-path">{catalog?.templates_root || '-'}</strong>
+          <div className="metric-path">{catalog?.templates_root || '-'}</div>
           <p>Filesystem root read by the API for environment template sets.</p>
         </article>
         <article className="metric-card">
           <span>Modules root</span>
-          <strong className="metric-path">{catalog?.modules_root || '-'}</strong>
+          <div className="metric-path">{catalog?.modules_root || '-'}</div>
           <p>Filesystem root read by the API for shared modules.</p>
         </article>
       </section>
