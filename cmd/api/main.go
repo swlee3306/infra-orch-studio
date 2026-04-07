@@ -4,11 +4,11 @@ import (
 	"context"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/api"
+	"github.com/swlee3306/infra-orch-studio/internal/runtimecheck"
 	"github.com/swlee3306/infra-orch-studio/internal/storage"
 	storemysql "github.com/swlee3306/infra-orch-studio/internal/storage/mysql"
 )
@@ -59,13 +59,19 @@ func main() {
 		log.Printf("admin seed ensured for %s", seededAdmin.Email)
 	}
 
+	templatesRoot := runtimecheck.ResolvePath(env("TEMPLATES_ROOT", "./templates/opentofu/environments"))
+	modulesRoot := runtimecheck.ResolvePath(env("MODULES_ROOT", "./templates/opentofu/modules"))
+	if err := runtimecheck.ValidateTemplateAssets(templatesRoot, modulesRoot); err != nil {
+		log.Fatalf("validate template assets: %v", err)
+	}
+
 	srv := api.NewServer(api.Config{
 		JobStore:      jobStore,
 		AuthStore:     authStore,
-		TemplatesRoot: resolvePath(env("TEMPLATES_ROOT", "./templates/opentofu/environments")),
-		ModulesRoot:   resolvePath(env("MODULES_ROOT", "./templates/opentofu/modules")),
+		TemplatesRoot: templatesRoot,
+		ModulesRoot:   modulesRoot,
 	})
-	log.Printf("template roots: environments=%s modules=%s", resolvePath(env("TEMPLATES_ROOT", "./templates/opentofu/environments")), resolvePath(env("MODULES_ROOT", "./templates/opentofu/modules")))
+	log.Printf("template roots: environments=%s modules=%s", templatesRoot, modulesRoot)
 	if err := srv.ListenAndServe(addr); err != nil {
 		log.Fatalf("listen: %v", err)
 	}
@@ -76,39 +82,4 @@ func env(key, def string) string {
 		return v
 	}
 	return def
-}
-
-func resolvePath(path string) string {
-	if path == "" {
-		return ""
-	}
-	if filepath.IsAbs(path) {
-		return path
-	}
-
-	candidates := make([]string, 0, 3)
-	if wd, err := os.Getwd(); err == nil {
-		candidates = append(candidates, filepath.Join(wd, path))
-	}
-	if exe, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exe)
-		candidates = append(candidates,
-			filepath.Join(exeDir, path),
-			filepath.Join(exeDir, "..", path),
-		)
-	}
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			abs, absErr := filepath.Abs(candidate)
-			if absErr == nil {
-				return abs
-			}
-			return candidate
-		}
-	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path
-	}
-	return abs
 }

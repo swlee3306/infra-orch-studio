@@ -34,6 +34,10 @@ Admin seed:
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD` 를 API에 설정하면 시작 시 admin 유저를 upsert 합니다.
 - 둘 중 하나만 설정하면 API가 시작 시 즉시 실패합니다.
 
+Template runtime validation:
+- API와 runner는 시작 시 `TEMPLATES_ROOT`, `MODULES_ROOT`, 그리고 기본 템플릿 `basic/{main.tf,variables.tf,outputs.tf,versions.tf}` 존재를 검증합니다.
+- 기본 템플릿 자산이 없으면 런타임 중 plan에서 늦게 실패하지 않고 startup에서 즉시 실패합니다.
+
 ### Environments
 - `GET /api/environments?limit=50`
 - `POST /api/environments`
