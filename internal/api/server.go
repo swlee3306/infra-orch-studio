@@ -66,6 +66,7 @@ func NewServer(cfg Config) *Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
+	mux.HandleFunc("/api/public-config", s.handlePublicConfig)
 	mux.HandleFunc("/api/auth/signup", s.handleSignup)
 	mux.HandleFunc("/api/auth/login", s.handleLogin)
 	mux.HandleFunc("/api/auth/logout", s.handleLogout)

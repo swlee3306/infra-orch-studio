@@ -194,6 +194,10 @@ export type RequestDraftResponse = {
   requires_review: boolean
 }
 
+export type PublicConfig = {
+  allow_public_signup: boolean
+}
+
 // VITE_API_URL should point to the API base.
 // - prod (nginx proxy): "/api"
 // - dev: "http://localhost:8080/api"
@@ -222,6 +226,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const auth = {
+  publicConfig: () => req<PublicConfig>('/public-config'),
   signup: (email: string, password: string) =>
     req<User>('/auth/signup', { method: 'POST', body: JSON.stringify({ email, password }) }),
   login: (email: string, password: string) =>

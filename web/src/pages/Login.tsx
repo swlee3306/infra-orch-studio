@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../api'
 import { useI18n } from '../i18n'
@@ -9,8 +9,34 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [allowSignup, setAllowSignup] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    auth.publicConfig()
+      .then((cfg) => {
+        if (!cancelled) {
+          setAllowSignup(Boolean(cfg.allow_public_signup))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAllowSignup(false)
+          setMode('login')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!allowSignup && mode === 'signup') {
+      setMode('login')
+    }
+  }, [allowSignup, mode])
 
   return (
     <div className="auth-shell">
@@ -38,9 +64,11 @@ export default function LoginPage() {
           <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>
             {copy.login.login}
           </button>
-          <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>
-            {copy.login.signup}
-          </button>
+          {allowSignup ? (
+            <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>
+              {copy.login.signup}
+            </button>
+          ) : null}
         </div>
 
         <form
@@ -89,6 +117,11 @@ export default function LoginPage() {
         </form>
 
         {error ? <div className="error-box" style={{ marginTop: 14 }}>{String(error)}</div> : null}
+        {!allowSignup ? (
+          <p className="muted" style={{ marginTop: 12, marginBottom: 0 }}>
+            {locale === 'ko' ? '이 배포에서는 공개 가입이 비활성화되어 있습니다.' : 'Public signup is disabled for this deployment.'}
+          </p>
+        ) : null}
         <p className="muted" style={{ marginTop: 16, marginBottom: 0 }}>
           {copy.login.apiBase}: {import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}
         </p>

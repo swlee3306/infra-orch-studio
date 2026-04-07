@@ -112,3 +112,50 @@ func TestAuthSignupDisabledByDefault(t *testing.T) {
 		t.Fatalf("signup disabled status = %d, want %d", rr.Code, http.StatusForbidden)
 	}
 }
+
+func TestPublicConfigExposesSignupPolicy(t *testing.T) {
+	store := newFakeStore()
+
+	disabled := NewServer(Config{
+		JobStore:       store,
+		AuthStore:      store,
+		CookieName:     "test_session",
+		SessionTTL:     time.Hour,
+		AllowedOrigins: []string{"http://localhost:5173"},
+	})
+	enabled := NewServer(Config{
+		JobStore:          store,
+		AuthStore:         store,
+		CookieName:        "test_session",
+		SessionTTL:        time.Hour,
+		AllowedOrigins:    []string{"http://localhost:5173"},
+		AllowPublicSignup: true,
+	})
+
+	for _, tc := range []struct {
+		name string
+		srv  *Server
+		want bool
+	}{
+		{name: "disabled", srv: disabled, want: false},
+		{name: "enabled", srv: enabled, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/public-config", nil)
+			rr := httptest.NewRecorder()
+			tc.srv.mux.ServeHTTP(rr, req)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("public config status = %d, want %d", rr.Code, http.StatusOK)
+			}
+			var payload struct {
+				AllowPublicSignup bool `json:"allow_public_signup"`
+			}
+			if err := decodeJSON(bytes.NewReader(rr.Body.Bytes()), &payload); err != nil {
+				t.Fatalf("decode public config: %v", err)
+			}
+			if payload.AllowPublicSignup != tc.want {
+				t.Fatalf("allow_public_signup = %v, want %v", payload.AllowPublicSignup, tc.want)
+			}
+		})
+	}
+}
