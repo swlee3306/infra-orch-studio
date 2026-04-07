@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/api"
 	"github.com/swlee3306/infra-orch-studio/internal/storage"
@@ -48,6 +50,14 @@ func main() {
 			_ = closer()
 		}
 	}()
+
+	seededAdmin, seeded, err := ensureAdminSeed(context.Background(), authStore, os.Getenv("ADMIN_EMAIL"), os.Getenv("ADMIN_PASSWORD"), time.Now().UTC())
+	if err != nil {
+		log.Fatalf("ensure admin seed: %v", err)
+	}
+	if seeded {
+		log.Printf("admin seed ensured for %s", seededAdmin.Email)
+	}
 
 	srv := api.NewServer(api.Config{
 		JobStore:      jobStore,

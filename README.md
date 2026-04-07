@@ -32,6 +32,7 @@
 
 Admin seed:
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD` 를 API에 설정하면 시작 시 admin 유저를 upsert 합니다.
+- 둘 중 하나만 설정하면 API가 시작 시 즉시 실패합니다.
 
 ### Environments
 - `GET /api/environments?limit=50`
