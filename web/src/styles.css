@@ -340,9 +340,13 @@ button:hover:not(:disabled) {
 }
 
 .metric-path {
-  font-size: 1rem;
-  line-height: 1.4;
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.5;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dashboard-grid {
