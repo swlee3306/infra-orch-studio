@@ -40,6 +40,39 @@ type CopyShape = {
     quickCreate: string
     hideQuickCreate: string
   }
+  create: {
+    kicker: string
+    title: string
+    copy: string
+    saveDraft: string
+    savingDraft: string
+    exitWizard: string
+    stepsTitle: string
+    currentStep: string
+    resolveBeforeContinue: string
+    back: string
+    continue: string
+    queueInitialPlan: string
+    queueingInitialPlan: string
+    refreshReview: string
+    fixReviewErrors: string
+    stepLabels: string[]
+    requestChat: {
+      kicker: string
+      title: string
+      draftOnly: string
+      copy: string
+      promptLabel: string
+      promptPlaceholder: string
+      generate: string
+      generating: string
+      useDraft: string
+      assumptions: string
+      warnings: string
+      nextStep: string
+      noWarnings: string
+    }
+  }
   templates: {
     kicker: string
     title: string
@@ -121,6 +154,40 @@ const COPY: Record<Locale, CopyShape> = {
       openWizard: 'Open wizard',
       quickCreate: 'Quick create',
       hideQuickCreate: 'Hide quick create',
+    },
+    create: {
+      kicker: 'Environment setup / 07 steps',
+      title: 'Create environment flow',
+      copy: 'Work through the desired-state inputs, persist a local draft when needed, then queue the initial plan and continue into review.',
+      saveDraft: 'Save draft',
+      savingDraft: 'Saving draft...',
+      exitWizard: 'Exit wizard',
+      stepsTitle: 'Wizard progress',
+      currentStep: 'Current step',
+      resolveBeforeContinue: 'Resolve before continuing',
+      back: 'Back',
+      continue: 'Continue',
+      queueInitialPlan: 'Review plan',
+      queueingInitialPlan: 'Queueing initial plan...',
+      refreshReview: 'Refreshing review...',
+      fixReviewErrors: 'Fix review errors',
+      stepLabels: ['Template / Custom', 'Tenant', 'Name', 'Network / Subnet', 'Instances', 'Security Refs', 'Validate + Review'],
+      requestChat: {
+        kicker: 'Request chat (beta)',
+        title: 'Generate a structured request draft',
+        draftOnly: 'Draft only',
+        copy: 'Describe the environment you want in natural language. The assistant only fills a draft and still sends you through plan review and approval.',
+        promptLabel: 'Request prompt',
+        promptPlaceholder:
+          'Example: Create a staging environment named payments-api for tenant finops with 2 ubuntu instances, medium flavor, web and db security groups, network 10.44.0.0/24 and subnet 10.44.0.0/26.',
+        generate: 'Generate request draft',
+        generating: 'Generating draft...',
+        useDraft: 'Use draft in wizard',
+        assumptions: 'Assumptions',
+        warnings: 'Warnings',
+        nextStep: 'Next step',
+        noWarnings: 'No extra warnings were generated for this prompt.',
+      },
     },
     templates: {
       kicker: 'Template management / renderer contract',
@@ -245,6 +312,40 @@ const COPY: Record<Locale, CopyShape> = {
       openWizard: '생성 마법사',
       quickCreate: '빠른 생성',
       hideQuickCreate: '빠른 생성 닫기',
+    },
+    create: {
+      kicker: '환경 설정 / 07단계',
+      title: '환경 생성 흐름',
+      copy: '원하는 상태를 단계별로 입력하고, 필요하면 초안을 저장한 뒤 첫 플랜을 큐잉하고 검토 단계로 이동합니다.',
+      saveDraft: '초안 저장',
+      savingDraft: '초안 저장 중...',
+      exitWizard: '마법사 나가기',
+      stepsTitle: '진행 단계',
+      currentStep: '현재 단계',
+      resolveBeforeContinue: '다음 단계로 가기 전에 해결하세요',
+      back: '이전',
+      continue: '계속',
+      queueInitialPlan: '플랜 검토로 이동',
+      queueingInitialPlan: '초기 플랜 큐잉 중...',
+      refreshReview: '검토 갱신 중...',
+      fixReviewErrors: '검토 오류 해결 필요',
+      stepLabels: ['템플릿 / 직접 입력', '테넌트', '이름', '네트워크 / 서브넷', '인스턴스', '보안 참조', '검증 + 검토'],
+      requestChat: {
+        kicker: '요청 채팅 (베타)',
+        title: '구조화된 요청 초안 생성',
+        draftOnly: '초안 전용',
+        copy: '자연어로 원하는 환경을 설명하면 초안만 생성합니다. 이후에도 반드시 플랜 검토와 승인을 거칩니다.',
+        promptLabel: '요청 프롬프트',
+        promptPlaceholder:
+          '예시: finops 테넌트용 payments-api 스테이징 환경을 만들고, ubuntu 인스턴스 2대와 medium flavor, web/db 보안 그룹, 네트워크 10.44.0.0/24, 서브넷 10.44.0.0/26을 사용해줘.',
+        generate: '요청 초안 생성',
+        generating: '초안 생성 중...',
+        useDraft: '초안을 마법사에 적용',
+        assumptions: '가정 사항',
+        warnings: '주의 사항',
+        nextStep: '다음 단계',
+        noWarnings: '이 프롬프트에서는 추가 주의 사항이 생성되지 않았습니다.',
+      },
     },
     templates: {
       kicker: '템플릿 관리 / 렌더러 계약',

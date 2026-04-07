@@ -2,21 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, environments, EnvironmentPlanReviewResponse, EnvironmentSpec, requestDrafts, RequestDraftResponse, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
+import { useI18n } from '../i18n'
 import { emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 const STORAGE_KEY = 'infra-orch:create-draft'
-
-const steps = [
-  'Template / Custom',
-  'Tenant',
-  'Name',
-  'Network / Subnet',
-  'Instances',
-  'Security Refs',
-  'Validate + Review',
-]
 
 const stepSections: Record<number, Array<'environment' | 'tenant' | 'network' | 'instances' | 'security'>> = {
   1: ['tenant'],
@@ -28,6 +19,7 @@ const stepSections: Record<number, Array<'environment' | 'tenant' | 'network' | 
 
 export default function CreateEnvironmentPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const [viewerReady, setViewerReady] = useState(false)
   const [step, setStep] = useState(0)
   const [spec, setSpec] = useState<EnvironmentSpec>(emptyEnvironmentSpec)
@@ -44,6 +36,7 @@ export default function CreateEnvironmentPage() {
   const [draftBusy, setDraftBusy] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [requestDraft, setRequestDraft] = useState<RequestDraftResponse | null>(null)
+  const steps = copy.create.stepLabels
 
   useEffect(() => {
     auth
@@ -182,18 +175,16 @@ export default function CreateEnvironmentPage() {
     <div className="page-stack">
       <section className="hero-panel">
         <div>
-          <div className="page-kicker">Environment setup / 07 steps</div>
-          <h1 className="page-title">Create environment flow</h1>
-          <p className="page-copy">
-            Work through the desired-state inputs, persist a local draft when needed, then queue the initial plan and continue into review.
-          </p>
+          <div className="page-kicker">{copy.create.kicker}</div>
+          <h1 className="page-title">{copy.create.title}</h1>
+          <p className="page-copy">{copy.create.copy}</p>
         </div>
         <div className="hero-actions">
           <button className="ghost" onClick={saveDraft} disabled={savingDraft}>
-            {savingDraft ? 'Saving draft...' : 'Save draft'}
+            {savingDraft ? copy.create.savingDraft : copy.create.saveDraft}
           </button>
           <Link to="/environments" className="ghost action-link action-link-button">
-            Exit wizard
+            {copy.create.exitWizard}
           </Link>
         </div>
       </section>
@@ -205,7 +196,7 @@ export default function CreateEnvironmentPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Steps</div>
-              <h2>Wizard progress</h2>
+              <h2>{copy.create.stepsTitle}</h2>
             </div>
             <span className="badge badge-muted">{Math.round(((step + 1) / steps.length) * 100)}% complete</span>
           </div>
@@ -233,13 +224,13 @@ export default function CreateEnvironmentPage() {
         <article className="console-card console-card-span">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Current step</div>
+              <div className="section-kicker">{copy.create.currentStep}</div>
               <h2>{steps[step]}</h2>
             </div>
           </div>
           {currentStepErrors.length > 0 ? (
             <div className="error-box">
-              <strong>Resolve before continuing</strong>
+              <strong>{copy.create.resolveBeforeContinue}</strong>
               <div>{currentStepErrors[0]}</div>
             </div>
           ) : null}
@@ -249,30 +240,30 @@ export default function CreateEnvironmentPage() {
               <article className="console-card request-chat-card">
                 <div className="section-head">
                   <div>
-                    <div className="section-kicker">Request chat (beta)</div>
-                    <h2>Generate a structured request draft</h2>
+                    <div className="section-kicker">{copy.create.requestChat.kicker}</div>
+                    <h2>{copy.create.requestChat.title}</h2>
                   </div>
-                  <span className="badge badge-muted">Draft only</span>
+                  <span className="badge badge-muted">{copy.create.requestChat.draftOnly}</span>
                 </div>
                 <p className="page-copy request-chat-copy">
-                  Describe the environment you want in natural language. The assistant only fills a draft and still sends you through plan review and approval.
+                  {copy.create.requestChat.copy}
                 </p>
                 <label className="field">
-                  <span>Request prompt</span>
+                  <span>{copy.create.requestChat.promptLabel}</span>
                   <textarea
                     rows={4}
                     value={chatPrompt}
                     onChange={(e) => setChatPrompt(e.target.value)}
-                    placeholder="Example: Create a staging environment named payments-api for tenant finops with 2 ubuntu instances, medium flavor, web and db security groups, network 10.44.0.0/24 and subnet 10.44.0.0/26."
+                    placeholder={copy.create.requestChat.promptPlaceholder}
                   />
                 </label>
                 <div className="detail-actions" style={{ marginTop: 14 }}>
                   <button type="button" onClick={generateRequestDraft} disabled={draftBusy || chatPrompt.trim() === ''}>
-                    {draftBusy ? 'Generating draft...' : 'Generate request draft'}
+                    {draftBusy ? copy.create.requestChat.generating : copy.create.requestChat.generate}
                   </button>
                   {requestDraft ? (
                     <button type="button" className="ghost" onClick={applyRequestDraft}>
-                      Use draft in wizard
+                      {copy.create.requestChat.useDraft}
                     </button>
                   ) : null}
                 </div>
@@ -299,7 +290,7 @@ export default function CreateEnvironmentPage() {
                     </div>
                     <div className="grid-two">
                       <div className="note-card">
-                        <strong>Assumptions</strong>
+                        <strong>{copy.create.requestChat.assumptions}</strong>
                         <div className="stack-list" style={{ marginTop: 10 }}>
                           {requestDraft.assumptions.map((item) => (
                             <div key={item} className="stack-row">
@@ -309,18 +300,18 @@ export default function CreateEnvironmentPage() {
                         </div>
                       </div>
                       <div className="note-card">
-                        <strong>Warnings</strong>
+                        <strong>{copy.create.requestChat.warnings}</strong>
                         <div className="stack-list" style={{ marginTop: 10 }}>
                           {requestDraft.warnings.length ? requestDraft.warnings.map((item) => (
                             <div key={item} className="stack-row stack-row-danger">
                               <div className="row-meta">{item}</div>
                             </div>
-                          )) : <div className="row-meta">No extra warnings were generated for this prompt.</div>}
+                          )) : <div className="row-meta">{copy.create.requestChat.noWarnings}</div>}
                         </div>
                       </div>
                     </div>
                     <div className="callout callout-info">
-                      <strong>Next step</strong>
+                      <strong>{copy.create.requestChat.nextStep}</strong>
                       <p style={{ margin: '6px 0 0' }}>{requestDraft.next_step}</p>
                     </div>
                   </div>
@@ -476,11 +467,11 @@ export default function CreateEnvironmentPage() {
 
           <div className="detail-actions" style={{ marginTop: 16 }}>
             <button type="button" className="ghost" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0}>
-              Back
+              {copy.create.back}
             </button>
             {step < steps.length - 1 ? (
               <button type="button" onClick={() => setStep((current) => Math.min(steps.length - 1, current + 1))} disabled={currentStepBlocked}>
-                Continue
+                {copy.create.continue}
               </button>
             ) : (
               <button
@@ -488,7 +479,7 @@ export default function CreateEnvironmentPage() {
                 onClick={createEnvironment}
                 disabled={creating || previewLoading || !!previewError || Object.keys(validation.fieldErrors).length > 0}
               >
-                {creating ? 'Queueing initial plan...' : previewLoading ? 'Refreshing review...' : previewError ? 'Fix review errors' : 'Review plan'}
+                {creating ? copy.create.queueingInitialPlan : previewLoading ? copy.create.refreshReview : previewError ? copy.create.fixReviewErrors : copy.create.queueInitialPlan}
               </button>
             )}
           </div>
