@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, Environment, EnvironmentSpec, environments, TemplateDescriptor, templates, User } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
+import { useI18n } from '../i18n'
 import StatusBadge from '../components/StatusBadge'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
@@ -37,6 +38,7 @@ function primaryRoute(item: Environment): string {
 
 export default function EnvironmentsPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const [items, setItems] = useState<Environment[]>([])
   const [viewer, setViewer] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -135,23 +137,21 @@ export default function EnvironmentsPage() {
     <div className="page-stack">
       <section className="hero-panel">
         <div>
-          <div className="page-kicker">Environment list</div>
-          <h1 className="page-title">Environment posture</h1>
-          <p className="page-copy">
-            Filter lifecycle posture, review approvals, and open environment detail for guarded actions.
-          </p>
+          <div className="page-kicker">{copy.environments.kicker}</div>
+          <h1 className="page-title">{copy.environments.title}</h1>
+          <p className="page-copy">{copy.environments.copy}</p>
           <div className="row-meta" style={{ marginTop: 12 }}>
-            Viewer {viewer?.email || 'loading...'}
+            {copy.environments.viewer} {viewer?.email || 'loading...'}
           </div>
         </div>
         <div className="hero-actions">
           <button className="ghost" onClick={load}>
-            Refresh
+            {copy.environments.refresh}
           </button>
           <Link to="/create-environment" className="ghost" style={{ display: 'inline-flex', alignItems: 'center' }}>
-            Open wizard
+            {copy.environments.openWizard}
           </Link>
-          <button className="ghost" onClick={() => setShowCreate((current) => !current)}>{showCreate ? 'Hide quick create' : 'Quick create'}</button>
+          <button className="ghost" onClick={() => setShowCreate((current) => !current)}>{showCreate ? copy.environments.hideQuickCreate : copy.environments.quickCreate}</button>
         </div>
       </section>
 
