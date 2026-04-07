@@ -27,6 +27,37 @@ function primaryEnvironmentRoute(environmentId: string, items: Environment[]): s
   return `/environments/${environmentId}`
 }
 
+function displayAuditAction(action: string, ko: boolean): string {
+  const map: Record<string, string> = {
+    'environment.created': ko ? '환경 생성' : 'Environment created',
+    'environment.plan_requested': ko ? '환경 계획 요청' : 'Environment plan requested',
+    'environment.approved': ko ? '환경 승인' : 'Environment approved',
+    'environment.apply_requested': ko ? '환경 적용 요청' : 'Environment apply requested',
+    'environment.destroy_requested': ko ? '환경 삭제 요청' : 'Environment destroy requested',
+    'environment.retry_requested': ko ? '환경 재시도 요청' : 'Environment retry requested',
+    'environment.plan_failed': ko ? '환경 계획 실패' : 'Environment plan failed',
+    'environment.apply_failed': ko ? '환경 적용 실패' : 'Environment apply failed',
+    'environment.apply_succeeded': ko ? '환경 적용 성공' : 'Environment apply succeeded',
+    'environment.destroy_succeeded': ko ? '환경 삭제 성공' : 'Environment destroy succeeded',
+  }
+  return map[action] || action
+}
+
+function displayAuditMessage(message: string | undefined, ko: boolean): string | undefined {
+  if (!message) return undefined
+  if (!ko) return message
+  return message
+    .replace('Plan approved for environment ', '환경 계획 승인: ')
+    .replace('Plan requested for environment ', '환경 계획 요청: ')
+    .replace('Apply requested for environment ', '환경 적용 요청: ')
+    .replace('Destroy requested for environment ', '환경 삭제 요청: ')
+    .replace('Retry requested for environment ', '환경 재시도 요청: ')
+    .replace('Plan failed for environment ', '환경 계획 실패: ')
+    .replace('Apply failed for environment ', '환경 적용 실패: ')
+    .replace('Apply succeeded for environment ', '환경 적용 성공: ')
+    .replace('Destroy succeeded for environment ', '환경 삭제 성공: ')
+}
+
 export default function AuditPage() {
   const nav = useNavigate()
   const { locale, copy } = useI18n()
@@ -117,7 +148,7 @@ export default function AuditPage() {
           <p className="page-copy">{copy.audit.copy}</p>
         </div>
         <div className="hero-actions">
-          <span className="badge badge-muted">{copy.audit.viewer}: {viewer?.email || 'loading...'}</span>
+          <span className="badge badge-muted">{copy.audit.viewer}: {viewer?.email || (ko ? '불러오는 중...' : 'loading...')}</span>
           <button className="ghost" onClick={load}>
             {copy.audit.refresh}
           </button>
@@ -154,7 +185,7 @@ export default function AuditPage() {
       <section className="console-card">
         <div className="section-head">
           <div>
-            <div className="section-kicker">Filters</div>
+            <div className="section-kicker">{ko ? '필터' : 'Filters'}</div>
             <h2>{ko ? '행위자, 액션, 환경, 메시지 검색' : 'Search actor, action, environment, or message'}</h2>
           </div>
           <span className="badge badge-muted">{loading ? (ko ? '로딩 중' : 'loading') : ko ? `${filtered.length}건 표시` : `${filtered.length} visible`}</span>
@@ -190,7 +221,7 @@ export default function AuditPage() {
       <section className="console-card">
         <div className="section-head">
           <div>
-            <div className="section-kicker">Audit stream</div>
+            <div className="section-kicker">{ko ? '감사 스트림' : 'Audit stream'}</div>
             <h2>{ko ? '환경 이력' : 'Environment history'}</h2>
           </div>
         </div>
@@ -203,7 +234,7 @@ export default function AuditPage() {
               return (
                 <div className="audit-item" key={item.id}>
                   <div className="detail-top" style={{ alignItems: 'center' }}>
-                    <strong>{item.action}</strong>
+                    <strong>{displayAuditAction(item.action, ko)}</strong>
                     <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
                   </div>
                   <div className="info-grid info-grid-three" style={{ marginTop: 10 }}>
@@ -224,7 +255,7 @@ export default function AuditPage() {
                       <strong>{item.environmentStatus || '-'}</strong>
                     </div>
                   </div>
-                  {item.message ? <div style={{ marginTop: 10 }}>{item.message}</div> : null}
+                  {item.message ? <div style={{ marginTop: 10 }}>{displayAuditMessage(item.message, ko)}</div> : null}
                   {metadata ? (
                     <pre className="json-block" style={{ marginTop: 10 }}>
                       {JSON.stringify(metadata, null, 2)}
