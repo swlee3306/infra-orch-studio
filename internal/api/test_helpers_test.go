@@ -39,11 +39,12 @@ func newFakeStore() *fakeStore {
 
 func newTestServer(store *fakeStore) *Server {
 	return NewServer(Config{
-		JobStore:       store,
-		AuthStore:      store,
-		CookieName:     "test_session",
-		SessionTTL:     time.Hour,
-		AllowedOrigins: []string{"http://localhost:5173"},
+		JobStore:          store,
+		AuthStore:         store,
+		CookieName:        "test_session",
+		SessionTTL:        time.Hour,
+		AllowedOrigins:    []string{"http://localhost:5173"},
+		AllowPublicSignup: true,
 	})
 }
 

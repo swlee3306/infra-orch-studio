@@ -26,6 +26,10 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	if !s.allowPublicSignup {
+		writeError(w, http.StatusForbidden, "public signup is disabled")
+		return
+	}
 
 	var req authRequest
 	if err := decodeJSON(r.Body, &req); err != nil {

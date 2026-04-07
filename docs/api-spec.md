@@ -8,6 +8,8 @@
 ## Authentication
 
 ### `POST /api/auth/signup`
+
+This endpoint is available only when `ALLOW_PUBLIC_SIGNUP=true`.
 - Body:
 ```json
 { "email": "admin@example.com", "password": "change-me" }

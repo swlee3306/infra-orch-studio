@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
 )
@@ -90,5 +91,24 @@ func TestAuthLoginRejectsInvalidPassword(t *testing.T) {
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("login status = %d, want %d", rr.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestAuthSignupDisabledByDefault(t *testing.T) {
+	store := newFakeStore()
+	srv := NewServer(Config{
+		JobStore:       store,
+		AuthStore:      store,
+		CookieName:     "test_session",
+		SessionTTL:     time.Hour,
+		AllowedOrigins: []string{"http://localhost:5173"},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/signup", strings.NewReader(`{"email":"user@example.com","password":"password123"}`))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("signup disabled status = %d, want %d", rr.Code, http.StatusForbidden)
 	}
 }

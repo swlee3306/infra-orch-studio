@@ -23,12 +23,13 @@
 ## API
 
 ### Auth
-- `POST /api/auth/signup`
+- `POST /api/auth/signup` (optional, disabled by default)
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 
 세션은 **httpOnly cookie** 기반.
+공개 signup은 기본적으로 꺼져 있으며, `ALLOW_PUBLIC_SIGNUP=true` 일 때만 허용된다.
 
 Admin seed:
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD` 를 API에 설정하면 시작 시 admin 유저를 upsert 합니다.

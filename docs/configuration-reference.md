@@ -21,10 +21,12 @@ This project uses three kinds of configuration:
 | `MYSQL_BIN` | no | mysql client path used by the store layer |
 | `ADMIN_EMAIL` | no | Admin seed account email |
 | `ADMIN_PASSWORD` | no | Admin seed account password |
+| `ALLOW_PUBLIC_SIGNUP` | no | Enables open self-service signup when set to `true` |
 
 Notes:
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD` are optional, but they must be set together.
 - When both are set, the API upserts an admin account during startup before serving traffic.
+- `ALLOW_PUBLIC_SIGNUP` defaults to `false`.
 - The API also validates `TEMPLATES_ROOT`, `MODULES_ROOT`, and the default `basic` environment template files during startup.
 
 ## Runner Runtime
