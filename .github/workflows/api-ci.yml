@@ -87,4 +87,7 @@ jobs:
             exit 0
           fi
           git commit -m "chore(cd): bump infra-orch-studio image to ${{ steps.vars.outputs.TAG }}"
+          
+          # Avoid non-fast-forward failures when multiple CI jobs push to main.
+          git pull --rebase origin main
           git push
