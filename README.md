@@ -27,6 +27,7 @@
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
+- `GET /api/admin/users` (admin only, managed user inventory)
 - `POST /api/admin/users` (admin only, bootstrap/onboarding)
 
 세션은 **httpOnly cookie** 기반.

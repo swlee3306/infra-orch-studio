@@ -158,6 +158,7 @@ type CopyShape = {
     title: string
     copy: string
     refresh: string
+    currentUsers: string
     createUser: string
     creating: string
     email: string
@@ -165,6 +166,11 @@ type CopyShape = {
     admin: string
     recentProvisioning: string
     adminOnly: string
+    noUsers: string
+    noProvisioning: string
+    roleAdmin: string
+    roleUser: string
+    createdAt: string
   }
   guide: {
     title: string
@@ -354,6 +360,7 @@ const COPY: Record<Locale, CopyShape> = {
       title: 'User provisioning',
       copy: 'Create managed user accounts after public signup has been disabled, then review the latest provisioning activity.',
       refresh: 'Refresh',
+      currentUsers: 'Current users',
       createUser: 'Create user',
       creating: 'Creating user...',
       email: 'Email',
@@ -361,6 +368,11 @@ const COPY: Record<Locale, CopyShape> = {
       admin: 'Admin access',
       recentProvisioning: 'Recent provisioning activity',
       adminOnly: 'Only admins can provision users from this page.',
+      noUsers: 'No managed users are available yet.',
+      noProvisioning: 'No user provisioning activity yet.',
+      roleAdmin: 'admin',
+      roleUser: 'user',
+      createdAt: 'Created',
     },
     guide: {
       title: 'Operator guide',
@@ -596,6 +608,7 @@ const COPY: Record<Locale, CopyShape> = {
       title: '사용자 프로비저닝',
       copy: '공개 가입을 끈 뒤 관리자 세션에서 계정을 생성하고 최근 온보딩 이력을 검토합니다.',
       refresh: '새로고침',
+      currentUsers: '현재 사용자',
       createUser: '사용자 생성',
       creating: '사용자 생성 중...',
       email: '이메일',
@@ -603,6 +616,11 @@ const COPY: Record<Locale, CopyShape> = {
       admin: '관리자 권한',
       recentProvisioning: '최근 계정 생성 이력',
       adminOnly: '이 페이지에서 사용자를 생성할 수 있는 권한은 관리자에게만 있습니다.',
+      noUsers: '등록된 관리형 사용자가 아직 없습니다.',
+      noProvisioning: '아직 계정 생성 이력이 없습니다.',
+      roleAdmin: '관리자',
+      roleUser: '사용자',
+      createdAt: '생성 시각',
     },
     guide: {
       title: '운영 가이드',

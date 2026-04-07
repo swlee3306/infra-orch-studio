@@ -204,6 +204,10 @@ export type AdminProvisionUserRequest = {
   is_admin?: boolean
 }
 
+export type AdminUserListResponse = {
+  items: User[]
+}
+
 // VITE_API_URL should point to the API base.
 // - prod (nginx proxy): "/api"
 // - dev: "http://localhost:8080/api"
@@ -239,6 +243,7 @@ export const auth = {
     req<User>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => req<void>('/auth/logout', { method: 'POST' }),
   me: () => req<User>('/auth/me'),
+  listUsers: () => req<AdminUserListResponse>('/admin/users'),
   createUser: (payload: AdminProvisionUserRequest) =>
     req<User>('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
 }

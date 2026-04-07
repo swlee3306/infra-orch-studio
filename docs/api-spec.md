@@ -46,6 +46,18 @@ This endpoint is available only when `ALLOW_PUBLIC_SIGNUP=true`.
 ```
 - Returns the created user object.
 
+### `GET /api/admin/users`
+- Auth required.
+- Admin only.
+- Returns the current managed user inventory:
+```json
+{
+  "items": [
+    { "id": "uuid", "email": "admin@example.com", "is_admin": true, "created_at": "2026-04-07T00:00:00Z", "updated_at": "2026-04-07T00:00:00Z" }
+  ]
+}
+```
+
 ## Request Drafts
 
 ### `POST /api/request-drafts`

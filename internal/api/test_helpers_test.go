@@ -238,6 +238,28 @@ func (f *fakeStore) GetUserByID(_ context.Context, id string) (domain.User, erro
 	return user, nil
 }
 
+func (f *fakeStore) ListUsers(_ context.Context, limit int) ([]domain.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if limit <= 0 {
+		limit = 50
+	}
+	out := make([]domain.User, 0, len(f.users))
+	for _, user := range f.users {
+		out = append(out, user)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].Email < out[j].Email
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
 func (f *fakeStore) UpsertAdminUser(_ context.Context, user domain.User) (domain.User, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

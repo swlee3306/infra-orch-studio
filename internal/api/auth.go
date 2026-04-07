@@ -84,50 +84,57 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request, user d
 		writeError(w, http.StatusForbidden, "admin access required")
 		return
 	}
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req adminProvisionUserRequest
-	if err := decodeJSON(r.Body, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-
-	email, err := normalizeEmail(req.Email)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	passwordHash, err := security.HashPassword(req.Password)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	now := time.Now().UTC()
-	created, err := s.auth.CreateUser(r.Context(), domain.User{
-		ID:           uuid.NewString(),
-		Email:        email,
-		IsAdmin:      req.IsAdmin,
-		PasswordHash: passwordHash,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	})
-	if err != nil {
-		if errors.Is(err, storage.ErrConflict) {
-			writeError(w, http.StatusConflict, "email already exists")
+	switch r.Method {
+	case http.MethodGet:
+		items, err := s.auth.ListUsers(r.Context(), 200)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "list users failed")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "create user failed")
-		return
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	case http.MethodPost:
+		var req adminProvisionUserRequest
+		if err := decodeJSON(r.Body, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+
+		email, err := normalizeEmail(req.Email)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		passwordHash, err := security.HashPassword(req.Password)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		now := time.Now().UTC()
+		created, err := s.auth.CreateUser(r.Context(), domain.User{
+			ID:           uuid.NewString(),
+			Email:        email,
+			IsAdmin:      req.IsAdmin,
+			PasswordHash: passwordHash,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		})
+		if err != nil {
+			if errors.Is(err, storage.ErrConflict) {
+				writeError(w, http.StatusConflict, "email already exists")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "create user failed")
+			return
+		}
+		s.recordAudit(r, user, "user", created.ID, "user.provisioned", "admin provisioned user account", map[string]any{
+			"email":    created.Email,
+			"is_admin": created.IsAdmin,
+		})
+		writeJSON(w, http.StatusCreated, created)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-	s.recordAudit(r, user, "user", created.ID, "user.provisioned", "admin provisioned user account", map[string]any{
-		"email":    created.Email,
-		"is_admin": created.IsAdmin,
-	})
-	writeJSON(w, http.StatusCreated, created)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {

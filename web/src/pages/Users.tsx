@@ -21,6 +21,7 @@ export default function UsersPage() {
   const { locale, copy } = useI18n()
   const ko = locale === 'ko'
   const [viewer, setViewer] = useState<User | null>(null)
+  const [users, setUsers] = useState<User[]>([])
   const [items, setItems] = useState<AuditEvent[]>([])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,6 +34,13 @@ export default function UsersPage() {
     setError(null)
     const me = await auth.me()
     setViewer(me)
+    if (!me.is_admin) {
+      setUsers([])
+      setItems([])
+      return
+    }
+    const usersRes = await auth.listUsers()
+    setUsers(usersRes.items)
     const auditRes = await audit.list({ limit: 100, resource_type: 'user' })
     setItems(auditRes.items)
   }
@@ -100,6 +108,32 @@ export default function UsersPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">{copy.users.kicker}</div>
+              <h2>{copy.users.currentUsers}</h2>
+            </div>
+          </div>
+          <div className="stack-list">
+            {users.length === 0 ? (
+              <div className="empty-state">{copy.users.noUsers}</div>
+            ) : (
+              users.map((item) => (
+                <div key={item.id} className="stack-row">
+                  <div>
+                    <strong>{item.email}</strong>
+                    <div className="row-meta">
+                      {copy.users.createdAt} · {formatAuditTime(item.created_at)}
+                    </div>
+                  </div>
+                  <span className="badge badge-muted">{item.is_admin ? copy.users.roleAdmin : copy.users.roleUser}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </article>
+
+        <article className="console-card">
+          <div className="section-head">
+            <div>
+              <div className="section-kicker">{copy.users.kicker}</div>
               <h2>{copy.users.createUser}</h2>
             </div>
           </div>
@@ -131,7 +165,7 @@ export default function UsersPage() {
           </div>
           <div className="stack-list">
             {visibleItems.length === 0 ? (
-              <div className="empty-state">{ko ? '아직 계정 생성 이력이 없습니다.' : 'No user provisioning activity yet.'}</div>
+              <div className="empty-state">{copy.users.noProvisioning}</div>
             ) : (
               visibleItems.map((item) => {
                 const metadata = parseJson(item.metadata_json)
@@ -143,7 +177,7 @@ export default function UsersPage() {
                         {(item.actor_email || (ko ? '시스템' : 'system'))} · {formatAuditTime(item.created_at)}
                       </div>
                     </div>
-                    <span className="badge badge-muted">{metadata?.is_admin ? (ko ? '관리자' : 'admin') : ko ? '사용자' : 'user'}</span>
+                    <span className="badge badge-muted">{metadata?.is_admin ? copy.users.roleAdmin : copy.users.roleUser}</span>
                   </div>
                 )
               })

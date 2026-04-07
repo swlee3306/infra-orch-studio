@@ -202,4 +202,24 @@ func TestAdminCanProvisionUser(t *testing.T) {
 	if len(audits) == 0 || !strings.Contains(audits[0].MetadataJSON, "viewer@example.com") {
 		t.Fatalf("expected provisioning audit metadata, got %+v", audits)
 	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/users", nil)
+	listReq.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	listRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(listRR, listReq)
+	if listRR.Code != http.StatusOK {
+		t.Fatalf("admin list users status = %d, want %d", listRR.Code, http.StatusOK)
+	}
+	var listPayload struct {
+		Items []domain.User `json:"items"`
+	}
+	if err := decodeJSON(bytes.NewReader(listRR.Body.Bytes()), &listPayload); err != nil {
+		t.Fatalf("decode user list: %v", err)
+	}
+	if len(listPayload.Items) < 3 {
+		t.Fatalf("expected seeded users plus provisioned user, got %d", len(listPayload.Items))
+	}
+	if listPayload.Items[0].PasswordHash != "" {
+		t.Fatalf("password hash should not be exposed from list response")
+	}
 }
