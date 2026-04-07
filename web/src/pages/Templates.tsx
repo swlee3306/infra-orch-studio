@@ -77,7 +77,7 @@ export default function TemplatesPage() {
           <div className="page-kicker">Template management / repo-backed source</div>
           <h1 className="page-title">OpenTofu template catalog</h1>
           <p className="page-copy">
-            Inspect the template inventory currently visible to the API and runner before queuing create, update, or destroy plans.
+            Inspect the template inventory visible to the API and runner before you queue environment plans.
           </p>
         </div>
         <div className="hero-actions">
@@ -124,7 +124,7 @@ export default function TemplatesPage() {
         </article>
       </section>
 
-      <section className="dashboard-grid">
+      <section className="dashboard-grid templates-main-grid">
         <article className="console-card console-card-span">
           <div className="section-head">
             <div>
@@ -164,33 +164,27 @@ export default function TemplatesPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Usage posture</div>
-              <h2>Operator notes</h2>
+              <h2>Operator guidance</h2>
             </div>
           </div>
           <div className="stack-list">
             <div className="stack-row">
               <div>
                 <strong>Renderer-backed</strong>
-                <div className="row-meta">The catalog mirrors the same directories used by runner workdir rendering.</div>
+                <div className="row-meta">The catalog mirrors the directories used by runtime workdir rendering.</div>
               </div>
             </div>
             <div className="stack-row">
               <div>
                 <strong>Environment-first</strong>
-                <div className="row-meta">Create and plan actions still start from environments. This page exposes the underlying template inventory.</div>
-              </div>
-            </div>
-            <div className="stack-row">
-              <div>
-                <strong>Validation support</strong>
-                <div className="row-meta">The console can now inspect required files and validate the selected template or module against renderer expectations.</div>
+                <div className="row-meta">Create and plan actions start from environments. Use this page to verify the backing catalog.</div>
               </div>
             </div>
           </div>
         </article>
       </section>
 
-      <section className="dashboard-grid">
+      <section className="dashboard-grid templates-secondary-grid">
         <article className="console-card">
           <div className="section-head">
             <div>
@@ -211,7 +205,7 @@ export default function TemplatesPage() {
                 </div>
                 <div className="meta-item">
                   <span>Path</span>
-                  <strong>{detail.descriptor.path}</strong>
+                  <div className="metric-path">{detail.descriptor.path}</div>
                 </div>
                 <div className="meta-item">
                   <span>Validation</span>
@@ -263,7 +257,7 @@ export default function TemplatesPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Status</div>
-              <h2>Validation posture</h2>
+              <h2>Validation summary</h2>
             </div>
           </div>
           <div className="stack-list">
@@ -279,6 +273,14 @@ export default function TemplatesPage() {
                 <div className="row-meta">{validation?.readme_exists ? 'Operator guidance file is present.' : 'README guidance is missing for the selected item.'}</div>
               </div>
             </div>
+            {validation?.warnings.length ? (
+              <div className="stack-row">
+                <div>
+                  <strong>Warnings</strong>
+                  <div className="row-meta">{validation.warnings.length} validation warning(s) detected for the selected item.</div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </article>
       </section>
