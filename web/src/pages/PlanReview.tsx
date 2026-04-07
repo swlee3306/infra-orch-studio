@@ -6,7 +6,8 @@ import { latestApprovalEvent } from '../utils/environmentView'
 
 export default function PlanReviewPage() {
   const nav = useNavigate()
-  const { copy } = useI18n()
+  const { locale, copy } = useI18n()
+  const ko = locale === 'ko'
   const { id } = useParams()
   const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
   const [environment, setEnvironment] = useState<Environment | null>(null)
@@ -99,29 +100,29 @@ export default function PlanReviewPage() {
 
       <section className="stats-grid">
         <article className="metric-card metric-card-primary">
-          <span>Plan status</span>
+          <span>{ko ? '계획 상태' : 'Plan status'}</span>
           <strong>{planJob?.status || 'missing'}</strong>
-          <p>Current status of the latest queued plan job for this environment.</p>
+          <p>{ko ? '이 환경의 최신 계획 작업 상태입니다.' : 'Current status of the latest queued plan job for this environment.'}</p>
         </article>
         <article className="metric-card">
-          <span>High-risk</span>
+          <span>{ko ? '고위험' : 'High-risk'}</span>
           <strong>{reviewSignals.filter((item) => item.severity === 'high').length}</strong>
-          <p>Inferred changes that require deliberate operator review.</p>
+          <p>{ko ? '운영자의 신중한 검토가 필요한 추론된 변경 수입니다.' : 'Inferred changes that require deliberate operator review.'}</p>
         </article>
         <article className="metric-card">
-          <span>Low / medium</span>
+          <span>{ko ? '낮음 / 중간' : 'Low / medium'}</span>
           <strong>{reviewSignals.filter((item) => item.severity !== 'high').length}</strong>
-          <p>Informational or cautionary changes associated with this desired state.</p>
+          <p>{ko ? '현재 목표 상태에 연결된 참고 또는 주의 수준 변경입니다.' : 'Informational or cautionary changes associated with this desired state.'}</p>
         </article>
         <article className="metric-card">
-          <span>Approval</span>
+          <span>{ko ? '승인' : 'Approval'}</span>
           <strong>{environment?.approval_status || '-'}</strong>
-          <p>Approval state tracked on the environment resource.</p>
+          <p>{ko ? '환경 리소스에 기록된 승인 상태입니다.' : 'Approval state tracked on the environment resource.'}</p>
         </article>
         <article className="metric-card">
-          <span>Template</span>
+          <span>{ko ? '템플릿' : 'Template'}</span>
           <strong>{planJob?.template_name || 'basic'}</strong>
-          <p>Template set used to render the current plan artifact.</p>
+          <p>{ko ? '현재 계획 산출물을 렌더링한 템플릿 세트입니다.' : 'Template set used to render the current plan artifact.'}</p>
         </article>
       </section>
 
@@ -129,8 +130,8 @@ export default function PlanReviewPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Plan review</div>
-              <h2>Low-risk and high-risk signals</h2>
+              <div className="section-kicker">{ko ? '계획 검토' : 'Plan review'}</div>
+              <h2>{ko ? '낮은 위험과 높은 위험 신호' : 'Low-risk and high-risk signals'}</h2>
             </div>
           </div>
           <div className="stack-list">
@@ -141,7 +142,7 @@ export default function PlanReviewPage() {
                   <div className="row-meta">{signal.detail}</div>
                 </div>
                 <span className={`badge ${signal.severity === 'high' ? 'badge-failed' : signal.severity === 'medium' ? 'badge-queued' : 'badge-done'}`}>
-                  {signal.severity}
+                  {ko ? signal.severity === 'high' ? '높음' : signal.severity === 'medium' ? '중간' : '낮음' : signal.severity}
                 </span>
               </div>
             ))}
@@ -151,25 +152,25 @@ export default function PlanReviewPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Impact summary</div>
-              <h2>Operational posture</h2>
+              <div className="section-kicker">{ko ? '영향 요약' : 'Impact summary'}</div>
+              <h2>{ko ? '운영 영향' : 'Operational posture'}</h2>
             </div>
           </div>
           <div className="info-grid">
             <div className="meta-item">
-              <span>Downtime risk</span>
+              <span>{ko ? '다운타임 위험' : 'Downtime risk'}</span>
               <strong>{impact?.downtime || '-'}</strong>
             </div>
             <div className="meta-item">
-              <span>Blast radius</span>
+              <span>{ko ? '영향 범위' : 'Blast radius'}</span>
               <strong>{impact?.blast_radius || '-'}</strong>
             </div>
             <div className="meta-item">
-              <span>Footprint</span>
+              <span>{ko ? '자원 영향' : 'Footprint'}</span>
               <strong>{impact?.cost_delta || '-'}</strong>
             </div>
             <div className="meta-item">
-              <span>Plan artifact</span>
+              <span>{ko ? '계획 산출물' : 'Plan artifact'}</span>
               <strong>{planJob?.plan_path || environment?.plan_path || '-'}</strong>
             </div>
           </div>
@@ -209,22 +210,22 @@ export default function PlanReviewPage() {
       <section className="console-card">
         <div className="section-head">
           <div>
-            <div className="section-kicker">Approval controls</div>
-            <h2>Review status</h2>
+            <div className="section-kicker">{ko ? '승인 제어' : 'Approval controls'}</div>
+            <h2>{ko ? '검토 상태' : 'Review status'}</h2>
           </div>
         </div>
         <div className="info-grid info-grid-three">
           <div className="meta-item">
-            <span>Environment</span>
+            <span>{ko ? '환경' : 'Environment'}</span>
             <strong>{environment?.name || '-'}</strong>
           </div>
           <div className="meta-item">
-            <span>Plan job</span>
+            <span>{ko ? '계획 작업' : 'Plan job'}</span>
             <strong>{planJob?.id ? planJob.id.slice(0, 8) : '-'}</strong>
           </div>
           <div className="meta-item">
-            <span>Last approval event</span>
-            <strong>{approvalEvent ? new Date(approvalEvent.created_at).toLocaleString() : 'Not yet approved'}</strong>
+            <span>{ko ? '최근 승인 이벤트' : 'Last approval event'}</span>
+            <strong>{approvalEvent ? new Date(approvalEvent.created_at).toLocaleString() : ko ? '아직 승인되지 않음' : 'Not yet approved'}</strong>
           </div>
         </div>
       </section>
