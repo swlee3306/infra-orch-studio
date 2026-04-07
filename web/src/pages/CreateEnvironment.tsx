@@ -90,6 +90,14 @@ export default function CreateEnvironmentPage() {
   const reviewSignals = preview?.review_signals || []
   const impact = preview?.impact_summary || null
 
+  function displayDraftLine(value: string) {
+    if (!ko) return value
+    return value
+      .replace('Custom wording was detected, but the draft still maps to the current basic template contract.', '커스텀 표현이 감지되었지만 현재 basic 템플릿 계약으로 초안을 구성했습니다.')
+      .replace('Production-like wording detected. Validate blast radius and approval context carefully.', '운영 환경에 가까운 표현이 감지되었습니다. 영향 범위와 승인 맥락을 신중히 검토하세요.')
+      .replace(/(\d+) instances were inferred\. Review capacity and blast radius before approval\./, '$1개 인스턴스를 추론했습니다. 승인 전에 용량과 영향 범위를 검토하세요.')
+  }
+
   useEffect(() => {
     if (!viewerReady || step !== 6) return
 
@@ -273,19 +281,19 @@ export default function CreateEnvironmentPage() {
                   <div className="page-stack" style={{ marginTop: 16 }}>
                     <div className="info-grid wizard-review-summary">
                       <div className="meta-item">
-                        <span>Environment</span>
+                        <span>{ko ? '환경' : 'Environment'}</span>
                         <strong>{requestDraft.spec.environment_name}</strong>
                       </div>
                       <div className="meta-item">
-                        <span>Tenant</span>
+                        <span>{ko ? '테넌트' : 'Tenant'}</span>
                         <strong>{requestDraft.spec.tenant_name}</strong>
                       </div>
                       <div className="meta-item">
-                        <span>Template</span>
+                        <span>{ko ? '템플릿' : 'Template'}</span>
                         <strong>{requestDraft.template_name}</strong>
                       </div>
                       <div className="meta-item">
-                        <span>Instances</span>
+                        <span>{ko ? '인스턴스' : 'Instances'}</span>
                         <strong>{requestDraft.spec.instances.reduce((acc, item) => acc + item.count, 0)}</strong>
                       </div>
                     </div>
@@ -295,7 +303,7 @@ export default function CreateEnvironmentPage() {
                         <div className="stack-list" style={{ marginTop: 10 }}>
                           {requestDraft.assumptions.map((item) => (
                             <div key={item} className="stack-row">
-                              <div className="row-meta">{item}</div>
+                              <div className="row-meta">{displayDraftLine(item)}</div>
                             </div>
                           ))}
                         </div>
@@ -305,7 +313,7 @@ export default function CreateEnvironmentPage() {
                         <div className="stack-list" style={{ marginTop: 10 }}>
                           {requestDraft.warnings.length ? requestDraft.warnings.map((item) => (
                             <div key={item} className="stack-row stack-row-danger">
-                              <div className="row-meta">{item}</div>
+                              <div className="row-meta">{displayDraftLine(item)}</div>
                             </div>
                           )) : <div className="row-meta">{copy.create.requestChat.noWarnings}</div>}
                         </div>
@@ -313,7 +321,7 @@ export default function CreateEnvironmentPage() {
                     </div>
                     <div className="callout callout-info">
                       <strong>{copy.create.requestChat.nextStep}</strong>
-                      <p style={{ margin: '6px 0 0' }}>{requestDraft.next_step}</p>
+                      <p style={{ margin: '6px 0 0' }}>{displayDraftLine(requestDraft.next_step)}</p>
                     </div>
                   </div>
                 ) : null}
@@ -325,10 +333,10 @@ export default function CreateEnvironmentPage() {
                   onClick={() => setTemplateMode('template')}
                 >
                   <div>
-                    <strong>Template mode</strong>
-                    <div className="row-meta">Use the server-backed environment catalog and baseline modules for the initial plan.</div>
+                    <strong>{ko ? '템플릿 모드' : 'Template mode'}</strong>
+                    <div className="row-meta">{ko ? '초기 계획에 서버 기반 환경 카탈로그와 기본 모듈을 사용합니다.' : 'Use the server-backed environment catalog and baseline modules for the initial plan.'}</div>
                   </div>
-                  <span className="badge badge-muted">Preferred</span>
+                  <span className="badge badge-muted">{ko ? '권장' : 'Preferred'}</span>
                 </button>
                 <button
                   type="button"
@@ -336,8 +344,8 @@ export default function CreateEnvironmentPage() {
                   onClick={() => setTemplateMode('custom')}
                 >
                   <div>
-                    <strong>Custom mode</strong>
-                    <div className="row-meta">Keep the same renderer contract, but drive the desired state directly from the form inputs.</div>
+                    <strong>{ko ? '커스텀 모드' : 'Custom mode'}</strong>
+                    <div className="row-meta">{ko ? '같은 렌더러 계약을 유지하되 목표 상태를 폼 입력으로 직접 구성합니다.' : 'Keep the same renderer contract, but drive the desired state directly from the form inputs.'}</div>
                   </div>
                   <span className="badge badge-muted">Direct spec</span>
                 </button>
