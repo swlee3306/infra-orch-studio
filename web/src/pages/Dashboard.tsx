@@ -189,8 +189,8 @@ export default function DashboardPage() {
                   <th>Environment</th>
                   <th>Lifecycle</th>
                   <th>Approval</th>
-                  <th>Owner</th>
-                  <th>Updated</th>
+                  <th className="dashboard-col-mobile-optional">Owner</th>
+                  <th className="dashboard-col-mobile-optional">Updated</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,8 +208,8 @@ export default function DashboardPage() {
                     <td>
                       <StatusBadge status={item.approval_status} />
                     </td>
-                    <td>{item.created_by_email || '-'}</td>
-                    <td>{formatUpdated(item.updated_at)}</td>
+                    <td className="dashboard-col-mobile-optional">{item.created_by_email || '-'}</td>
+                    <td className="dashboard-col-mobile-optional">{formatUpdated(item.updated_at)}</td>
                   </tr>
                 ))}
               </tbody>

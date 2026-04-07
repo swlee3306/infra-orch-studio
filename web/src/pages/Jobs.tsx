@@ -206,7 +206,7 @@ export default function JobsPage() {
                 <tr key={j.id}>
                   <td>
                     <strong>{j.id.slice(0, 8)}</strong>
-                    <span className="muted">{j.source_job_id ? `source ${j.source_job_id.slice(0, 8)}` : 'plan source'}</span>
+                    <span className="muted jobs-source-meta">{j.source_job_id ? `source ${j.source_job_id.slice(0, 8)}` : 'plan source'}</span>
                   </td>
                   <td className="jobs-col-mobile-optional">
                     <span className="badge badge-muted">{j.type}</span>
@@ -223,8 +223,8 @@ export default function JobsPage() {
                     {j.error ? <span className="muted" style={{ color: 'var(--danger)' }}>{summarizeOperatorError(j.error)}</span> : <span className="muted">-</span>}
                   </td>
                   <td>
-                    <Link to={`/jobs/${j.id}`} className="ghost" style={{ textDecoration: 'none', display: 'inline-flex' }}>
-                      Detail
+                    <Link to={`/jobs/${j.id}`} className="ghost jobs-detail-link" style={{ textDecoration: 'none', display: 'inline-flex' }}>
+                      Open
                     </Link>
                   </td>
                 </tr>
