@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { auth, EnvironmentSpec, jobs, Job, User } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
+import { summarizeOperatorError } from '../utils/uiCopy'
 
 function createDefaultSpec(): EnvironmentSpec {
   return {
@@ -30,6 +31,7 @@ export default function JobsPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [spec, setSpec] = useState<EnvironmentSpec>(createDefaultSpec)
+  const [showLegacyForm, setShowLegacyForm] = useState(false)
 
   async function load() {
     setError(null)
@@ -85,7 +87,7 @@ export default function JobsPage() {
               execution ledger for jobs, logs, and derived plan/apply records.
             </p>
             <div className="detail-actions">
-              <button onClick={load}>Refresh</button>
+              <button className="ghost" onClick={load}>Refresh</button>
               <span className="badge badge-muted">Viewer: {viewer ? viewer.email : 'loading...'}</span>
               {viewer?.is_admin ? (
                 <span className="badge badge-running">admin</span>
@@ -123,42 +125,56 @@ export default function JobsPage() {
               </p>
               <strong>Create a raw plan job without a first-class environment aggregate.</strong>
             </div>
-            <span className="badge badge-muted">1-2 instances supported</span>
-          </div>
-
-          <form
-            className="stack"
-            onSubmit={async (e) => {
-              e.preventDefault()
-              setCreateError(null)
-              setCreating(true)
-              try {
-                const created = await jobs.plan(spec)
-                nav(`/jobs/${created.id}`)
-              } catch (err: any) {
-                setCreateError(err?.message || 'failed to create plan')
-              } finally {
-                setCreating(false)
-              }
-            }}
-          >
-            <EnvironmentSpecForm value={spec} onChange={setSpec} />
-            {createError ? <div className="error-box">{createError}</div> : null}
             <div className="detail-actions">
-              <button type="submit" disabled={creating}>
-                {creating ? 'Creating...' : 'Create plan job'}
-              </button>
-              <button type="button" className="ghost" onClick={() => setSpec(createDefaultSpec())} disabled={creating}>
-                Reset
+              <span className="badge badge-muted">Advanced</span>
+              <button type="button" className="ghost" onClick={() => setShowLegacyForm((current) => !current)}>
+                {showLegacyForm ? 'Hide legacy form' : 'Open legacy form'}
               </button>
             </div>
-          </form>
+          </div>
+
+          {showLegacyForm ? (
+            <form
+              className="stack"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                setCreateError(null)
+                setCreating(true)
+                try {
+                  const created = await jobs.plan(spec)
+                  nav(`/jobs/${created.id}`)
+                } catch (err: any) {
+                  setCreateError(err?.message || 'failed to create plan')
+                } finally {
+                  setCreating(false)
+                }
+              }}
+            >
+              <EnvironmentSpecForm value={spec} onChange={setSpec} />
+              {createError ? <div className="error-box">{summarizeOperatorError(createError)}</div> : null}
+              <div className="detail-actions">
+                <button type="submit" disabled={creating}>
+                  {creating ? 'Creating...' : 'Create plan job'}
+                </button>
+                <button type="button" className="ghost" onClick={() => setSpec(createDefaultSpec())} disabled={creating}>
+                  Reset
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="callout callout-info">
+              <strong>Legacy execution form is collapsed</strong>
+              <p style={{ margin: '6px 0 0' }}>
+                Use the environment workflow for normal operations. Open this form only when you need a raw execution record for diagnostics or compatibility testing.
+              </p>
+            </div>
+          )}
         </section>
       </div>
 
       {error ? (
         <section className="panel error-box" style={{ marginTop: 18 }}>
-          {error}
+          {summarizeOperatorError(error)}
         </section>
       ) : null}
 
@@ -180,8 +196,8 @@ export default function JobsPage() {
                 <th>Type</th>
                 <th>Status</th>
                 <th>Environment</th>
-                <th>Updated</th>
-                <th>Error</th>
+                <th className="jobs-col-optional">Updated</th>
+                <th className="jobs-col-optional">Error</th>
                 <th />
               </tr>
             </thead>
@@ -202,9 +218,9 @@ export default function JobsPage() {
                     <strong>{j.environment?.environment_name || '-'}</strong>
                     <span className="muted">{j.environment?.tenant_name || '-'}</span>
                   </td>
-                  <td>{j.updated_at ? new Date(j.updated_at).toLocaleString() : '-'}</td>
-                  <td>
-                    {j.error ? <span className="muted" style={{ color: 'var(--danger)' }}>{j.error}</span> : <span className="muted">-</span>}
+                  <td className="jobs-col-optional">{j.updated_at ? new Date(j.updated_at).toLocaleString() : '-'}</td>
+                  <td className="jobs-col-optional">
+                    {j.error ? <span className="muted" style={{ color: 'var(--danger)' }}>{summarizeOperatorError(j.error)}</span> : <span className="muted">-</span>}
                   </td>
                   <td>
                     <Link to={`/jobs/${j.id}`} className="ghost" style={{ textDecoration: 'none', display: 'inline-flex' }}>
