@@ -193,8 +193,8 @@ const COPY: Record<Locale, CopyShape> = {
   },
   ko: {
     shell: {
-      brandTitle: '인프라 오케스트레이션 스튜디오',
-      brandSubtitle: '환경 운영 워크스페이스',
+      brandTitle: '인프라 오케스트레이션',
+      brandSubtitle: '환경 운영 콘솔',
       nav: {
         dashboard: '대시보드',
         environments: '환경',
