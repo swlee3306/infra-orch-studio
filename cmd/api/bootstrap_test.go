@@ -93,6 +93,17 @@ func (s *bootstrapAuthStore) GetUserByID(_ context.Context, id string) (domain.U
 	return domain.User{}, sql.ErrNoRows
 }
 
+func (s *bootstrapAuthStore) ListUsers(_ context.Context, limit int) ([]domain.User, error) {
+	items := make([]domain.User, 0, len(s.users))
+	for _, user := range s.users {
+		items = append(items, user)
+	}
+	if limit > 0 && len(items) > limit {
+		items = items[:limit]
+	}
+	return items, nil
+}
+
 func (s *bootstrapAuthStore) UpsertAdminUser(_ context.Context, user domain.User) (domain.User, error) {
 	user.Email = strings.ToLower(user.Email)
 	user.IsAdmin = true

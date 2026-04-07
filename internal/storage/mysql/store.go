@@ -446,6 +446,31 @@ func (s *Store) GetUserByID(ctx context.Context, id string) (domain.User, error)
 	return parseUserLine(lines[0])
 }
 
+func (s *Store) ListUsers(ctx context.Context, limit int) ([]domain.User, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	query := fmt.Sprintf(
+		`SELECT %s FROM users ORDER BY created_at DESC LIMIT %d;`,
+		userSelectColumns(),
+		limit,
+	)
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
+		return nil, err
+	}
+	lines := outputLines(out)
+	users := make([]domain.User, 0, len(lines))
+	for _, line := range lines {
+		user, err := parseUserLine(line)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, nil
+}
+
 func (s *Store) UpsertAdminUser(ctx context.Context, user domain.User) (domain.User, error) {
 	now := user.UpdatedAt
 	if now.IsZero() {
