@@ -159,3 +159,39 @@ func TestPublicConfigExposesSignupPolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestAdminCanProvisionUser(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	operator := mustUser(t, "operator@example.com", false, "password123")
+	seedSession(store, admin, "admin-session-token")
+	seedSession(store, operator, "operator-session-token")
+	srv := newTestServer(store)
+
+	operatorReq := httptest.NewRequest(http.MethodPost, "/api/admin/users", strings.NewReader(`{"email":"viewer@example.com","password":"password123"}`))
+	operatorReq.AddCookie(cookieFromToken("operator-session-token", srv.cookieName))
+	operatorRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(operatorRR, operatorReq)
+	if operatorRR.Code != http.StatusForbidden {
+		t.Fatalf("operator provision status = %d, want %d", operatorRR.Code, http.StatusForbidden)
+	}
+
+	adminReq := httptest.NewRequest(http.MethodPost, "/api/admin/users", strings.NewReader(`{"email":"viewer@example.com","password":"password123","is_admin":true}`))
+	adminReq.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	adminRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(adminRR, adminReq)
+	if adminRR.Code != http.StatusCreated {
+		t.Fatalf("admin provision status = %d, want %d", adminRR.Code, http.StatusCreated)
+	}
+
+	var created domain.User
+	if err := decodeJSON(bytes.NewReader(adminRR.Body.Bytes()), &created); err != nil {
+		t.Fatalf("decode provisioned user: %v", err)
+	}
+	if created.Email != "viewer@example.com" || !created.IsAdmin {
+		t.Fatalf("unexpected provisioned user: %#v", created)
+	}
+	if created.PasswordHash != "" {
+		t.Fatalf("password hash should not be exposed")
+	}
+}
