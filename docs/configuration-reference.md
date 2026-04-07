@@ -22,6 +22,10 @@ This project uses three kinds of configuration:
 | `ADMIN_EMAIL` | no | Admin seed account email |
 | `ADMIN_PASSWORD` | no | Admin seed account password |
 
+Notes:
+- `ADMIN_EMAIL` and `ADMIN_PASSWORD` are optional, but they must be set together.
+- When both are set, the API upserts an admin account during startup before serving traffic.
+
 ## Runner Runtime
 
 | Key | Required | Purpose |
