@@ -928,6 +928,16 @@ button:hover:not(:disabled) {
   align-items: center;
 }
 
+.action-link-button {
+  min-height: 46px;
+  padding: 0.78rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  justify-content: center;
+  text-decoration: none;
+  line-height: 1;
+}
+
 .template-stats-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }

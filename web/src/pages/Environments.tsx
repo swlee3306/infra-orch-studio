@@ -148,7 +148,7 @@ export default function EnvironmentsPage() {
           <button className="ghost" onClick={load}>
             {copy.environments.refresh}
           </button>
-          <Link to="/create-environment" className="ghost" style={{ display: 'inline-flex', alignItems: 'center' }}>
+          <Link to="/create-environment" className="ghost action-link action-link-button">
             {copy.environments.openWizard}
           </Link>
           <button className="ghost" onClick={() => setShowCreate((current) => !current)}>{showCreate ? copy.environments.hideQuickCreate : copy.environments.quickCreate}</button>
