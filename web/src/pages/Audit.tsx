@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AuditEvent, audit, auth, environments, Environment } from '../api'
+import { useI18n } from '../i18n'
 
 type AuditRecord = AuditEvent & {
   environmentName?: string
@@ -28,6 +29,7 @@ function primaryEnvironmentRoute(environmentId: string, items: Environment[]): s
 
 export default function AuditPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
   const [environmentItems, setEnvironmentItems] = useState<Environment[]>([])
   const [records, setRecords] = useState<AuditRecord[]>([])
@@ -109,16 +111,14 @@ export default function AuditPage() {
     <div className="page-stack">
       <section className="hero-panel">
         <div>
-          <div className="page-kicker">Audit console / environment history</div>
-          <h1 className="page-title">Immutable platform timeline</h1>
-          <p className="page-copy">
-            Review environment audit history from a dedicated API feed so operators can inspect approval, apply, retry, and destroy actions without crawling each environment one by one.
-          </p>
+          <div className="page-kicker">{copy.audit.kicker}</div>
+          <h1 className="page-title">{copy.audit.title}</h1>
+          <p className="page-copy">{copy.audit.copy}</p>
         </div>
         <div className="hero-actions">
-          <span className="badge badge-muted">Viewer: {viewer?.email || 'loading...'}</span>
+          <span className="badge badge-muted">{copy.audit.viewer}: {viewer?.email || 'loading...'}</span>
           <button className="ghost" onClick={load}>
-            Refresh
+            {copy.audit.refresh}
           </button>
         </div>
       </section>

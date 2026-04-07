@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth, TemplateCatalogResponse, TemplateDetailResponse, TemplateValidation, templates } from '../api'
+import { useI18n } from '../i18n'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 export default function TemplatesPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const [catalog, setCatalog] = useState<TemplateCatalogResponse | null>(null)
   const [selected, setSelected] = useState<{ kind: 'environment' | 'module'; name: string } | null>(null)
   const [detail, setDetail] = useState<TemplateDetailResponse | null>(null)
@@ -75,18 +77,16 @@ export default function TemplatesPage() {
     <div className="page-stack">
       <section className="hero-panel">
         <div>
-          <div className="page-kicker">Template management / renderer contract</div>
-          <h1 className="page-title">OpenTofu template catalog</h1>
-          <p className="page-copy">
-            Check which environment sets and shared modules are currently usable before queueing a plan.
-          </p>
+          <div className="page-kicker">{copy.templates.kicker}</div>
+          <h1 className="page-title">{copy.templates.title}</h1>
+          <p className="page-copy">{copy.templates.copy}</p>
         </div>
         <div className="hero-actions">
           <button className="ghost" onClick={load}>
-            Refresh
+            {copy.templates.refresh}
           </button>
           <button className="ghost" onClick={validateSelected} disabled={!selected || busy !== null}>
-            {busy === 'validate' ? 'Validating...' : 'Validate selected'}
+            {busy === 'validate' ? copy.templates.validating : copy.templates.validateSelected}
           </button>
         </div>
       </section>

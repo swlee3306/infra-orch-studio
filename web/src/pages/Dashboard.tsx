@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, environments, Environment, User } from '../api'
 import StatusBadge from '../components/StatusBadge'
+import { useI18n } from '../i18n'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 function formatUpdated(value?: string): string {
@@ -17,6 +18,7 @@ function nextEnvironmentRoute(item: Environment): string {
 
 export default function DashboardPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const [viewer, setViewer] = useState<User | null>(null)
   const [items, setItems] = useState<Environment[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -76,17 +78,15 @@ export default function DashboardPage() {
     <div className="page-stack">
       <section className="hero-panel">
         <div>
-          <div className="page-kicker">Ops // Core</div>
-          <h1 className="page-title">Environment orchestration control</h1>
-          <p className="page-copy">
-            Start from environment posture, then drill into approvals, failures, and recent lifecycle changes.
-          </p>
+          <div className="page-kicker">{copy.dashboard.kicker}</div>
+          <h1 className="page-title">{copy.dashboard.title}</h1>
+          <p className="page-copy">{copy.dashboard.copy}</p>
           <div className="row-meta" style={{ marginTop: 12 }}>
-            Viewer {viewer?.email || 'loading...'} · {viewer?.is_admin ? 'admin' : 'operator'}
+            {copy.dashboard.viewer} {viewer?.email || 'loading...'} · {viewer?.is_admin ? 'admin' : 'operator'}
           </div>
         </div>
         <div className="hero-actions">
-          <button className="ghost" onClick={load}>Refresh dashboard</button>
+          <button className="ghost" onClick={load}>{copy.dashboard.refresh}</button>
         </div>
       </section>
 
