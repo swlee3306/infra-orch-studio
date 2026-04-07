@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { auth, Environment, EnvironmentSpec, environments, TemplateDescriptor, templates, User } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
+import { summarizeOperatorError } from '../utils/uiCopy'
 
 type FilterKey = 'all' | 'pending_approval' | 'active' | 'failed' | 'planning' | 'applying'
 
@@ -135,24 +136,26 @@ export default function EnvironmentsPage() {
       <section className="hero-panel">
         <div>
           <div className="page-kicker">Environment list</div>
-          <h1 className="page-title">Track health, approvals, and orchestration readiness.</h1>
+          <h1 className="page-title">Environment posture</h1>
           <p className="page-copy">
-            The environment is the primary product object. Use this surface to filter lifecycle posture, then open detail for guarded actions.
+            Filter lifecycle posture, review approvals, and open environment detail for guarded actions.
           </p>
+          <div className="row-meta" style={{ marginTop: 12 }}>
+            Viewer {viewer?.email || 'loading...'}
+          </div>
         </div>
         <div className="hero-actions">
-          <span className="badge badge-muted">Viewer: {viewer?.email || 'loading...'}</span>
           <button className="ghost" onClick={load}>
             Refresh
           </button>
           <Link to="/create-environment" className="ghost" style={{ display: 'inline-flex', alignItems: 'center' }}>
             Open wizard
           </Link>
-          <button onClick={() => setShowCreate((current) => !current)}>{showCreate ? 'Hide quick create' : 'Quick create'}</button>
+          <button className="ghost" onClick={() => setShowCreate((current) => !current)}>{showCreate ? 'Hide quick create' : 'Quick create'}</button>
         </div>
       </section>
 
-      {error ? <section className="error-box">{error}</section> : null}
+      {error ? <section className="error-box">{summarizeOperatorError(error)}</section> : null}
 
       <section className="stats-grid">
         <article className="metric-card metric-card-primary">
@@ -221,11 +224,11 @@ export default function EnvironmentsPage() {
                   <th>Environment</th>
                   <th>Lifecycle</th>
                   <th>Approval</th>
-                  <th>Operation</th>
-                  <th>Owner</th>
+                  <th className="ops-col-optional">Operation</th>
+                  <th className="ops-col-optional">Owner</th>
                   <th>Last execution</th>
-                  <th>Retries</th>
-                  <th>Updated</th>
+                  <th className="ops-col-optional">Retries</th>
+                  <th className="ops-col-optional">Updated</th>
                   <th>Next step</th>
                 </tr>
               </thead>
@@ -244,8 +247,8 @@ export default function EnvironmentsPage() {
                     <td>
                       <StatusBadge status={env.approval_status} />
                     </td>
-                    <td>{env.operation || '-'}</td>
-                    <td>{env.created_by_email || '-'}</td>
+                    <td className="ops-col-optional">{env.operation || '-'}</td>
+                    <td className="ops-col-optional">{env.created_by_email || '-'}</td>
                     <td>
                       {env.last_job_id ? (
                         <Link to={`/jobs/${env.last_job_id}`} className="text-link">
@@ -255,10 +258,10 @@ export default function EnvironmentsPage() {
                         '-'
                       )}
                     </td>
-                    <td>
+                    <td className="ops-col-optional">
                       {env.retry_count || 0} / {env.max_retries || 0}
                     </td>
-                    <td>{env.updated_at ? new Date(env.updated_at).toLocaleString() : '-'}</td>
+                    <td className="ops-col-optional">{env.updated_at ? new Date(env.updated_at).toLocaleString() : '-'}</td>
                     <td>
                       <Link to={primaryRoute(env)} className="text-link">
                         {env.status === 'pending_approval'
@@ -271,11 +274,11 @@ export default function EnvironmentsPage() {
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={9}>
-                      <div className="empty-state">No environments match the current filters.</div>
-                    </td>
-                  </tr>
+                <tr>
+                  <td colSpan={9}>
+                    <div className="empty-state">No environments match the current filters.</div>
+                  </td>
+                </tr>
                 ) : null}
               </tbody>
             </table>
@@ -340,7 +343,7 @@ export default function EnvironmentsPage() {
               </select>
             </label>
             <EnvironmentSpecForm value={spec} onChange={setSpec} />
-            {createError ? <div className="error-box">{createError}</div> : null}
+            {createError ? <div className="error-box">{summarizeOperatorError(createError)}</div> : null}
             <div className="detail-actions">
               <button type="submit" disabled={creating}>
                 {creating ? 'Queueing initial plan...' : 'Create environment'}

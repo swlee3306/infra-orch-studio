@@ -914,6 +914,10 @@ button:hover:not(:disabled) {
   .jobs-col-optional {
     display: none;
   }
+
+  .ops-col-optional {
+    display: none;
+  }
 }
 
 @media (max-width: 1280px) {
