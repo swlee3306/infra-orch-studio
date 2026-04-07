@@ -123,6 +123,10 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request, user d
 		writeError(w, http.StatusInternalServerError, "create user failed")
 		return
 	}
+	s.recordAudit(r, user, "user", created.ID, "user.provisioned", "admin provisioned user account", map[string]any{
+		"email":    created.Email,
+		"is_admin": created.IsAdmin,
+	})
 	writeJSON(w, http.StatusCreated, created)
 }
 

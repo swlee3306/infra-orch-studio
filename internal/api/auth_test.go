@@ -194,4 +194,12 @@ func TestAdminCanProvisionUser(t *testing.T) {
 	if created.PasswordHash != "" {
 		t.Fatalf("password hash should not be exposed")
 	}
+
+	audits, err := store.ListAuditEvents(context.Background(), "user", created.ID, 10)
+	if err != nil {
+		t.Fatalf("list user audits: %v", err)
+	}
+	if len(audits) == 0 || !strings.Contains(audits[0].MetadataJSON, "viewer@example.com") {
+		t.Fatalf("expected provisioning audit metadata, got %+v", audits)
+	}
 }
