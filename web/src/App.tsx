@@ -44,27 +44,27 @@ export default function App() {
                 </div>
               </Link>
               <nav className="sidebar-nav">
-                <Link to="/dashboard" className={`nav-item ${location.pathname === '/dashboard' || location.pathname === '/' ? 'nav-item-active' : ''}`}>
+                <Link to="/dashboard" className={`nav-item nav-item-compact ${location.pathname === '/dashboard' || location.pathname === '/' ? 'nav-item-active' : ''}`}>
                   <span className="nav-index">01</span>
                   <span>Dashboard</span>
                 </Link>
-                <Link to="/environments" className={`nav-item ${location.pathname.startsWith('/environments') ? 'nav-item-active' : ''}`}>
+                <Link to="/environments" className={`nav-item nav-item-compact ${location.pathname.startsWith('/environments') ? 'nav-item-active' : ''}`}>
                   <span className="nav-index">02</span>
                   <span>Environments</span>
                 </Link>
-                <Link to="/create-environment" className={`nav-item ${location.pathname.startsWith('/create-environment') ? 'nav-item-active' : ''}`}>
+                <Link to="/create-environment" className={`nav-item nav-item-compact ${location.pathname.startsWith('/create-environment') ? 'nav-item-active' : ''}`}>
                   <span className="nav-index">03</span>
                   <span>Create Flow</span>
                 </Link>
-                <Link to="/jobs" className={`nav-item ${location.pathname.startsWith('/jobs') ? 'nav-item-active' : ''}`}>
+                <Link to="/jobs" className={`nav-item nav-item-compact ${location.pathname.startsWith('/jobs') ? 'nav-item-active' : ''}`}>
                   <span className="nav-index">04</span>
                   <span>Executions</span>
                 </Link>
-                <Link to="/templates" className={`nav-item ${location.pathname.startsWith('/templates') ? 'nav-item-active' : ''}`}>
+                <Link to="/templates" className={`nav-item nav-item-compact ${location.pathname.startsWith('/templates') ? 'nav-item-active' : ''}`}>
                   <span className="nav-index">05</span>
                   <span>Templates</span>
                 </Link>
-                <Link to="/audit" className={`nav-item ${location.pathname.startsWith('/audit') ? 'nav-item-active' : ''}`}>
+                <Link to="/audit" className={`nav-item nav-item-compact ${location.pathname.startsWith('/audit') ? 'nav-item-active' : ''}`}>
                   <span className="nav-index">06</span>
                   <span>Audit</span>
                 </Link>
