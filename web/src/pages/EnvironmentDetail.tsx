@@ -163,6 +163,7 @@ export default function EnvironmentDetailPage() {
   const [templateItems, setTemplateItems] = useState<TemplateDescriptor[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState('basic')
   const [editingSpec, setEditingSpec] = useState<any | null>(null)
+  const [showSpecEditor, setShowSpecEditor] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
 
@@ -265,7 +266,7 @@ export default function EnvironmentDetailPage() {
           </div>
           <h1 className="page-title">{environment?.name || environmentId}</h1>
           <p className="page-copy">
-            Operate the environment as a durable platform object with lifecycle, approval, result artifacts, and immutable audit context.
+            Operate this environment through lifecycle state, linked executions, artifacts, and audit context.
           </p>
         </div>
         <div className="hero-actions">
@@ -442,24 +443,36 @@ export default function EnvironmentDetailPage() {
             </div>
           </div>
           <div className="field-group" style={{ marginTop: 16 }}>
-            <div className="field-title">Environment spec</div>
-            {updateErrorCount > 0 ? (
-              <div className="error-box" style={{ marginBottom: 14 }}>
-                Resolve {updateErrorCount} input issue(s) before queueing an update plan.
+            <div className="section-head" style={{ marginBottom: 0 }}>
+              <div>
+                <div className="field-title">Environment spec editor</div>
+                <div className="row-meta">Expand only when you need to queue an update plan.</div>
+              </div>
+              <button type="button" className="ghost" onClick={() => setShowSpecEditor((current) => !current)}>
+                {showSpecEditor ? 'Hide editor' : 'Edit desired state'}
+              </button>
+            </div>
+            {showSpecEditor ? (
+              <div style={{ marginTop: 14 }}>
+                {updateErrorCount > 0 ? (
+                  <div className="error-box" style={{ marginBottom: 14 }}>
+                    Resolve {updateErrorCount} input issue(s) before queueing an update plan.
+                  </div>
+                ) : null}
+                <label className="field" style={{ marginBottom: 14 }}>
+                  <span>Plan template</span>
+                  <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
+                    {templateItems.length === 0 ? <option value="basic">basic</option> : null}
+                    {templateItems.map((item) => (
+                      <option key={item.name} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} errors={updateValidation.fieldErrors} /> : null}
               </div>
             ) : null}
-            <label className="field" style={{ marginBottom: 14 }}>
-              <span>Plan template</span>
-              <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
-                {templateItems.length === 0 ? <option value="basic">basic</option> : null}
-                {templateItems.map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} errors={updateValidation.fieldErrors} /> : null}
           </div>
         </article>
 
@@ -557,9 +570,12 @@ export default function EnvironmentDetailPage() {
                     <div className="row-meta">{item.actor_email || 'system'}</div>
                     {item.message ? <div style={{ marginTop: 6 }}>{item.message}</div> : null}
                     {metadata ? (
-                      <pre className="json-block" style={{ marginTop: 10 }}>
-                        {JSON.stringify(metadata, null, 2)}
-                      </pre>
+                      <details style={{ marginTop: 10 }}>
+                        <summary>Show metadata</summary>
+                        <pre className="json-block" style={{ marginTop: 10 }}>
+                          {JSON.stringify(metadata, null, 2)}
+                        </pre>
+                      </details>
                     ) : null}
                   </div>
                 )

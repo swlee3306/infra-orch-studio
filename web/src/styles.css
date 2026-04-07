@@ -809,6 +809,14 @@ button:hover:not(:disabled) {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.templates-main-grid {
+  align-items: start;
+}
+
+.templates-secondary-grid {
+  align-items: start;
+}
+
 .wizard-review-metrics {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -913,6 +921,11 @@ button:hover:not(:disabled) {
 
   .jobs-col-optional {
     display: none;
+  }
+
+  .templates-main-grid,
+  .templates-secondary-grid {
+    grid-template-columns: 1fr;
   }
 }
 
