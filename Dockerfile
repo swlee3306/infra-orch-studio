@@ -28,6 +28,7 @@ RUN chmod +x /usr/local/bin/tofu && tofu version || true
 
 COPY --from=build /out/infra-orch-api /app/infra-orch-api
 COPY --from=build /out/infra-orch-runner /app/infra-orch-runner
+COPY templates /app/templates
 
 # default to API
 EXPOSE 8080

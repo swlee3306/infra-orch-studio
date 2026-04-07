@@ -85,6 +85,8 @@ kubectl -n infra get pvc
 kubectl -n infra get ingress
 kubectl -n infra logs deploy/infra-orch-api
 kubectl -n infra logs deploy/infra-orch-runner
+kubectl -n infra exec deploy/infra-orch-api -- ls -R /app/templates/opentofu | head -40
+kubectl -n infra exec deploy/infra-orch-runner -- ls -R /app/templates/opentofu | head -40
 kubectl -n infra port-forward svc/infra-orch-api 8080:8080
 kubectl -n infra port-forward svc/infra-orch-web 8081:80
 kustomize build k8s/app/overlays/prod >/dev/null
