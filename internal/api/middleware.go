@@ -44,6 +44,10 @@ func (s *Server) withAuth(fn authedHandler) http.Handler {
 			writeError(w, http.StatusInternalServerError, "authenticate session failed")
 			return
 		}
+		if user.Disabled {
+			writeError(w, http.StatusUnauthorized, "account is disabled")
+			return
+		}
 		fn(w, r, user)
 	})
 }

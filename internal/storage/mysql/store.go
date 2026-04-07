@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS users (
 	email VARCHAR(255) NOT NULL UNIQUE,
 	password_hash TEXT NOT NULL,
 	is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+	is_disabled BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME(6) NOT NULL,
 	updated_at DATETIME(6) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -190,6 +191,9 @@ DELETE FROM sessions WHERE expires_at <= UTC_TIMESTAMP(6);
 		if err := s.addColumnIfMissing(ctx, "jobs", col.name, col.definition); err != nil {
 			return fmt.Errorf("migrate alter jobs: %w", err)
 		}
+	}
+	if err := s.addColumnIfMissing(ctx, "users", "is_disabled", "BOOLEAN NOT NULL DEFAULT FALSE"); err != nil {
+		return fmt.Errorf("migrate alter users: %w", err)
 	}
 	return nil
 }
@@ -396,12 +400,13 @@ func (s *Store) ClaimNextQueuedJob(ctx context.Context) (domain.Job, bool, error
 
 func (s *Store) CreateUser(ctx context.Context, user domain.User) (domain.User, error) {
 	query := fmt.Sprintf(
-		`INSERT INTO users (id, email, password_hash, is_admin, created_at, updated_at)
-		 VALUES (%s, %s, %s, %s, %s, %s);`,
+		`INSERT INTO users (id, email, password_hash, is_admin, is_disabled, created_at, updated_at)
+		 VALUES (%s, %s, %s, %s, %s, %s, %s);`,
 		quoteString(user.ID),
 		quoteString(strings.ToLower(user.Email)),
 		quoteString(user.PasswordHash),
 		boolLiteral(user.IsAdmin),
+		boolLiteral(user.Disabled),
 		quoteTime(user.CreatedAt),
 		quoteTime(user.UpdatedAt),
 	)
@@ -471,6 +476,18 @@ func (s *Store) ListUsers(ctx context.Context, limit int) ([]domain.User, error)
 	return users, nil
 }
 
+func (s *Store) SetUserDisabled(ctx context.Context, id string, disabled bool) (domain.User, error) {
+	query := fmt.Sprintf(
+		`UPDATE users SET is_disabled = %s, updated_at = UTC_TIMESTAMP(6) WHERE id = %s;`,
+		boolLiteral(disabled),
+		quoteString(id),
+	)
+	if _, err := s.exec(ctx, true, query); err != nil {
+		return domain.User{}, err
+	}
+	return s.GetUserByID(ctx, id)
+}
+
 func (s *Store) UpsertAdminUser(ctx context.Context, user domain.User) (domain.User, error) {
 	now := user.UpdatedAt
 	if now.IsZero() {
@@ -482,11 +499,12 @@ func (s *Store) UpsertAdminUser(ctx context.Context, user domain.User) (domain.U
 	user.UpdatedAt = now
 	user.IsAdmin = true
 	query := fmt.Sprintf(
-		`INSERT INTO users (id, email, password_hash, is_admin, created_at, updated_at)
-		 VALUES (%s, %s, %s, TRUE, %s, %s)
+		`INSERT INTO users (id, email, password_hash, is_admin, is_disabled, created_at, updated_at)
+		 VALUES (%s, %s, %s, TRUE, FALSE, %s, %s)
 		 ON DUPLICATE KEY UPDATE
 		     password_hash = VALUES(password_hash),
 		     is_admin = TRUE,
+		     is_disabled = FALSE,
 		     updated_at = VALUES(updated_at);`,
 		quoteString(user.ID),
 		quoteString(strings.ToLower(user.Email)),
@@ -862,6 +880,7 @@ func userSelectColumnsWithAlias(alias string) string {
 		base64ColumnExpr(fmt.Sprintf("%s.email", alias)),
 		base64ColumnExpr(fmt.Sprintf("%s.password_hash", alias)),
 		fmt.Sprintf("%s.is_admin", alias),
+		fmt.Sprintf("%s.is_disabled", alias),
 		fmt.Sprintf("DATE_FORMAT(%s.created_at, '%s')", alias, sqlTimeFormat),
 		fmt.Sprintf("DATE_FORMAT(%s.updated_at, '%s')", alias, sqlTimeFormat),
 	}, ", ")
@@ -1082,7 +1101,7 @@ func parseAuditLine(line string) (domain.AuditEvent, error) {
 
 func parseUserLine(line string) (domain.User, error) {
 	fields := strings.Split(line, "\t")
-	if len(fields) != 6 {
+	if len(fields) != 7 {
 		return domain.User{}, fmt.Errorf("unexpected user field count: %d", len(fields))
 	}
 
@@ -1098,10 +1117,11 @@ func parseUserLine(line string) (domain.User, error) {
 		return domain.User{}, err
 	}
 	user.IsAdmin = fields[3] == "1"
-	if user.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[4]); err != nil {
+	user.Disabled = fields[4] == "1"
+	if user.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[5]); err != nil {
 		return domain.User{}, fmt.Errorf("parse user created_at: %w", err)
 	}
-	if user.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[5]); err != nil {
+	if user.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[6]); err != nil {
 		return domain.User{}, fmt.Errorf("parse user updated_at: %w", err)
 	}
 	return user, nil
@@ -1109,7 +1129,7 @@ func parseUserLine(line string) (domain.User, error) {
 
 func parseSessionUserLine(line string) (domain.Session, domain.User, error) {
 	fields := strings.Split(line, "\t")
-	if len(fields) != 11 {
+	if len(fields) != 12 {
 		return domain.Session{}, domain.User{}, fmt.Errorf("unexpected session/user field count: %d", len(fields))
 	}
 

@@ -171,6 +171,12 @@ type CopyShape = {
     roleAdmin: string
     roleUser: string
     createdAt: string
+    statusActive: string
+    statusDisabled: string
+    disable: string
+    enabling: string
+    disabling: string
+    enable: string
   }
   guide: {
     title: string
@@ -373,6 +379,12 @@ const COPY: Record<Locale, CopyShape> = {
       roleAdmin: 'admin',
       roleUser: 'user',
       createdAt: 'Created',
+      statusActive: 'active',
+      statusDisabled: 'disabled',
+      disable: 'Disable',
+      enable: 'Re-enable',
+      enabling: 'Re-enabling...',
+      disabling: 'Disabling...',
     },
     guide: {
       title: 'Operator guide',
@@ -621,6 +633,12 @@ const COPY: Record<Locale, CopyShape> = {
       roleAdmin: '관리자',
       roleUser: '사용자',
       createdAt: '생성 시각',
+      statusActive: '활성',
+      statusDisabled: '비활성',
+      disable: '비활성화',
+      enable: '재활성화',
+      enabling: '재활성화 중...',
+      disabling: '비활성화 중...',
     },
     guide: {
       title: '운영 가이드',
