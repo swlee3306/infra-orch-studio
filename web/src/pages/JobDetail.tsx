@@ -157,12 +157,12 @@ export default function JobDetailPage() {
             Refresh
           </button>
           {envLink ? (
-            <Link to={envLink} className="ghost action-link">
+            <Link to={envLink} className="ghost action-link action-link-button">
               Environment
             </Link>
           ) : null}
           {canOpenControl && controlLink ? (
-            <Link to={controlLink} className="ghost action-link">
+            <Link to={controlLink} className="ghost action-link action-link-button">
               Approval control
             </Link>
           ) : null}
