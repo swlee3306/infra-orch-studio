@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job, ImpactSummary, ReviewSignal } from '../api'
+import { useI18n } from '../i18n'
 import { latestApprovalEvent } from '../utils/environmentView'
 
 export default function PlanReviewPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const { id } = useParams()
   const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
   const [environment, setEnvironment] = useState<Environment | null>(null)
@@ -71,25 +73,23 @@ export default function PlanReviewPage() {
             <Link to="/environments" className="text-link">
               Environments
             </Link>{' '}
-            / Plan review
+            / {copy.review.kicker}
           </div>
-          <h1 className="page-title">Change evaluation / pre-apply</h1>
-          <p className="page-copy">
-            Review the latest environment plan, inspect inferred risk signals, and clear the approval gate only when the plan and impact look acceptable.
-          </p>
+          <h1 className="page-title">{copy.review.title}</h1>
+          <p className="page-copy">{copy.review.copy}</p>
         </div>
         <div className="hero-actions">
           <button className="ghost" onClick={load}>
-            Refresh
+            {copy.review.refresh}
           </button>
           {environment ? (
-            <Link to={`/environments/${environment.id}/approval`} className="ghost action-link">
-              Approval control
+            <Link to={`/environments/${environment.id}/approval`} className="ghost action-link action-link-button">
+              {copy.review.approvalControl}
             </Link>
           ) : null}
           {environment ? (
-            <Link to={`/environments/${environment.id}`} className="ghost action-link">
-              Environment detail
+            <Link to={`/environments/${environment.id}`} className="ghost action-link action-link-button">
+              {copy.review.environmentDetail}
             </Link>
           ) : null}
         </div>
@@ -175,31 +175,31 @@ export default function PlanReviewPage() {
           </div>
           <label className="checkbox" style={{ marginTop: 14 }}>
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
-            <span>I reviewed all high-risk changes and warnings before approval.</span>
+            <span>{copy.review.ack}</span>
           </label>
           <label className="field" style={{ marginTop: 14 }}>
-            <span>Approval comment</span>
+            <span>{copy.review.approvalComment}</span>
             <textarea
               value={approvalComment}
               onChange={(e) => setApprovalComment(e.target.value)}
-              placeholder="Approval rationale, CAB reference, or operational note"
+              placeholder={copy.review.approvalPlaceholder}
               rows={3}
             />
           </label>
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {viewer?.is_admin && environment?.status === 'pending_approval' ? (
               <button onClick={() => run('approve', () => environments.approve(environmentId, { comment: approvalComment.trim() }))} disabled={!ack || busy !== null}>
-                {busy === 'approve' ? 'Approving...' : 'Approve'}
+                {busy === 'approve' ? copy.review.approving : copy.review.approve}
               </button>
             ) : null}
             {viewer?.is_admin && environment?.approval_status === 'approved' ? (
               <button onClick={() => run('apply', () => environments.apply(environmentId))} disabled={!ack || busy !== null}>
-                {busy === 'apply' ? 'Applying...' : 'Apply'}
+                {busy === 'apply' ? copy.review.applying : copy.review.apply}
               </button>
             ) : null}
             {environment?.approval_status === 'approved' ? (
-              <Link to={`/environments/${environment.id}/approval`} className="ghost action-link">
-                Open guarded control
+              <Link to={`/environments/${environment.id}/approval`} className="ghost action-link action-link-button">
+                {copy.review.openGuardedControl}
               </Link>
             ) : null}
           </div>

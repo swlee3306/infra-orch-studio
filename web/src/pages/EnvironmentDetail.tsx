@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
+import { useI18n } from '../i18n'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
 import { errorLooksRaw, summarizeOperatorError } from '../utils/uiCopy'
 
@@ -155,6 +156,7 @@ function nextActionHint(
 
 export default function EnvironmentDetailPage() {
   const nav = useNavigate()
+  const { copy } = useI18n()
   const { id } = useParams()
   const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
   const [environment, setEnvironment] = useState<Environment | null>(null)
@@ -261,25 +263,23 @@ export default function EnvironmentDetailPage() {
             <Link to="/environments" className="text-link">
               Ops / Environments
             </Link>{' '}
-            / Detail
+            / {copy.detail.kicker}
           </div>
           <h1 className="page-title">{environment?.name || environmentId}</h1>
-          <p className="page-copy">
-            Track lifecycle state, queue guarded changes, and inspect plan, result, and audit evidence from one surface.
-          </p>
+          <p className="page-copy">{copy.detail.copy}</p>
         </div>
         <div className="hero-actions">
           <button className="ghost" onClick={load}>
-            Refresh
+            {copy.detail.refresh}
           </button>
           {environment ? (
             <Link to={reviewRoute} className="ghost action-link action-link-button">
-              Open review
+              {copy.detail.openReview}
             </Link>
           ) : null}
           {environment && (environment.approval_status === 'approved' || environment.status === 'pending_approval') ? (
             <Link to={approvalRoute} className="ghost action-link action-link-button">
-              Approval control
+              {copy.detail.approvalControl}
             </Link>
           ) : null}
           <button
@@ -289,11 +289,11 @@ export default function EnvironmentDetailPage() {
               runAction('update-plan', () => environments.plan(environmentId, editingSpec, 'update', selectedTemplate))
             }
           >
-            {busyAction === 'update-plan' ? 'Queueing...' : 'Queue update plan'}
+            {busyAction === 'update-plan' ? copy.detail.queueing : copy.detail.queueUpdate}
           </button>
           {canApprove ? (
             <button onClick={() => runAction('approve', () => environments.approve(environmentId))} disabled={busyAction !== null}>
-              {busyAction === 'approve' ? 'Approving...' : 'Approve'}
+              {busyAction === 'approve' ? copy.detail.approving : copy.detail.approve}
             </button>
           ) : null}
           {canApply ? (
@@ -305,7 +305,7 @@ export default function EnvironmentDetailPage() {
               }
               disabled={busyAction !== null}
             >
-              {busyAction === 'apply' ? 'Applying...' : 'Apply approved plan'}
+              {busyAction === 'apply' ? copy.detail.applying : copy.detail.applyApproved}
             </button>
           ) : null}
         </div>
@@ -632,12 +632,12 @@ export default function EnvironmentDetailPage() {
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {canRetry ? (
               <button className="ghost" onClick={() => runAction('retry', () => environments.retry(environmentId))} disabled={busyAction !== null}>
-                {busyAction === 'retry' ? 'Retrying...' : 'Retry failed step'}
+                {busyAction === 'retry' ? copy.detail.retrying : copy.detail.retry}
               </button>
             ) : null}
             {canDestroy && environment ? (
               <Link to={approvalRoute} className="ghost action-link action-link-button danger">
-                Open destroy control
+                {copy.detail.openDestroyControl}
               </Link>
             ) : null}
           </div>
