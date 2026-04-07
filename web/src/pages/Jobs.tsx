@@ -193,7 +193,7 @@ export default function JobsPage() {
             <thead>
               <tr>
                 <th>Job</th>
-                <th>Type</th>
+                <th className="jobs-col-mobile-optional">Type</th>
                 <th>Status</th>
                 <th>Environment</th>
                 <th className="jobs-col-optional">Updated</th>
@@ -208,7 +208,7 @@ export default function JobsPage() {
                     <strong>{j.id.slice(0, 8)}</strong>
                     <span className="muted">{j.source_job_id ? `source ${j.source_job_id.slice(0, 8)}` : 'plan source'}</span>
                   </td>
-                  <td>
+                  <td className="jobs-col-mobile-optional">
                     <span className="badge badge-muted">{j.type}</span>
                   </td>
                   <td>
