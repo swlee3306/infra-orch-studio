@@ -47,8 +47,8 @@ func validateEnvironmentPlanAccess(user domain.User, env domain.Environment, ope
 	if operation == "" {
 		operation = defaultEnvironmentPlanOperation(env)
 	}
-	if operation == domain.EnvironmentOperationDestroy && !user.IsAdmin {
-		return http.StatusForbidden, "admin access required"
+	if operation == domain.EnvironmentOperationDestroy {
+		return http.StatusBadRequest, "destroy plans must use POST /api/environments/{id}/destroy"
 	}
 	switch env.Status {
 	case domain.EnvironmentStatusPlanning, domain.EnvironmentStatusApplying, domain.EnvironmentStatusDestroying:

@@ -50,6 +50,8 @@ Template runtime validation:
 - `POST /api/environments/:id/apply` (admin only)
 - `POST /api/environments/:id/retry`
 - `POST /api/environments/:id/destroy` (admin only, requires confirmation payload)
+
+`POST /api/environments/:id/plan` 는 create/update 전용이다. destroy plan은 반드시 `POST /api/environments/:id/destroy` 를 사용해야 typed confirmation과 audit metadata가 유지된다.
 - `GET /api/environments/:id/audit`
 - `GET /api/environments/:id/jobs`
 - `GET /api/environments/:id/artifacts`
