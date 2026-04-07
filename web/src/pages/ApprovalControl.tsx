@@ -87,9 +87,9 @@ export default function ApprovalControlPage() {
             </Link>{' '}
             / Approval control
           </div>
-          <h1 className="page-title">Guarded production workflow</h1>
+          <h1 className="page-title">Guarded approval control</h1>
           <p className="page-copy">
-            Use hard checkpoints before approval, apply, update, and destroy. This page adds explicit operator safety over the existing environment lifecycle APIs.
+            Use explicit checkpoints before approval, apply, update, and destroy.
           </p>
         </div>
         <div className="hero-actions">
@@ -116,7 +116,7 @@ export default function ApprovalControlPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Approval review</div>
-              <h2>Control checkpoint active</h2>
+              <h2>Checkpoint state</h2>
             </div>
           </div>
           <div className="info-grid">
@@ -177,7 +177,7 @@ export default function ApprovalControlPage() {
           <div className="section-head">
             <div>
               <div className="section-kicker">Impact preview</div>
-              <h2>Update / destroy posture</h2>
+              <h2>Mutation posture</h2>
             </div>
           </div>
           <div className="info-grid">
@@ -197,12 +197,12 @@ export default function ApprovalControlPage() {
           <div className="field-group" style={{ marginTop: 14 }}>
             <div className="field-title">Destructive safeguards</div>
             <div className="stack-list">
-              <div className="stack-row">
-                <div>
-                  <strong>Type environment name to enable destroy plan</strong>
-                  <div className="row-meta">Required by both the UI and API before a destroy plan can be queued from this surface.</div>
-                </div>
+            <div className="stack-row">
+              <div>
+                <strong>Type environment name to enable destroy plan</strong>
+                  <div className="row-meta">Required by both the UI and API before a destroy plan can be queued.</div>
               </div>
+            </div>
             </div>
             <label className="field" style={{ marginTop: 12 }}>
               <span>Typed confirmation</span>

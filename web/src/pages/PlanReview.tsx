@@ -73,9 +73,9 @@ export default function PlanReviewPage() {
             </Link>{' '}
             / Plan review
           </div>
-          <h1 className="page-title">Change evaluation / pre-apply</h1>
+          <h1 className="page-title">Plan review</h1>
           <p className="page-copy">
-            Review the latest environment plan, inspect inferred risk signals, and clear the approval gate only when the plan and impact look acceptable.
+            Review the latest plan, inspect risk signals, and approve only when the operational impact is acceptable.
           </p>
         </div>
         <div className="hero-actions">
@@ -173,6 +173,10 @@ export default function PlanReviewPage() {
               <strong>{planJob?.plan_path || environment?.plan_path || '-'}</strong>
             </div>
           </div>
+          <div className="callout callout-info" style={{ marginTop: 14 }}>
+            <strong>Approval action</strong>
+            <p style={{ margin: '6px 0 0' }}>Acknowledge the review, capture an approval note, then promote the plan or open guarded control.</p>
+          </div>
           <label className="checkbox" style={{ marginTop: 14 }}>
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
             <span>I reviewed all high-risk changes and warnings before approval.</span>
@@ -210,7 +214,7 @@ export default function PlanReviewPage() {
         <div className="section-head">
           <div>
             <div className="section-kicker">Approval controls</div>
-            <h2>Review status</h2>
+            <h2>Review context</h2>
           </div>
         </div>
         <div className="info-grid info-grid-three">

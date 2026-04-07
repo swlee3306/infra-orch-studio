@@ -960,4 +960,19 @@ button:hover:not(:disabled) {
   .page-copy {
     font-size: 0.9rem;
   }
+
+  .hero-actions,
+  .detail-actions {
+    width: 100%;
+  }
+
+  .hero-actions > *,
+  .detail-actions > * {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .checkbox {
+    align-items: flex-start;
+  }
 }
