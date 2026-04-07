@@ -824,7 +824,7 @@ button:hover:not(:disabled) {
 }
 
 .auth-card {
-  width: min(520px, 100%);
+  width: min(580px, 100%);
   padding: 24px;
 }
 
@@ -836,9 +836,9 @@ button:hover:not(:disabled) {
 
 .auth-title {
   margin: 0 0 8px;
-  font-size: clamp(1.8rem, 4.4vw, 2.5rem);
+  font-size: clamp(1.7rem, 3.8vw, 2.35rem);
   line-height: 1.08;
-  text-wrap: balance;
+  white-space: nowrap;
 }
 
 .segmented {
@@ -1116,6 +1116,15 @@ button:hover:not(:disabled) {
 
   .page-title {
     font-size: clamp(1.3rem, 6vw, 1.7rem);
+  }
+
+  .auth-card {
+    width: min(520px, 100%);
+  }
+
+  .auth-title {
+    white-space: normal;
+    text-wrap: balance;
   }
 
   .page-copy {
