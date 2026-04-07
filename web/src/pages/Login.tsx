@@ -25,12 +25,12 @@ export default function LoginPage() {
             </button>
           </div>
         </div>
-        <div className="brand" style={{ marginBottom: 18 }}>
+        <div className="auth-brand" style={{ marginBottom: 18 }}>
           <h1 className="auth-title">{copy.login.title}</h1>
-          <p className="helper">{copy.login.subtitle}</p>
+          <p className="helper auth-subtitle">{copy.login.subtitle}</p>
         </div>
 
-        <p className="helper" style={{ marginBottom: 16 }}>
+        <p className="helper auth-helper" style={{ marginBottom: 16 }}>
           {copy.login.helper}
         </p>
 

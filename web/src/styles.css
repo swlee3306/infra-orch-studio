@@ -829,6 +829,11 @@ button:hover:not(:disabled) {
   padding: 24px;
 }
 
+.auth-brand {
+  display: grid;
+  gap: 8px;
+}
+
 .auth-head {
   display: flex;
   justify-content: flex-end;
@@ -840,6 +845,11 @@ button:hover:not(:disabled) {
   font-size: clamp(1.7rem, 3.8vw, 2.35rem);
   line-height: 1.08;
   white-space: nowrap;
+}
+
+.auth-subtitle,
+.auth-helper {
+  max-width: none;
 }
 
 .segmented {

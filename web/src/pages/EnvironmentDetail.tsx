@@ -5,7 +5,7 @@ import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
-import { errorLooksRaw, summarizeOperatorError } from '../utils/uiCopy'
+import { errorLooksRaw, summarizeAuditMessage, summarizeOperatorError } from '../utils/uiCopy'
 
 function parseJson(value?: string): any {
   if (!value) return null
@@ -570,7 +570,7 @@ export default function EnvironmentDetailPage() {
                       <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
                     </div>
                     <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>
-                    {item.message ? <div style={{ marginTop: 6 }}>{item.message}</div> : null}
+                    {item.message ? <div style={{ marginTop: 6 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
                     {metadata ? (
                       <details className="console-details console-details-inline">
                         <summary>{ko ? '메타데이터 보기' : 'Show metadata'}</summary>

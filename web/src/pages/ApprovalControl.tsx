@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job } from '../api'
+import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { buildApprovalCheckpoints, buildImpactSummary, findLatestPlanJob } from '../utils/environmentView'
+import { summarizeAuditMessage } from '../utils/uiCopy'
 
 export default function ApprovalControlPage() {
   const nav = useNavigate()
@@ -132,11 +134,11 @@ export default function ApprovalControlPage() {
             </div>
             <div className="meta-item">
               <span>{ko ? '계획 요약' : 'Plan summary'}</span>
-              <strong>{planJob?.type || 'tofu.plan'} / {planJob?.status || '-'}</strong>
+              <strong>{planJob?.type || 'tofu.plan'} / {planJob?.status ? formatStatusLabel(planJob.status, ko) : '-'}</strong>
             </div>
             <div className="meta-item">
               <span>{ko ? '승인 상태' : 'Approval state'}</span>
-              <strong>{environment?.approval_status || '-'}</strong>
+              <strong>{environment?.approval_status ? formatStatusLabel(environment.approval_status, ko) : '-'}</strong>
             </div>
           </div>
           <div className="stack-list" style={{ marginTop: 14 }}>
@@ -260,7 +262,7 @@ export default function ApprovalControlPage() {
                 <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
               </div>
               <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>
-              {item.message ? <div style={{ marginTop: 6 }}>{item.message}</div> : null}
+              {item.message ? <div style={{ marginTop: 6 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
             </div>
           ))}
         </div>
