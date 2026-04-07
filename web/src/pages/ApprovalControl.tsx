@@ -97,12 +97,12 @@ export default function ApprovalControlPage() {
             Refresh
           </button>
           {environment ? (
-            <Link to={`/environments/${environment.id}/review`} className="ghost action-link">
+            <Link to={`/environments/${environment.id}/review`} className="ghost action-link action-link-button">
               Plan review
             </Link>
           ) : null}
           {environment ? (
-            <Link to={`/environments/${environment.id}`} className="ghost action-link">
+            <Link to={`/environments/${environment.id}`} className="ghost action-link action-link-button">
               Environment detail
             </Link>
           ) : null}

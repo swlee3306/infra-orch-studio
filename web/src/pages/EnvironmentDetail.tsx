@@ -273,12 +273,12 @@ export default function EnvironmentDetailPage() {
             Refresh
           </button>
           {environment ? (
-            <Link to={reviewRoute} className="ghost action-link">
+            <Link to={reviewRoute} className="ghost action-link action-link-button">
               Open review
             </Link>
           ) : null}
           {environment && (environment.approval_status === 'approved' || environment.status === 'pending_approval') ? (
-            <Link to={approvalRoute} className="ghost action-link">
+            <Link to={approvalRoute} className="ghost action-link action-link-button">
               Approval control
             </Link>
           ) : null}
@@ -636,7 +636,7 @@ export default function EnvironmentDetailPage() {
               </button>
             ) : null}
             {canDestroy && environment ? (
-              <Link to={approvalRoute} className="ghost action-link danger">
+              <Link to={approvalRoute} className="ghost action-link action-link-button danger">
                 Open destroy control
               </Link>
             ) : null}
