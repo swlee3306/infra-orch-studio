@@ -166,7 +166,7 @@ export default function CreateEnvironmentPage() {
           <button className="ghost" onClick={saveDraft} disabled={savingDraft}>
             {savingDraft ? 'Saving draft...' : 'Save draft'}
           </button>
-          <Link to="/environments" className="ghost" style={{ display: 'inline-flex', alignItems: 'center' }}>
+          <Link to="/environments" className="ghost action-link action-link-button">
             Exit wizard
           </Link>
         </div>
