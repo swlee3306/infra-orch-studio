@@ -306,6 +306,162 @@ func TestEnvironmentDestroyRequiresAdminAndConfirmationName(t *testing.T) {
 	}
 }
 
+func TestEnvironmentPlanRejectsDestroyOperationForNonAdmin(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	operator := mustUser(t, "operator@example.com", false, "password123")
+	seedSession(store, admin, "admin-session-token")
+	seedSession(store, operator, "operator-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-plan-destroy",
+		Status:         domain.EnvironmentStatusActive,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusNotRequested,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-plan-destroy",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		MaxRetries: 3,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/plan", strings.NewReader(`{"operation":"destroy"}`))
+	req.AddCookie(cookieFromToken("operator-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("destroy plan by operator status = %d, want %d", rr.Code, http.StatusForbidden)
+	}
+}
+
+func TestEnvironmentApplyRejectsInvalidState(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-applying",
+		Status:         domain.EnvironmentStatusApplying,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusApproved,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-applying",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		LastPlanJobID: uuid.NewString(),
+		LastJobID:     uuid.NewString(),
+		MaxRetries:    3,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+	planJob := domain.Job{
+		ID:            env.LastPlanJobID,
+		Type:          domain.JobTypePlan,
+		Status:        domain.JobStatusDone,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		EnvironmentID: env.ID,
+		Operation:     env.Operation,
+		Environment:   env.Spec,
+		TemplateName:  "basic",
+		Workdir:       "/tmp/workdir",
+		PlanPath:      ".infra-orch/plan/plan.bin",
+		MaxRetries:    env.MaxRetries,
+		RequestedBy:   admin.Email,
+	}
+	if _, err := store.CreateJob(nil, planJob); err != nil {
+		t.Fatalf("create plan job: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/apply", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("apply from applying status = %d, want %d", rr.Code, http.StatusBadRequest)
+	}
+}
+
+func TestEnvironmentRetryRequiresAdminForFailedApply(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	operator := mustUser(t, "operator@example.com", false, "password123")
+	seedSession(store, admin, "admin-session-token")
+	seedSession(store, operator, "operator-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-apply-retry",
+		Status:         domain.EnvironmentStatusFailed,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusApproved,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-apply-retry",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		LastJobID:     uuid.NewString(),
+		RetryCount:    0,
+		MaxRetries:    3,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		LastPlanJobID: uuid.NewString(),
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+	job := domain.Job{
+		ID:            env.LastJobID,
+		Type:          domain.JobTypeApply,
+		Status:        domain.JobStatusFailed,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		EnvironmentID: env.ID,
+		Operation:     env.Operation,
+		Environment:   env.Spec,
+		TemplateName:  "basic",
+		Workdir:       "/tmp/workdir",
+		PlanPath:      ".infra-orch/plan/plan.bin",
+		MaxRetries:    env.MaxRetries,
+		RequestedBy:   admin.Email,
+	}
+	if _, err := store.CreateJob(nil, job); err != nil {
+		t.Fatalf("create job: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/retry", nil)
+	req.AddCookie(cookieFromToken("operator-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("retry failed apply by operator status = %d, want %d", rr.Code, http.StatusForbidden)
+	}
+}
+
 func TestTemplatesEndpointListsRepoBackedCatalog(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")

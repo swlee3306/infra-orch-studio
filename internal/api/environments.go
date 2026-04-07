@@ -36,6 +36,77 @@ type destroyEnvironmentRequest struct {
 	Comment          string `json:"comment,omitempty"`
 }
 
+func defaultEnvironmentPlanOperation(env domain.Environment) domain.EnvironmentOperation {
+	if env.Status == domain.EnvironmentStatusDraft || env.Status == domain.EnvironmentStatusDestroyed {
+		return domain.EnvironmentOperationCreate
+	}
+	return domain.EnvironmentOperationUpdate
+}
+
+func validateEnvironmentPlanAccess(user domain.User, env domain.Environment, operation domain.EnvironmentOperation) (int, string) {
+	if operation == "" {
+		operation = defaultEnvironmentPlanOperation(env)
+	}
+	if operation == domain.EnvironmentOperationDestroy && !user.IsAdmin {
+		return http.StatusForbidden, "admin access required"
+	}
+	switch env.Status {
+	case domain.EnvironmentStatusPlanning, domain.EnvironmentStatusApplying, domain.EnvironmentStatusDestroying:
+		return http.StatusBadRequest, "environment is busy with another operation"
+	case domain.EnvironmentStatusDestroyed:
+		if operation != domain.EnvironmentOperationCreate {
+			return http.StatusBadRequest, "destroyed environment must queue a create plan"
+		}
+	}
+	if operation == domain.EnvironmentOperationCreate && env.Status != domain.EnvironmentStatusDraft && env.Status != domain.EnvironmentStatusDestroyed {
+		return http.StatusBadRequest, "create plan is only allowed for draft or destroyed environments"
+	}
+	if operation == domain.EnvironmentOperationUpdate && (env.Status == domain.EnvironmentStatusDraft || env.Status == domain.EnvironmentStatusDestroyed) {
+		return http.StatusBadRequest, "update plan is not allowed for draft or destroyed environments"
+	}
+	if operation == domain.EnvironmentOperationDestroy && env.Status == domain.EnvironmentStatusDestroyed {
+		return http.StatusBadRequest, "environment is already destroyed"
+	}
+	return 0, ""
+}
+
+func validateEnvironmentApprovalAccess(env domain.Environment) (int, string) {
+	if env.Status != domain.EnvironmentStatusPendingApproval || env.ApprovalStatus != domain.ApprovalStatusPending {
+		return http.StatusBadRequest, "environment is not awaiting approval"
+	}
+	return 0, ""
+}
+
+func validateEnvironmentApplyAccess(env domain.Environment) (int, string) {
+	if env.Status != domain.EnvironmentStatusApproved || env.ApprovalStatus != domain.ApprovalStatusApproved {
+		return http.StatusBadRequest, "environment is not approved for apply"
+	}
+	return 0, ""
+}
+
+func validateEnvironmentRetryAccess(user domain.User, env domain.Environment, lastJob domain.Job) (int, string) {
+	if lastJob.Type == domain.JobTypeApply && !user.IsAdmin {
+		return http.StatusForbidden, "admin access required"
+	}
+	if lastJob.Operation == domain.EnvironmentOperationDestroy && !user.IsAdmin {
+		return http.StatusForbidden, "admin access required"
+	}
+	if env.Status == domain.EnvironmentStatusDestroyed {
+		return http.StatusBadRequest, "destroyed environment cannot retry jobs"
+	}
+	return 0, ""
+}
+
+func validateEnvironmentDestroyAccess(env domain.Environment) (int, string) {
+	switch env.Status {
+	case domain.EnvironmentStatusPlanning, domain.EnvironmentStatusApplying, domain.EnvironmentStatusDestroying:
+		return http.StatusBadRequest, "environment is busy with another operation"
+	case domain.EnvironmentStatusDestroyed:
+		return http.StatusBadRequest, "environment is already destroyed"
+	}
+	return 0, ""
+}
+
 func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user domain.User) {
 	switch r.Method {
 	case http.MethodGet:
@@ -201,11 +272,11 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 	}
 	operation := req.Operation
 	if operation == "" {
-		if env.Status == domain.EnvironmentStatusDraft || env.Status == domain.EnvironmentStatusDestroyed {
-			operation = domain.EnvironmentOperationCreate
-		} else {
-			operation = domain.EnvironmentOperationUpdate
-		}
+		operation = defaultEnvironmentPlanOperation(env)
+	}
+	if code, msg := validateEnvironmentPlanAccess(user, env, operation); code != 0 {
+		writeError(w, code, msg)
+		return
 	}
 
 	now := time.Now().UTC()
@@ -260,6 +331,10 @@ func (s *Server) handleEnvironmentApprove(w http.ResponseWriter, r *http.Request
 	}
 	if env.LastPlanJobID == "" {
 		writeError(w, http.StatusBadRequest, "environment has no plan to approve")
+		return
+	}
+	if code, msg := validateEnvironmentApprovalAccess(env); code != 0 {
+		writeError(w, code, msg)
 		return
 	}
 	job, err := s.jobs.GetJob(r.Context(), env.LastPlanJobID)
@@ -319,6 +394,10 @@ func (s *Server) handleEnvironmentApply(w http.ResponseWriter, r *http.Request, 
 	}
 	if env.ApprovalStatus != domain.ApprovalStatusApproved {
 		writeError(w, http.StatusBadRequest, "plan approval is required before apply")
+		return
+	}
+	if code, msg := validateEnvironmentApplyAccess(env); code != 0 {
+		writeError(w, code, msg)
 		return
 	}
 	planJob, err := s.jobs.GetJob(r.Context(), env.LastPlanJobID)
@@ -404,6 +483,10 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusBadRequest, "environment retry budget exhausted")
 		return
 	}
+	if code, msg := validateEnvironmentRetryAccess(user, env, lastJob); code != 0 {
+		writeError(w, code, msg)
+		return
+	}
 	now := time.Now().UTC()
 	retryJob := lastJob
 	retryJob.ID = uuid.NewString()
@@ -465,6 +548,10 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 	}
 	if req.ConfirmationName != env.Name {
 		writeError(w, http.StatusBadRequest, "confirmation name must match environment name")
+		return
+	}
+	if code, msg := validateEnvironmentDestroyAccess(env); code != 0 {
+		writeError(w, code, msg)
 		return
 	}
 	now := time.Now().UTC()
