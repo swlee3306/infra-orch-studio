@@ -35,43 +35,45 @@ export default function App() {
       {isAuthRoute ? null : (
         <div className="app-shell">
           <aside className="app-sidebar">
-            <Link to="/dashboard" className="brand brand-link">
-              <div className="brand-mark" />
-              <div className="brand-copy">
-                <h1>Ops//Core</h1>
-                <p>Environment orchestration control plane</p>
-              </div>
-            </Link>
-            <nav className="sidebar-nav">
-              <Link to="/dashboard" className={`nav-item ${location.pathname === '/dashboard' || location.pathname === '/' ? 'nav-item-active' : ''}`}>
-                <span className="nav-index">01</span>
-                <span>Dashboard</span>
+            <div className="app-sidebar-head">
+              <Link to="/dashboard" className="brand brand-link">
+                <div className="brand-mark" />
+                <div className="brand-copy">
+                  <h1>Ops//Core</h1>
+                  <p>Environment orchestration control plane</p>
+                </div>
               </Link>
-              <Link to="/environments" className={`nav-item ${location.pathname.startsWith('/environments') ? 'nav-item-active' : ''}`}>
-                <span className="nav-index">02</span>
-                <span>Environments</span>
-              </Link>
-              <Link to="/create-environment" className={`nav-item ${location.pathname.startsWith('/create-environment') ? 'nav-item-active' : ''}`}>
-                <span className="nav-index">03</span>
-                <span>Create Flow</span>
-              </Link>
-              <Link to="/jobs" className={`nav-item ${location.pathname.startsWith('/jobs') ? 'nav-item-active' : ''}`}>
-                <span className="nav-index">04</span>
-                <span>Executions</span>
-              </Link>
-              <Link to="/templates" className={`nav-item ${location.pathname.startsWith('/templates') ? 'nav-item-active' : ''}`}>
-                <span className="nav-index">05</span>
-                <span>Templates</span>
-              </Link>
-              <Link to="/audit" className={`nav-item ${location.pathname.startsWith('/audit') ? 'nav-item-active' : ''}`}>
-                <span className="nav-index">06</span>
-                <span>Audit</span>
-              </Link>
-            </nav>
+              <nav className="sidebar-nav">
+                <Link to="/dashboard" className={`nav-item ${location.pathname === '/dashboard' || location.pathname === '/' ? 'nav-item-active' : ''}`}>
+                  <span className="nav-index">01</span>
+                  <span>Dashboard</span>
+                </Link>
+                <Link to="/environments" className={`nav-item ${location.pathname.startsWith('/environments') ? 'nav-item-active' : ''}`}>
+                  <span className="nav-index">02</span>
+                  <span>Environments</span>
+                </Link>
+                <Link to="/create-environment" className={`nav-item ${location.pathname.startsWith('/create-environment') ? 'nav-item-active' : ''}`}>
+                  <span className="nav-index">03</span>
+                  <span>Create Flow</span>
+                </Link>
+                <Link to="/jobs" className={`nav-item ${location.pathname.startsWith('/jobs') ? 'nav-item-active' : ''}`}>
+                  <span className="nav-index">04</span>
+                  <span>Executions</span>
+                </Link>
+                <Link to="/templates" className={`nav-item ${location.pathname.startsWith('/templates') ? 'nav-item-active' : ''}`}>
+                  <span className="nav-index">05</span>
+                  <span>Templates</span>
+                </Link>
+                <Link to="/audit" className={`nav-item ${location.pathname.startsWith('/audit') ? 'nav-item-active' : ''}`}>
+                  <span className="nav-index">06</span>
+                  <span>Audit</span>
+                </Link>
+              </nav>
+            </div>
             <div className="sidebar-foot">
               <div className="sidebar-foot-copy">
                 <strong>Plan {'->'} Approval {'->'} Apply {'->'} Result</strong>
-                <p>Use environment detail as the primary operating surface.</p>
+                <p>Operate from environments first, then drill into execution detail.</p>
               </div>
               <button
                 className="ghost sidebar-logout"
