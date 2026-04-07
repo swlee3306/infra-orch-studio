@@ -5,17 +5,9 @@ type Props = {
   status: string
 }
 
-export default function StatusBadge({ status }: Props) {
-  const { locale } = useI18n()
-  const ko = locale === 'ko'
+export function formatStatusLabel(status: string | undefined, ko = false): string {
+  if (!status) return ko ? '알 수 없음' : 'unknown'
   const normalized = status.toLowerCase()
-  let className = 'badge'
-  if (['queued', 'pending', 'pending_approval', 'not_requested'].includes(normalized)) className += ' badge-queued'
-  else if (['running', 'planning', 'applying', 'approved', 'destroying'].includes(normalized)) className += ' badge-running'
-  else if (['done', 'active', 'destroyed'].includes(normalized)) className += ' badge-done'
-  else if (normalized === 'failed') className += ' badge-failed'
-  else className += ' badge-muted'
-
   const labelMap: Record<string, string> = {
     queued: '대기',
     pending: '보류',
@@ -31,6 +23,19 @@ export default function StatusBadge({ status }: Props) {
     destroyed: '삭제됨',
     failed: '실패',
   }
+  return ko ? labelMap[normalized] || status : status
+}
 
-  return <span className={className}>{ko ? labelMap[normalized] || status || '알 수 없음' : status || 'unknown'}</span>
+export default function StatusBadge({ status }: Props) {
+  const { locale } = useI18n()
+  const ko = locale === 'ko'
+  const normalized = status.toLowerCase()
+  let className = 'badge'
+  if (['queued', 'pending', 'pending_approval', 'not_requested'].includes(normalized)) className += ' badge-queued'
+  else if (['running', 'planning', 'applying', 'approved', 'destroying'].includes(normalized)) className += ' badge-running'
+  else if (['done', 'active', 'destroyed'].includes(normalized)) className += ' badge-done'
+  else if (normalized === 'failed') className += ' badge-failed'
+  else className += ' badge-muted'
+
+  return <span className={className}>{formatStatusLabel(status, ko)}</span>
 }

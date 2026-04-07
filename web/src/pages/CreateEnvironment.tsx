@@ -98,6 +98,23 @@ export default function CreateEnvironmentPage() {
       .replace(/(\d+) instances were inferred\. Review capacity and blast radius before approval\./, '$1개 인스턴스를 추론했습니다. 승인 전에 용량과 영향 범위를 검토하세요.')
   }
 
+  function displayReviewSignalLine(value: string) {
+    if (!ko) return value
+    return value
+      .replace('Destroy operation', '삭제 작업')
+      .replace('Large instance footprint', '큰 인스턴스 규모')
+      .replace('Subnet capacity pressure', '서브넷 용량 압박')
+      .replace('Security references missing', '보안 참조 누락')
+      .replace('Security references inherited', '보안 참조 상속')
+      .replace('Template-backed plan', '템플릿 기반 계획')
+      .replace('This plan is destructive and will require an explicit confirmation before it should be approved.', '이 계획은 파괴적 작업이며 승인 전에 명시적 확인이 필요합니다.')
+      .replace('No security groups are attached. Validate tenant baseline inheritance before apply.', '보안 그룹이 연결되어 있지 않습니다. apply 전에 테넌트 기본 상속을 확인하세요.')
+      .replace(' will be included in the resulting environment state.', ' 항목이 결과 환경 상태에 포함됩니다.')
+      .replace(' will be rendered through the fixed template path.', ' 구성이 고정 템플릿 경로로 렌더링됩니다.')
+      .replace('Network ', '네트워크 ')
+      .replace(' and subnet ', ' / 서브넷 ')
+  }
+
   useEffect(() => {
     if (!viewerReady || step !== 6) return
 
@@ -430,8 +447,8 @@ export default function CreateEnvironmentPage() {
                     {reviewSignals.map((signal) => (
                       <div key={signal.label} className={`stack-row wizard-review-signal ${signal.severity === 'high' ? 'stack-row-danger' : ''}`}>
                         <div>
-                          <strong>{signal.label}</strong>
-                          <div className="row-meta">{signal.detail}</div>
+                          <strong>{displayReviewSignalLine(signal.label)}</strong>
+                          <div className="row-meta">{displayReviewSignalLine(signal.detail)}</div>
                         </div>
                         <span className={`badge ${signal.severity === 'high' ? 'badge-failed' : signal.severity === 'medium' ? 'badge-queued' : 'badge-done'}`}>
                           {ko ? signal.severity === 'high' ? '높음' : signal.severity === 'medium' ? '중간' : '낮음' : signal.severity}

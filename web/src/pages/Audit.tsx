@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AuditEvent, audit, auth, environments, Environment } from '../api'
 import { useI18n } from '../i18n'
+import { summarizeAuditMessage } from '../utils/uiCopy'
 
 type AuditRecord = AuditEvent & {
   environmentName?: string
@@ -41,21 +42,6 @@ function displayAuditAction(action: string, ko: boolean): string {
     'environment.destroy_succeeded': ko ? '환경 삭제 성공' : 'Environment destroy succeeded',
   }
   return map[action] || action
-}
-
-function displayAuditMessage(message: string | undefined, ko: boolean): string | undefined {
-  if (!message) return undefined
-  if (!ko) return message
-  return message
-    .replace('Plan approved for environment ', '환경 계획 승인: ')
-    .replace('Plan requested for environment ', '환경 계획 요청: ')
-    .replace('Apply requested for environment ', '환경 적용 요청: ')
-    .replace('Destroy requested for environment ', '환경 삭제 요청: ')
-    .replace('Retry requested for environment ', '환경 재시도 요청: ')
-    .replace('Plan failed for environment ', '환경 계획 실패: ')
-    .replace('Apply failed for environment ', '환경 적용 실패: ')
-    .replace('Apply succeeded for environment ', '환경 적용 성공: ')
-    .replace('Destroy succeeded for environment ', '환경 삭제 성공: ')
 }
 
 export default function AuditPage() {
@@ -255,7 +241,7 @@ export default function AuditPage() {
                       <strong>{item.environmentStatus || '-'}</strong>
                     </div>
                   </div>
-                  {item.message ? <div style={{ marginTop: 10 }}>{displayAuditMessage(item.message, ko)}</div> : null}
+                  {item.message ? <div style={{ marginTop: 10 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
                   {metadata ? (
                     <pre className="json-block" style={{ marginTop: 10 }}>
                       {JSON.stringify(metadata, null, 2)}

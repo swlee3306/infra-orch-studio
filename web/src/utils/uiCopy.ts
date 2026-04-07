@@ -58,6 +58,22 @@ export function summarizeOperatorError(message?: string | null): string {
   return message
 }
 
+export function summarizeAuditMessage(message?: string | null, ko = false): string | undefined {
+  if (!message) return undefined
+  if (!ko) return message
+  return message
+    .replace('Plan approved for environment ', '환경 계획 승인: ')
+    .replace('Plan requested for environment ', '환경 계획 요청: ')
+    .replace('Apply requested for environment ', '환경 적용 요청: ')
+    .replace('Destroy requested for environment ', '환경 삭제 요청: ')
+    .replace('Retry requested for environment ', '환경 재시도 요청: ')
+    .replace('Plan failed for environment ', '환경 계획 실패: ')
+    .replace('Apply failed for environment ', '환경 적용 실패: ')
+    .replace('Apply succeeded for environment ', '환경 적용 성공: ')
+    .replace('Destroy succeeded for environment ', '환경 삭제 성공: ')
+    .replace('runner marked environment failed', '러너가 환경을 실패 상태로 기록했습니다')
+}
+
 export function errorLooksRaw(message?: string | null): boolean {
   if (!message) return false
   return message.includes('/') || message.includes('{') || message.includes('no such file or directory')

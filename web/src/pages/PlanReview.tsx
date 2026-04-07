@@ -1,8 +1,32 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job, ImpactSummary, ReviewSignal } from '../api'
+import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { latestApprovalEvent } from '../utils/environmentView'
+
+function displayReviewSignal(signal: ReviewSignal, ko: boolean): ReviewSignal {
+  if (!ko) return signal
+  const labelMap: Record<string, string> = {
+    'Destroy operation': '삭제 작업',
+    'Large instance footprint': '큰 인스턴스 규모',
+    'Subnet capacity pressure': '서브넷 용량 압박',
+    'Security references missing': '보안 참조 누락',
+    'Security references inherited': '보안 참조 상속',
+    'Template-backed plan': '템플릿 기반 계획',
+  }
+  return {
+    ...signal,
+    label: labelMap[signal.label] || signal.label,
+    detail: signal.detail
+      .replace('This plan is destructive and will require an explicit confirmation before it should be approved.', '이 계획은 파괴적 작업이며 승인 전에 명시적 확인이 필요합니다.')
+      .replace('No security groups are attached. Validate tenant baseline inheritance before apply.', '보안 그룹이 연결되어 있지 않습니다. apply 전에 테넌트 기본 상속을 확인하세요.')
+      .replace(' will be included in the resulting environment state.', ' 항목이 결과 환경 상태에 포함됩니다.')
+      .replace(' will be rendered through the fixed template path.', ' 구성이 고정 템플릿 경로로 렌더링됩니다.')
+      .replace('Network ', '네트워크 ')
+      .replace(' and subnet ', ' / 서브넷 '),
+  }
+}
 
 export default function PlanReviewPage() {
   const nav = useNavigate()
@@ -101,7 +125,7 @@ export default function PlanReviewPage() {
       <section className="stats-grid">
         <article className="metric-card metric-card-primary">
           <span>{ko ? '계획 상태' : 'Plan status'}</span>
-          <strong>{planJob?.status || 'missing'}</strong>
+          <strong>{planJob?.status ? formatStatusLabel(planJob.status, ko) : ko ? '없음' : 'missing'}</strong>
           <p>{ko ? '이 환경의 최신 계획 작업 상태입니다.' : 'Current status of the latest queued plan job for this environment.'}</p>
         </article>
         <article className="metric-card">
@@ -116,7 +140,7 @@ export default function PlanReviewPage() {
         </article>
         <article className="metric-card">
           <span>{ko ? '승인' : 'Approval'}</span>
-          <strong>{environment?.approval_status || '-'}</strong>
+          <strong>{environment?.approval_status ? formatStatusLabel(environment.approval_status, ko) : '-'}</strong>
           <p>{ko ? '환경 리소스에 기록된 승인 상태입니다.' : 'Approval state tracked on the environment resource.'}</p>
         </article>
         <article className="metric-card">
@@ -135,8 +159,9 @@ export default function PlanReviewPage() {
             </div>
           </div>
           <div className="stack-list">
-            {reviewSignals.map((signal) => (
-              <div key={signal.label} className={`stack-row ${signal.severity === 'high' ? 'stack-row-danger' : ''}`}>
+            {reviewSignals.map((rawSignal) => {
+              const signal = displayReviewSignal(rawSignal, ko)
+              return <div key={signal.label} className={`stack-row ${signal.severity === 'high' ? 'stack-row-danger' : ''}`}>
                 <div>
                   <strong>{signal.label}</strong>
                   <div className="row-meta">{signal.detail}</div>
@@ -145,7 +170,7 @@ export default function PlanReviewPage() {
                   {ko ? signal.severity === 'high' ? '높음' : signal.severity === 'medium' ? '중간' : '낮음' : signal.severity}
                 </span>
               </div>
-            ))}
+            })}
           </div>
         </article>
 
