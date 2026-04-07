@@ -83,7 +83,7 @@ export default function DashboardPage() {
           <h1 className="page-title">{copy.dashboard.title}</h1>
           <p className="page-copy">{copy.dashboard.copy}</p>
           <div className="row-meta" style={{ marginTop: 12 }}>
-            {copy.dashboard.viewer} {viewer?.email || 'loading...'} · {viewer?.is_admin ? 'admin' : 'operator'}
+            {copy.dashboard.viewer} {viewer?.email || (ko ? '불러오는 중...' : 'loading...')} · {viewer?.is_admin ? (ko ? '관리자' : 'admin') : ko ? '운영자' : 'operator'}
           </div>
         </div>
         <div className="hero-actions">
@@ -120,7 +120,7 @@ export default function DashboardPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Approvals</div>
+              <div className="section-kicker">{ko ? '승인' : 'Approvals'}</div>
               <h2>{ko ? '승인 필요' : 'Approval required'}</h2>
             </div>
             <Link to="/environments" className="text-link">
@@ -147,7 +147,7 @@ export default function DashboardPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Failures</div>
+              <div className="section-kicker">{ko ? '실패' : 'Failures'}</div>
               <h2>{ko ? '실패 환경' : 'Failed environments'}</h2>
             </div>
             <Link to="/jobs" className="text-link">
@@ -176,7 +176,7 @@ export default function DashboardPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Environment list</div>
+              <div className="section-kicker">{ko ? '환경 목록' : 'Environment list'}</div>
               <h2>{ko ? '최근 생명주기 이력' : 'Recent lifecycle records'}</h2>
             </div>
             <Link to="/environments" className="text-link">
@@ -221,7 +221,7 @@ export default function DashboardPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Lifecycle</div>
+              <div className="section-kicker">{ko ? '라이프사이클' : 'Lifecycle'}</div>
               <h2>{ko ? '환경 생명주기 제어' : 'Environment lifecycle control'}</h2>
             </div>
           </div>

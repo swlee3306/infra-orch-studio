@@ -142,7 +142,7 @@ export default function EnvironmentsPage() {
           <h1 className="page-title">{copy.environments.title}</h1>
           <p className="page-copy">{copy.environments.copy}</p>
           <div className="row-meta" style={{ marginTop: 12 }}>
-            {copy.environments.viewer} {viewer?.email || 'loading...'}
+            {copy.environments.viewer} {viewer?.email || (ko ? '불러오는 중...' : 'loading...')}
           </div>
         </div>
         <div className="hero-actions">
@@ -326,7 +326,7 @@ export default function EnvironmentsPage() {
                 const created = await environments.create(spec, selectedTemplate)
                 nav(`/environments/${created.environment.id}/review`)
               } catch (err: any) {
-                setCreateError(err?.message || 'failed to create environment')
+                setCreateError(err?.message || (ko ? '환경 생성 실패' : 'failed to create environment'))
               } finally {
                 setCreating(false)
               }
