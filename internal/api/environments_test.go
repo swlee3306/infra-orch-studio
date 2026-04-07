@@ -462,6 +462,132 @@ func TestEnvironmentRetryRequiresAdminForFailedApply(t *testing.T) {
 	}
 }
 
+func TestEnvironmentPlanResetsAttemptScopedArtifacts(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-reset-plan",
+		Status:         domain.EnvironmentStatusActive,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusApproved,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-reset-plan",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		LastPlanJobID:  uuid.NewString(),
+		LastApplyJobID: uuid.NewString(),
+		LastJobID:      uuid.NewString(),
+		Workdir:        "/tmp/workdir-old",
+		PlanPath:       ".infra-orch/plan/old.bin",
+		OutputsJSON:    `{"old":"output"}`,
+		LastError:      "previous failure",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/plan", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("plan status = %d, want %d", rr.Code, http.StatusCreated)
+	}
+
+	updated, err := store.GetEnvironment(nil, env.ID)
+	if err != nil {
+		t.Fatalf("get environment: %v", err)
+	}
+	if updated.Workdir != "" || updated.PlanPath != "" || updated.OutputsJSON != "" || updated.LastError != "" {
+		t.Fatalf("attempt-scoped fields not cleared: %+v", updated)
+	}
+	if updated.ApprovalStatus != domain.ApprovalStatusNotRequested {
+		t.Fatalf("approval status = %s, want %s", updated.ApprovalStatus, domain.ApprovalStatusNotRequested)
+	}
+}
+
+func TestEnvironmentPlanRetryClearsAttemptScopedArtifacts(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-plan-retry",
+		Status:         domain.EnvironmentStatusFailed,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusPending,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-plan-retry",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		LastPlanJobID: uuid.NewString(),
+		LastJobID:     uuid.NewString(),
+		RetryCount:    0,
+		MaxRetries:    3,
+		Workdir:       "/tmp/workdir-old",
+		PlanPath:      ".infra-orch/plan/old.bin",
+		OutputsJSON:   `{"old":"output"}`,
+		LastError:     "plan failed",
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+	job := domain.Job{
+		ID:            env.LastJobID,
+		Type:          domain.JobTypePlan,
+		Status:        domain.JobStatusFailed,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		EnvironmentID: env.ID,
+		Operation:     env.Operation,
+		Environment:   env.Spec,
+		TemplateName:  "basic",
+		MaxRetries:    env.MaxRetries,
+		RetryCount:    0,
+		RequestedBy:   admin.Email,
+	}
+	if _, err := store.CreateJob(nil, job); err != nil {
+		t.Fatalf("create job: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/retry", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("retry status = %d, want %d", rr.Code, http.StatusCreated)
+	}
+
+	updated, err := store.GetEnvironment(nil, env.ID)
+	if err != nil {
+		t.Fatalf("get environment: %v", err)
+	}
+	if updated.Workdir != "" || updated.PlanPath != "" || updated.OutputsJSON != "" || updated.LastError != "" {
+		t.Fatalf("attempt-scoped fields not cleared on retry: %+v", updated)
+	}
+	if updated.ApprovalStatus != domain.ApprovalStatusNotRequested {
+		t.Fatalf("approval status after retry = %s, want %s", updated.ApprovalStatus, domain.ApprovalStatusNotRequested)
+	}
+}
+
 func TestTemplatesEndpointListsRepoBackedCatalog(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")

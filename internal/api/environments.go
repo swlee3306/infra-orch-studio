@@ -107,6 +107,18 @@ func validateEnvironmentDestroyAccess(env domain.Environment) (int, string) {
 	return 0, ""
 }
 
+func resetEnvironmentAttemptState(env *domain.Environment) {
+	env.ApprovalStatus = domain.ApprovalStatusNotRequested
+	env.ApprovedAt = nil
+	env.ApprovedByEmail = ""
+	env.ApprovedByUserID = ""
+	env.LastError = ""
+	env.Workdir = ""
+	env.PlanPath = ""
+	env.OutputsJSON = ""
+	env.LastPlanJobID = ""
+}
+
 func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user domain.User) {
 	switch r.Method {
 	case http.MethodGet:
@@ -283,11 +295,7 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 	env.Name = env.Spec.EnvironmentName
 	env.Operation = operation
 	env.Status = domain.EnvironmentStatusPlanning
-	env.ApprovalStatus = domain.ApprovalStatusNotRequested
-	env.ApprovedAt = nil
-	env.ApprovedByEmail = ""
-	env.ApprovedByUserID = ""
-	env.LastError = ""
+	resetEnvironmentAttemptState(&env)
 	env.UpdatedAt = now
 	job := newEnvironmentPlanJob(env, req.TemplateName, user.Email, now)
 	createdJob, err := s.jobs.CreateJob(r.Context(), job)
@@ -508,7 +516,7 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 	} else {
 		env.Status = domain.EnvironmentStatusPlanning
 	}
-	env.LastError = ""
+	resetEnvironmentAttemptState(&env)
 	env.UpdatedAt = now
 	env, err = s.jobs.UpdateEnvironment(r.Context(), env)
 	if err != nil {
@@ -557,11 +565,7 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 	now := time.Now().UTC()
 	env.Operation = domain.EnvironmentOperationDestroy
 	env.Status = domain.EnvironmentStatusPlanning
-	env.ApprovalStatus = domain.ApprovalStatusNotRequested
-	env.ApprovedAt = nil
-	env.ApprovedByEmail = ""
-	env.ApprovedByUserID = ""
-	env.LastError = ""
+	resetEnvironmentAttemptState(&env)
 	env.UpdatedAt = now
 	job := newEnvironmentPlanJob(env, "", user.Email, now)
 	createdJob, err := s.jobs.CreateJob(r.Context(), job)
