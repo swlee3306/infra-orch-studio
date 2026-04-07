@@ -14,14 +14,16 @@ import (
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
 	"github.com/swlee3306/infra-orch-studio/internal/executor"
 	"github.com/swlee3306/infra-orch-studio/internal/renderer"
+	"github.com/swlee3306/infra-orch-studio/internal/runtimecheck"
 	storemysql "github.com/swlee3306/infra-orch-studio/internal/storage/mysql"
 )
 
 func main() {
 	interval := envDuration("RUNNER_POLL_INTERVAL", 2*time.Second)
 	processingDelay := envDuration("RUNNER_PROCESSING_DELAY", 300*time.Millisecond)
-	templatesRoot := env("TEMPLATES_ROOT", "./templates/opentofu/environments")
-	workdirsRoot := env("WORKDIRS_ROOT", "./workdirs")
+	templatesRoot := runtimecheck.ResolvePath(env("TEMPLATES_ROOT", "./templates/opentofu/environments"))
+	modulesRoot := runtimecheck.ResolvePath(env("MODULES_ROOT", "./templates/opentofu/modules"))
+	workdirsRoot := runtimecheck.ResolvePath(env("WORKDIRS_ROOT", "./workdirs"))
 	templateName := env("TEMPLATE_NAME", "basic")
 	tofuBin := env("TOFU_BIN", "tofu")
 	mysqlCfg := storemysql.Config{
@@ -47,6 +49,9 @@ func main() {
 
 	if err := os.MkdirAll(workdirsRoot, 0o755); err != nil {
 		log.Fatalf("mkdir: %v", err)
+	}
+	if err := runtimecheck.ValidateTemplateAssets(templatesRoot, modulesRoot); err != nil {
+		log.Fatalf("validate template assets: %v", err)
 	}
 
 	store, err := storemysql.Open(mysqlCfg)
@@ -160,7 +165,6 @@ func main() {
 			"instances":        vars.Instances,
 		}
 
-		modulesRoot := env("MODULES_ROOT", "./templates/opentofu/modules")
 		effectiveTemplateName := job.TemplateName
 		if effectiveTemplateName == "" {
 			effectiveTemplateName = templateName

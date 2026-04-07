@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/swlee3306/infra-orch-studio/internal/runtimecheck"
 )
 
 func TestResolvePathUsesWorkingDirectory(t *testing.T) {
@@ -22,8 +24,8 @@ func TestResolvePathUsesWorkingDirectory(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(prev) }()
 
-	got := resolvePath("./templates/opentofu/environments")
+	got := runtimecheck.ResolvePath("./templates/opentofu/environments")
 	if got != target {
-		t.Fatalf("resolvePath() = %q, want %q", got, target)
+		t.Fatalf("ResolvePath() = %q, want %q", got, target)
 	}
 }

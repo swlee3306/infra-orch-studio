@@ -14,6 +14,7 @@
 - [ ] Confirm environment variables for MySQL, OpenStack, and API address are documented.
 - [ ] Confirm the release target matches the intended environment: dev, stage, or prod.
 - [ ] Confirm MySQL migration logs are clean on the target cluster.
+- [ ] Confirm API and runner startup logs show template asset validation succeeded.
 
 ## Functional Smoke Checks
 
@@ -30,6 +31,7 @@
 - [ ] Confirm the runner can claim queued jobs.
 - [ ] Confirm logs appear in the workdir `.infra-orch/logs` path.
 - [ ] Confirm secrets and config are mounted where the pod expects them.
+- [ ] Confirm `/app/templates/opentofu/environments/basic` contains `main.tf`, `variables.tf`, `outputs.tf`, and `versions.tf`.
 - [ ] Confirm ingress/controller behavior matches the environment model, or that Argo CD ingress health is intentionally ignored in bare-metal/DDNS setups.
 - [ ] Confirm rollback instructions are available before any production cutover.
 
