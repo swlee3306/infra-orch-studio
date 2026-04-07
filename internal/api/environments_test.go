@@ -128,6 +128,58 @@ func TestEnvironmentLifecycleApprovalAndAudit(t *testing.T) {
 	}
 }
 
+func TestRequestDraftsReturnsStructuredEnvironmentDraft(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/request-drafts", strings.NewReader(`{
+		"prompt": "create a production environment named payments-api for tenant finops with 3 instances, ubuntu, medium flavor, web and db access, network 10.44.0.0/24 and subnet 10.44.0.0/26"
+	}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var resp struct {
+		TemplateName   string                 `json:"template_name"`
+		Spec           domain.EnvironmentSpec `json:"spec"`
+		Assumptions    []string               `json:"assumptions"`
+		Warnings       []string               `json:"warnings"`
+		RequiresReview bool                   `json:"requires_review"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.TemplateName != "basic" {
+		t.Fatalf("template = %q, want basic", resp.TemplateName)
+	}
+	if resp.Spec.EnvironmentName != "payments-api" {
+		t.Fatalf("environment name = %q", resp.Spec.EnvironmentName)
+	}
+	if resp.Spec.TenantName != "finops" {
+		t.Fatalf("tenant = %q", resp.Spec.TenantName)
+	}
+	if resp.Spec.Instances[0].Count != 3 {
+		t.Fatalf("instance count = %d, want 3", resp.Spec.Instances[0].Count)
+	}
+	if resp.Spec.Network.CIDR != "10.44.0.0/24" || resp.Spec.Subnet.CIDR != "10.44.0.0/26" {
+		t.Fatalf("cidrs = %s / %s", resp.Spec.Network.CIDR, resp.Spec.Subnet.CIDR)
+	}
+	if !resp.RequiresReview {
+		t.Fatalf("requires_review = false, want true")
+	}
+	if len(resp.Assumptions) == 0 {
+		t.Fatalf("expected assumptions")
+	}
+	if len(resp.Warnings) == 0 {
+		t.Fatalf("expected warnings for production-like request")
+	}
+}
+
 func TestEnvironmentRetryBudget(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")

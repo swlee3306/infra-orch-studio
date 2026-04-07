@@ -48,6 +48,11 @@ Admin seed:
 - `GET /api/environments/:id/jobs`
 - `GET /api/environments/:id/artifacts`
 
+### Request Drafts
+- `POST /api/request-drafts`
+
+자연어 요청을 즉시 실행하지 않고, create wizard에 주입할 수 있는 구조화된 environment draft만 생성한다. 생성된 draft도 기존 `plan -> review -> approval -> apply` 흐름을 그대로 따라야 한다.
+
 ### Templates
 - `GET /api/templates`
 - `GET /api/templates/:kind/:name`

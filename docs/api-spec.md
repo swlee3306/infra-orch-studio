@@ -34,6 +34,38 @@
 - Auth required.
 - Returns the current user.
 
+## Request Drafts
+
+### `POST /api/request-drafts`
+- Auth required.
+- Converts a natural-language operator request into a structured draft only.
+- This endpoint does **not** create an environment, queue a plan, or bypass review/approval.
+- Body:
+```json
+{ "prompt": "create a staging environment named payments-api for tenant finops with 2 ubuntu instances and web access" }
+```
+- Returns:
+```json
+{
+  "prompt": "create a staging environment named payments-api for tenant finops with 2 ubuntu instances and web access",
+  "template_name": "basic",
+  "spec": {
+    "environment_name": "payments-api",
+    "tenant_name": "finops",
+    "network": { "name": "vnet-payments-api", "cidr": "10.30.0.0/24" },
+    "subnet": { "name": "snet-payments-api", "cidr": "10.30.0.0/25", "gateway_ip": "10.30.0.1", "enable_dhcp": true },
+    "instances": [
+      { "name": "payments-api-01", "image": "ubuntu-22.04", "flavor": "m1.medium", "ssh_key_name": "default", "count": 2 }
+    ],
+    "security_groups": ["sg-web"]
+  },
+  "assumptions": ["..."],
+  "warnings": ["..."],
+  "next_step": "Apply the generated draft to the wizard, then continue through plan review and approval.",
+  "requires_review": true
+}
+```
+
 ## Environments
 
 ### Environment object
