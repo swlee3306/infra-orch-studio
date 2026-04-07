@@ -760,6 +760,38 @@ button:hover:not(:disabled) {
   line-height: 1.5;
 }
 
+.console-details {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(22, 32, 51, 0.44);
+  overflow: hidden;
+}
+
+.console-details summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 16px;
+  font-weight: 700;
+}
+
+.console-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.console-details-inline {
+  margin-top: 10px;
+}
+
+.metric-path {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.83rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .hero,
 .split {
   display: grid;

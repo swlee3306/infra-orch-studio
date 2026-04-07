@@ -69,15 +69,16 @@ export default function TemplatesPage() {
   }
 
   const emptyCatalog = Boolean(catalog && catalog.environment_sets.length === 0 && catalog.modules.length === 0)
+  const selectedDescriptor = detail?.descriptor || null
 
   return (
     <div className="page-stack">
       <section className="hero-panel">
         <div>
-          <div className="page-kicker">Template management / repo-backed source</div>
+          <div className="page-kicker">Template management / renderer contract</div>
           <h1 className="page-title">OpenTofu template catalog</h1>
           <p className="page-copy">
-            Inspect the template inventory currently visible to the API and runner before queuing create, update, or destroy plans.
+            Check which environment sets and shared modules are currently usable before queueing a plan.
           </p>
         </div>
         <div className="hero-actions">
@@ -113,14 +114,9 @@ export default function TemplatesPage() {
           <p>Shared modules linked by the environment templates.</p>
         </article>
         <article className="metric-card">
-          <span>Templates root</span>
-          <div className="metric-path">{catalog?.templates_root || '-'}</div>
-          <p>Filesystem root read by the API for environment template sets.</p>
-        </article>
-        <article className="metric-card">
-          <span>Modules root</span>
-          <div className="metric-path">{catalog?.modules_root || '-'}</div>
-          <p>Filesystem root read by the API for shared modules.</p>
+          <span>Catalog posture</span>
+          <strong>{emptyCatalog ? 'Empty' : 'Visible'}</strong>
+          <p>Server-side template roots are readable and selectable from this console.</p>
         </article>
       </section>
 
@@ -143,7 +139,7 @@ export default function TemplatesPage() {
                 >
                   <div>
                     <strong>{item.name}</strong>
-                    <div className="row-meta">{item.path}</div>
+                    <div className="row-meta">{item.description || 'Environment set visible to create, update, and destroy planning.'}</div>
                     <div className="chip-row" style={{ marginTop: 10 }}>
                       {item.files.map((file) => (
                         <span className="badge badge-muted" key={file}>
@@ -163,27 +159,27 @@ export default function TemplatesPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Usage posture</div>
-              <h2>Operator notes</h2>
+              <div className="section-kicker">Runtime visibility</div>
+              <h2>Catalog posture</h2>
             </div>
           </div>
           <div className="stack-list">
             <div className="stack-row">
               <div>
-                <strong>Renderer-backed</strong>
-                <div className="row-meta">The catalog mirrors the same directories used by runner workdir rendering.</div>
+                <strong>Template root</strong>
+                <div className="row-meta">{catalog?.templates_root || '-'}</div>
               </div>
             </div>
             <div className="stack-row">
               <div>
-                <strong>Environment-first</strong>
-                <div className="row-meta">Create and plan actions still start from environments. This page exposes the underlying template inventory.</div>
+                <strong>Module root</strong>
+                <div className="row-meta">{catalog?.modules_root || '-'}</div>
               </div>
             </div>
             <div className="stack-row">
               <div>
-                <strong>Validation support</strong>
-                <div className="row-meta">The console can now inspect required files and validate the selected template or module against renderer expectations.</div>
+                <strong>Operator guidance</strong>
+                <div className="row-meta">Use validation before queueing create, update, or destroy plans when template contents have changed.</div>
               </div>
             </div>
           </div>
@@ -211,7 +207,8 @@ export default function TemplatesPage() {
                 </div>
                 <div className="meta-item">
                   <span>Path</span>
-                  <strong>{detail.descriptor.path}</strong>
+                  <strong>{detail.descriptor.name}</strong>
+                  <div className="row-meta">{detail.descriptor.path}</div>
                 </div>
                 <div className="meta-item">
                   <span>Validation</span>
@@ -225,6 +222,14 @@ export default function TemplatesPage() {
                     <div className="row-meta">{validation?.description || 'No description available.'}</div>
                   </div>
                 </div>
+                {selectedDescriptor ? (
+                  <details className="console-details console-details-inline">
+                    <summary>Show selected path</summary>
+                    <div className="row-meta" style={{ marginTop: 10 }}>
+                      {selectedDescriptor.path}
+                    </div>
+                  </details>
+                ) : null}
                 <div className="stack-row">
                   <div>
                     <strong>Required files</strong>
@@ -301,7 +306,7 @@ export default function TemplatesPage() {
               >
                 <div>
                   <strong>{item.name}</strong>
-                  <div className="row-meta">{item.path}</div>
+                  <div className="row-meta">{item.description || 'Reusable infrastructure building block available to environment sets.'}</div>
                   <div className="chip-row" style={{ marginTop: 10 }}>
                     {item.files.map((file) => (
                       <span className="badge badge-muted" key={file}>
