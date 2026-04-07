@@ -36,6 +36,16 @@ This endpoint is available only when `ALLOW_PUBLIC_SIGNUP=true`.
 - Auth required.
 - Returns the current user.
 
+### `POST /api/admin/users`
+- Auth required.
+- Admin only.
+- Creates a user for managed onboarding when public signup is disabled.
+- Body:
+```json
+{ "email": "operator@example.com", "password": "change-me-123", "is_admin": false }
+```
+- Returns the created user object.
+
 ## Request Drafts
 
 ### `POST /api/request-drafts`
