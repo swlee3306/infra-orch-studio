@@ -2,6 +2,7 @@ export type User = {
   id: string
   email: string
   is_admin?: boolean
+  is_disabled?: boolean
   created_at?: string
   updated_at?: string
 }
@@ -204,6 +205,10 @@ export type AdminProvisionUserRequest = {
   is_admin?: boolean
 }
 
+export type AdminUserStatusRequest = {
+  disabled: boolean
+}
+
 export type AdminUserListResponse = {
   items: User[]
 }
@@ -246,6 +251,8 @@ export const auth = {
   listUsers: () => req<AdminUserListResponse>('/admin/users'),
   createUser: (payload: AdminProvisionUserRequest) =>
     req<User>('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
+  setUserDisabled: (id: string, payload: AdminUserStatusRequest) =>
+    req<User>('/admin/users/' + id + '/disable', { method: 'POST', body: JSON.stringify(payload) }),
 }
 
 export const jobs = {

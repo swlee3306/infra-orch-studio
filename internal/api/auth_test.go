@@ -223,3 +223,58 @@ func TestAdminCanProvisionUser(t *testing.T) {
 		t.Fatalf("password hash should not be exposed from list response")
 	}
 }
+
+func TestAdminCanDisableUserAndBlockLogin(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	operator := mustUser(t, "operator@example.com", false, "password123")
+	seedSession(store, admin, "admin-session-token")
+	seedSession(store, operator, "operator-session-token")
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/users/"+operator.ID+"/disable", strings.NewReader(`{"disabled":true}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("disable user status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var updated domain.User
+	if err := decodeJSON(bytes.NewReader(rr.Body.Bytes()), &updated); err != nil {
+		t.Fatalf("decode disabled user: %v", err)
+	}
+	if !updated.Disabled {
+		t.Fatalf("disabled = false, want true")
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"email":"operator@example.com","password":"password123"}`))
+	loginRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(loginRR, loginReq)
+	if loginRR.Code != http.StatusForbidden {
+		t.Fatalf("disabled login status = %d, want %d", loginRR.Code, http.StatusForbidden)
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
+	meReq.AddCookie(cookieFromToken("operator-session-token", srv.cookieName))
+	meRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(meRR, meReq)
+	if meRR.Code != http.StatusUnauthorized {
+		t.Fatalf("disabled session status = %d, want %d", meRR.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestCannotDisableLastActiveAdmin(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/users/"+admin.ID+"/disable", strings.NewReader(`{"disabled":true}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("disable last admin status = %d, want %d", rr.Code, http.StatusBadRequest)
+	}
+}

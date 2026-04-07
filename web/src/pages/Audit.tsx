@@ -31,6 +31,8 @@ function primaryEnvironmentRoute(environmentId: string, items: Environment[]): s
 function displayAuditAction(action: string, ko: boolean): string {
   const map: Record<string, string> = {
     'user.provisioned': ko ? '사용자 계정 생성' : 'User account provisioned',
+    'user.disabled': ko ? '사용자 비활성화' : 'User account disabled',
+    'user.enabled': ko ? '사용자 재활성화' : 'User account re-enabled',
     'environment.created': ko ? '환경 생성' : 'Environment created',
     'environment.plan_requested': ko ? '환경 계획 요청' : 'Environment plan requested',
     'environment.approved': ko ? '환경 승인' : 'Environment approved',

@@ -58,6 +58,19 @@ This endpoint is available only when `ALLOW_PUBLIC_SIGNUP=true`.
 }
 ```
 
+### `POST /api/admin/users/:id/disable`
+- Auth required.
+- Admin only.
+- Body:
+```json
+{ "disabled": true }
+```
+- Behavior:
+  - disables or re-enables a managed user
+  - disabled users cannot log in and existing sessions stop authenticating
+  - the current admin session cannot disable itself
+  - the last active admin cannot be disabled
+
 ## Request Drafts
 
 ### `POST /api/request-drafts`

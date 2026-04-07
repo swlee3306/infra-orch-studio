@@ -27,6 +27,7 @@ export default function UsersPage() {
   const [password, setPassword] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [statusTargetId, setStatusTargetId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -67,6 +68,25 @@ export default function UsersPage() {
       setError(err?.message || 'failed')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function onToggleUser(item: User) {
+    setStatusTargetId(item.id)
+    setError(null)
+    setNotice(null)
+    try {
+      const updated = await auth.setUserDisabled(item.id, { disabled: !item.is_disabled })
+      setNotice(
+        ko
+          ? `${updated.email} 계정을 ${updated.is_disabled ? '비활성화' : '재활성화'}했습니다.`
+          : `${updated.is_disabled ? 'Disabled' : 'Re-enabled'} ${updated.email}.`,
+      )
+      await load()
+    } catch (err: any) {
+      setError(err?.message || 'failed')
+    } finally {
+      setStatusTargetId(null)
     }
   }
 
@@ -123,7 +143,24 @@ export default function UsersPage() {
                       {copy.users.createdAt} · {formatAuditTime(item.created_at)}
                     </div>
                   </div>
-                  <span className="badge badge-muted">{item.is_admin ? copy.users.roleAdmin : copy.users.roleUser}</span>
+                  <div className="detail-actions">
+                    <span className={`badge ${item.is_disabled ? 'badge-failed' : 'badge-done'}`}>{item.is_disabled ? copy.users.statusDisabled : copy.users.statusActive}</span>
+                    <span className="badge badge-muted">{item.is_admin ? copy.users.roleAdmin : copy.users.roleUser}</span>
+                    <button
+                      type="button"
+                      className={item.is_disabled ? 'ghost' : 'danger'}
+                      disabled={statusTargetId === item.id || (viewer?.id === item.id && item.is_admin)}
+                      onClick={() => onToggleUser(item)}
+                    >
+                      {statusTargetId === item.id
+                        ? item.is_disabled
+                          ? copy.users.enabling
+                          : copy.users.disabling
+                        : item.is_disabled
+                          ? copy.users.enable
+                          : copy.users.disable}
+                    </button>
+                  </div>
                 </div>
               ))
             )}
