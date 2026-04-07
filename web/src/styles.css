@@ -406,6 +406,7 @@ button:hover:not(:disabled) {
 .jobs-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .ops-table th,
@@ -430,6 +431,10 @@ button:hover:not(:disabled) {
 .jobs-table td .muted {
   display: block;
   margin-top: 3px;
+}
+
+.jobs-detail-link {
+  white-space: nowrap;
 }
 
 .ops-input,
@@ -922,6 +927,10 @@ button:hover:not(:disabled) {
   .ops-col-optional {
     display: none;
   }
+
+  .dashboard-col-mobile-optional {
+    display: none;
+  }
 }
 
 @media (max-width: 1280px) {
@@ -1001,5 +1010,16 @@ button:hover:not(:disabled) {
 
   .jobs-col-mobile-optional {
     display: none;
+  }
+
+  .jobs-source-meta {
+    display: none;
+  }
+
+  .ops-table th,
+  .ops-table td,
+  .jobs-table th,
+  .jobs-table td {
+    padding: 0.72rem 0.52rem;
   }
 }
