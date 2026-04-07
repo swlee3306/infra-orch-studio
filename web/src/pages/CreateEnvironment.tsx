@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { auth, environments, EnvironmentPlanReviewResponse, EnvironmentSpec, TemplateDescriptor, templates } from '../api'
+import { auth, environments, EnvironmentPlanReviewResponse, EnvironmentSpec, requestDrafts, RequestDraftResponse, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
@@ -40,6 +40,10 @@ export default function CreateEnvironmentPage() {
   const [preview, setPreview] = useState<EnvironmentPlanReviewResponse | null>(null)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [chatPrompt, setChatPrompt] = useState('')
+  const [draftBusy, setDraftBusy] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [requestDraft, setRequestDraft] = useState<RequestDraftResponse | null>(null)
 
   useEffect(() => {
     auth
@@ -150,6 +154,28 @@ export default function CreateEnvironmentPage() {
     }
   }
 
+  async function generateRequestDraft() {
+    setDraftBusy(true)
+    setDraftError(null)
+    try {
+      const draft = await requestDrafts.generate(chatPrompt)
+      setRequestDraft(draft)
+    } catch (err: any) {
+      setRequestDraft(null)
+      setDraftError(err?.message || 'failed to generate request draft')
+    } finally {
+      setDraftBusy(false)
+    }
+  }
+
+  function applyRequestDraft() {
+    if (!requestDraft) return
+    setSpec(requestDraft.spec)
+    setSelectedTemplate(requestDraft.template_name || 'basic')
+    setTemplateMode('template')
+    setStep(1)
+  }
+
   if (!viewerReady) return null
 
   return (
@@ -220,6 +246,86 @@ export default function CreateEnvironmentPage() {
 
           {step === 0 ? (
             <div className="page-stack">
+              <article className="console-card request-chat-card">
+                <div className="section-head">
+                  <div>
+                    <div className="section-kicker">Request chat (beta)</div>
+                    <h2>Generate a structured request draft</h2>
+                  </div>
+                  <span className="badge badge-muted">Draft only</span>
+                </div>
+                <p className="page-copy request-chat-copy">
+                  Describe the environment you want in natural language. The assistant only fills a draft and still sends you through plan review and approval.
+                </p>
+                <label className="field">
+                  <span>Request prompt</span>
+                  <textarea
+                    rows={4}
+                    value={chatPrompt}
+                    onChange={(e) => setChatPrompt(e.target.value)}
+                    placeholder="Example: Create a staging environment named payments-api for tenant finops with 2 ubuntu instances, medium flavor, web and db security groups, network 10.44.0.0/24 and subnet 10.44.0.0/26."
+                  />
+                </label>
+                <div className="detail-actions" style={{ marginTop: 14 }}>
+                  <button type="button" onClick={generateRequestDraft} disabled={draftBusy || chatPrompt.trim() === ''}>
+                    {draftBusy ? 'Generating draft...' : 'Generate request draft'}
+                  </button>
+                  {requestDraft ? (
+                    <button type="button" className="ghost" onClick={applyRequestDraft}>
+                      Use draft in wizard
+                    </button>
+                  ) : null}
+                </div>
+                {draftError ? <div className="error-box" style={{ marginTop: 14 }}>{summarizeOperatorError(draftError)}</div> : null}
+                {requestDraft ? (
+                  <div className="page-stack" style={{ marginTop: 16 }}>
+                    <div className="info-grid wizard-review-summary">
+                      <div className="meta-item">
+                        <span>Environment</span>
+                        <strong>{requestDraft.spec.environment_name}</strong>
+                      </div>
+                      <div className="meta-item">
+                        <span>Tenant</span>
+                        <strong>{requestDraft.spec.tenant_name}</strong>
+                      </div>
+                      <div className="meta-item">
+                        <span>Template</span>
+                        <strong>{requestDraft.template_name}</strong>
+                      </div>
+                      <div className="meta-item">
+                        <span>Instances</span>
+                        <strong>{requestDraft.spec.instances.reduce((acc, item) => acc + item.count, 0)}</strong>
+                      </div>
+                    </div>
+                    <div className="grid-two">
+                      <div className="note-card">
+                        <strong>Assumptions</strong>
+                        <div className="stack-list" style={{ marginTop: 10 }}>
+                          {requestDraft.assumptions.map((item) => (
+                            <div key={item} className="stack-row">
+                              <div className="row-meta">{item}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="note-card">
+                        <strong>Warnings</strong>
+                        <div className="stack-list" style={{ marginTop: 10 }}>
+                          {requestDraft.warnings.length ? requestDraft.warnings.map((item) => (
+                            <div key={item} className="stack-row stack-row-danger">
+                              <div className="row-meta">{item}</div>
+                            </div>
+                          )) : <div className="row-meta">No extra warnings were generated for this prompt.</div>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="callout callout-info">
+                      <strong>Next step</strong>
+                      <p style={{ margin: '6px 0 0' }}>{requestDraft.next_step}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </article>
               <div className="stack-list">
                 <button
                   type="button"

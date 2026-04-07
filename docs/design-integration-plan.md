@@ -74,7 +74,8 @@
 ## 4. 부족한 부분
 
 - template management는 inspect/validate까지 왔지만 edit/apply 같은 고급 관리 기능은 없다.
-- drift detection / chat assistance는 아직 화면과 API가 없다.
+- drift detection은 아직 화면과 API가 없다.
+- chat assistance는 create wizard 안의 `request chat (beta)` draft 생성 수준까지 반영됐지만, multi-turn assistant나 정책 질의응답 단계는 아직 없다.
 - legacy `/jobs` 화면은 운영 주 경로라기보다 하위 execution ledger 성격이 강하다.
 
 ## 5. 새로 구현해야 할 부분
@@ -97,6 +98,7 @@
 - Template management
 - Dedicated Audit 화면
 - Destroy flow confirmation 강화
+- request chat beta 고도화
 
 ## 6. 현재 코드와 디자인 매핑
 
@@ -128,6 +130,7 @@
   - plan review에서 high-risk / low-risk / impact summary 구분
 - 현재 상태
   - create wizard와 plan review가 별도 화면으로 분리되어 있다.
+  - create wizard 1단계에 자연어 요청을 structured draft로 바꾸는 `request chat (beta)` 패널이 들어가 있다.
 - 반영 방향
   - 현재 구조 유지
   - 향후 server-side validation 범위를 더 넓히는 개선 가능
@@ -166,6 +169,8 @@
 
 - `checkpoint states`
   - Zone D 수준 UX를 위해 추가 정교화 가능
+- `request draft parsing`
+  - 현재는 deterministic parsing 기반이므로 multi-turn clarification은 아직 없다.
 
 ### 현재 반영된 API
 
@@ -185,6 +190,8 @@
   - selected template/module inspect 조회용
 - `POST /api/templates/:kind/:name/validate`
   - renderer contract 기준 validate 실행용
+- `POST /api/request-drafts`
+  - 자연어 요청을 create wizard용 structured draft로 바꾸는 beta endpoint
 
 ## 8. 수정 우선순위
 
@@ -216,7 +223,8 @@
 - 디자인 반영 미완료
   - 일부 P2 고급 기능은 아직 없음
 - 추가 필요 사항
-  - drift detection / chat assistance 같은 후속 범위 정리
+  - drift detection
+  - request chat beta를 policy-aware assistant로 확장할지 범위 정리
 
 ## 11. 현재 반영 상태
 
@@ -231,7 +239,9 @@
   - P2 `Dedicated Audit` 화면 추가
   - P2 `Template Management`는 repo-backed catalog 조회와 template/module inspect + validate까지 반영
   - `Destroy Flow polish`는 admin-only + typed confirmation payload + audit comment metadata까지 반영
+  - `Request chat (beta)`는 create wizard 안에서 structured draft 생성까지 반영
 - 미완료
   - template edit/apply 같은 고급 관리 기능은 아직 없음
 - 추가 필요 사항
-  - drift detection / chat interface는 아직 제품 범위 밖으로 남아 있음
+  - drift detection
+  - request chat은 아직 draft generation까지만 지원하고 multi-turn assistant는 없음

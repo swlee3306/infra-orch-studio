@@ -184,6 +184,16 @@ export type EnvironmentPlanReviewResponse = {
   plan_job?: Job | null
 }
 
+export type RequestDraftResponse = {
+  prompt: string
+  template_name: string
+  spec: EnvironmentSpec
+  assumptions: string[]
+  warnings: string[]
+  next_step: string
+  requires_review: boolean
+}
+
 // VITE_API_URL should point to the API base.
 // - prod (nginx proxy): "/api"
 // - dev: "http://localhost:8080/api"
@@ -285,6 +295,14 @@ export const audit = {
     const suffix = query.toString()
     return req<AuditFeedResponse>(`/audit${suffix ? `?${suffix}` : ''}`)
   },
+}
+
+export const requestDrafts = {
+  generate: (prompt: string) =>
+    req<RequestDraftResponse>('/request-drafts', {
+      method: 'POST',
+      body: JSON.stringify({ prompt }),
+    }),
 }
 
 export function wsUrl(): string {
