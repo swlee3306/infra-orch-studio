@@ -38,7 +38,8 @@ function primaryRoute(item: Environment): string {
 
 export default function EnvironmentsPage() {
   const nav = useNavigate()
-  const { copy } = useI18n()
+  const { locale, copy } = useI18n()
+  const ko = locale === 'ko'
   const [items, setItems] = useState<Environment[]>([])
   const [viewer, setViewer] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -124,13 +125,13 @@ export default function EnvironmentsPage() {
 
   const lifecycleBuckets = useMemo(
     () => [
-      { label: 'Request', value: summary.total },
-      { label: 'Plan', value: items.filter((item) => item.status === 'planning').length },
-      { label: 'Approval', value: summary.pending },
-      { label: 'Apply', value: items.filter((item) => item.status === 'applying').length },
-      { label: 'Result', value: summary.active },
+      { label: ko ? '요청' : 'Request', value: summary.total },
+      { label: ko ? '계획' : 'Plan', value: items.filter((item) => item.status === 'planning').length },
+      { label: ko ? '승인' : 'Approval', value: summary.pending },
+      { label: ko ? '적용' : 'Apply', value: items.filter((item) => item.status === 'applying').length },
+      { label: ko ? '결과' : 'Result', value: summary.active },
     ],
-    [items, summary],
+    [items, ko, summary],
   )
 
   return (
@@ -159,26 +160,26 @@ export default function EnvironmentsPage() {
 
       <section className="stats-grid">
         <article className="metric-card metric-card-primary">
-          <span>Environments</span>
+          <span>{ko ? '환경 수' : 'Environments'}</span>
           <strong>{summary.total}</strong>
-          <p>Total environments currently tracked in the control plane.</p>
+          <p>{ko ? '현재 운영 콘솔이 추적 중인 전체 환경 수입니다.' : 'Total environments currently tracked in the control plane.'}</p>
         </article>
         <article className="metric-card">
-          <span>Pending approval</span>
+          <span>{ko ? '승인 대기' : 'Pending approval'}</span>
           <strong>{summary.pending}</strong>
-          <p>Plans blocked before apply due to operator approval gates.</p>
+          <p>{ko ? '운영 승인 게이트 때문에 apply 전에 멈춰 있는 계획입니다.' : 'Plans blocked before apply due to operator approval gates.'}</p>
         </article>
         <article className="metric-card">
-          <span>In flight</span>
+          <span>{ko ? '진행 중' : 'In flight'}</span>
           <strong>{summary.inflight}</strong>
-          <p>Environment plans or applies currently running through the system.</p>
+          <p>{ko ? '현재 시스템에서 실행 중인 환경 plan 또는 apply 작업입니다.' : 'Environment plans or applies currently running through the system.'}</p>
         </article>
         <article className="metric-card">
-          <span>Active / failed</span>
+          <span>{ko ? '정상 / 실패' : 'Active / failed'}</span>
           <strong>
             {summary.active} / {summary.failed}
           </strong>
-          <p>Healthy results versus environments paused on execution failure.</p>
+          <p>{ko ? '정상 상태의 환경과 실행 실패로 멈춘 환경의 비율입니다.' : 'Healthy results versus environments paused on execution failure.'}</p>
         </article>
       </section>
 
@@ -186,8 +187,8 @@ export default function EnvironmentsPage() {
         <article className="console-card console-card-span">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Filters</div>
-              <h2>Search environment state</h2>
+              <div className="section-kicker">{ko ? '필터' : 'Filters'}</div>
+              <h2>{ko ? '환경 상태 검색' : 'Search environment state'}</h2>
             </div>
           </div>
           <div className="toolbar-row">
@@ -195,16 +196,16 @@ export default function EnvironmentsPage() {
               className="ops-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search environment, tenant, owner, or lifecycle"
+              placeholder={ko ? '환경, 테넌트, 소유자, 라이프사이클 검색' : 'Search environment, tenant, owner, or lifecycle'}
             />
             <div className="chip-row">
               {[
-                ['all', 'All'],
-                ['pending_approval', 'Pending approval'],
-                ['active', 'Active'],
-                ['failed', 'Failed'],
-                ['planning', 'Planning'],
-                ['applying', 'Applying'],
+                ['all', ko ? '전체' : 'All'],
+                ['pending_approval', ko ? '승인 대기' : 'Pending approval'],
+                ['active', ko ? '활성' : 'Active'],
+                ['failed', ko ? '실패' : 'Failed'],
+                ['planning', ko ? '계획 중' : 'Planning'],
+                ['applying', ko ? '적용 중' : 'Applying'],
               ].map(([value, label]) => (
                 <button
                   key={value}
@@ -221,15 +222,15 @@ export default function EnvironmentsPage() {
             <table className="ops-table">
               <thead>
                 <tr>
-                  <th>Environment</th>
-                  <th>Lifecycle</th>
-                  <th>Approval</th>
-                  <th className="ops-col-optional">Operation</th>
-                  <th className="ops-col-optional">Owner</th>
-                  <th>Last execution</th>
-                  <th className="ops-col-optional">Retries</th>
-                  <th className="ops-col-optional">Updated</th>
-                  <th>Next step</th>
+                  <th>{ko ? '환경' : 'Environment'}</th>
+                  <th>{ko ? '라이프사이클' : 'Lifecycle'}</th>
+                  <th>{ko ? '승인' : 'Approval'}</th>
+                  <th className="ops-col-optional">{ko ? '작업' : 'Operation'}</th>
+                  <th className="ops-col-optional">{ko ? '소유자' : 'Owner'}</th>
+                  <th>{ko ? '최근 실행' : 'Last execution'}</th>
+                  <th className="ops-col-optional">{ko ? '재시도' : 'Retries'}</th>
+                  <th className="ops-col-optional">{ko ? '업데이트' : 'Updated'}</th>
+                  <th>{ko ? '다음 단계' : 'Next step'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -265,10 +266,10 @@ export default function EnvironmentsPage() {
                     <td>
                       <Link to={primaryRoute(env)} className="text-link">
                         {env.status === 'pending_approval'
-                          ? 'Review plan'
+                          ? ko ? '계획 검토' : 'Review plan'
                           : env.approval_status === 'approved'
-                            ? 'Control apply'
-                            : 'Open detail'}
+                            ? ko ? '적용 제어' : 'Control apply'
+                            : ko ? '상세 보기' : 'Open detail'}
                       </Link>
                     </td>
                   </tr>
@@ -276,7 +277,7 @@ export default function EnvironmentsPage() {
                 {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9}>
-                    <div className="empty-state">No environments match the current filters.</div>
+                    <div className="empty-state">{ko ? '현재 필터와 일치하는 환경이 없습니다.' : 'No environments match the current filters.'}</div>
                   </td>
                 </tr>
                 ) : null}
@@ -288,8 +289,8 @@ export default function EnvironmentsPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Lifecycle</div>
-              <h2>Stage visibility</h2>
+              <div className="section-kicker">{ko ? '라이프사이클' : 'Lifecycle'}</div>
+              <h2>{ko ? '단계 가시성' : 'Stage visibility'}</h2>
             </div>
           </div>
           <div className="lifecycle-strip lifecycle-strip-vertical">
@@ -301,8 +302,8 @@ export default function EnvironmentsPage() {
             ))}
           </div>
           <div className="note-card">
-            <strong>Environment-first list</strong>
-            <p>Job records remain visible through the execution links, but list filtering is anchored on environment lifecycle and approval state.</p>
+            <strong>{ko ? '환경 중심 목록' : 'Environment-first list'}</strong>
+            <p>{ko ? '작업 기록은 실행 링크로 계속 확인할 수 있지만, 목록 필터링은 환경 라이프사이클과 승인 상태를 기준으로 동작합니다.' : 'Job records remain visible through the execution links, but list filtering is anchored on environment lifecycle and approval state.'}</p>
           </div>
         </article>
       </section>
@@ -311,8 +312,8 @@ export default function EnvironmentsPage() {
         <section className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Quick create</div>
-              <h2>Queue the initial plan for a new environment</h2>
+              <div className="section-kicker">{ko ? '빠른 생성' : 'Quick create'}</div>
+              <h2>{ko ? '새 환경의 초기 계획 큐잉' : 'Queue the initial plan for a new environment'}</h2>
             </div>
           </div>
           <form
@@ -332,7 +333,7 @@ export default function EnvironmentsPage() {
             }}
           >
             <label className="field">
-              <span>Template</span>
+              <span>{ko ? '템플릿' : 'Template'}</span>
               <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value)}>
                 {templateItems.length === 0 ? <option value="basic">basic</option> : null}
                 {templateItems.map((item) => (
@@ -346,10 +347,10 @@ export default function EnvironmentsPage() {
             {createError ? <div className="error-box">{summarizeOperatorError(createError)}</div> : null}
             <div className="detail-actions">
               <button type="submit" disabled={creating}>
-                {creating ? 'Queueing initial plan...' : 'Create environment'}
+                {creating ? (ko ? '초기 계획 큐잉 중...' : 'Queueing initial plan...') : ko ? '환경 생성' : 'Create environment'}
               </button>
               <button type="button" className="ghost" onClick={() => setSpec(createDefaultSpec())} disabled={creating}>
-                Reset
+                {ko ? '초기화' : 'Reset'}
               </button>
             </div>
           </form>
