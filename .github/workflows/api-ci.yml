@@ -76,6 +76,19 @@ jobs:
           perl -0777 -i -pe "s/(name: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newName: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newTag: )[^\\n]+/\${1}\"$TAG\"/" "$FILE"
           git diff -- "$FILE" || true
 
+      - name: Validate prod overlay manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v kustomize >/dev/null 2>&1; then
+            kustomize build k8s/app/overlays/prod >/tmp/prod-manifest.yaml
+          elif command -v kubectl >/dev/null 2>&1; then
+            kubectl kustomize k8s/app/overlays/prod >/tmp/prod-manifest.yaml
+          else
+            echo "kustomize or kubectl is required to validate prod overlay"
+            exit 1
+          fi
+
       - name: Commit and push
         shell: bash
         run: |
