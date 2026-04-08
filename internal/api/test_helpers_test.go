@@ -26,7 +26,8 @@ type fakeStore struct {
 	environments map[string]domain.Environment
 	audits       []domain.AuditEvent
 
-	failAudit bool
+	failAudit       bool
+	failEnvConflict bool
 }
 
 func newFakeStore() *fakeStore {
@@ -165,6 +166,9 @@ func (f *fakeStore) ListEnvironments(_ context.Context, limit int) ([]domain.Env
 func (f *fakeStore) UpdateEnvironment(_ context.Context, env domain.Environment) (domain.Environment, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.failEnvConflict {
+		return domain.Environment{}, sql.ErrNoRows
+	}
 	if _, ok := f.environments[env.ID]; !ok {
 		return domain.Environment{}, sql.ErrNoRows
 	}
@@ -197,6 +201,9 @@ func (f *fakeStore) CreateEnvironmentWithJobAndAudit(_ context.Context, env doma
 func (f *fakeStore) UpdateEnvironmentWithJobAndAudit(_ context.Context, env domain.Environment, job domain.Job, audit domain.AuditEvent) (domain.Environment, domain.Job, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.failEnvConflict {
+		return domain.Environment{}, domain.Job{}, sql.ErrNoRows
+	}
 	if f.failAudit {
 		return domain.Environment{}, domain.Job{}, errors.New("audit write failed")
 	}
@@ -212,6 +219,9 @@ func (f *fakeStore) UpdateEnvironmentWithJobAndAudit(_ context.Context, env doma
 func (f *fakeStore) UpdateEnvironmentWithAudit(_ context.Context, env domain.Environment, audit domain.AuditEvent) (domain.Environment, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.failEnvConflict {
+		return domain.Environment{}, sql.ErrNoRows
+	}
 	if f.failAudit {
 		return domain.Environment{}, errors.New("audit write failed")
 	}

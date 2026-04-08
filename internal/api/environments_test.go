@@ -162,6 +162,102 @@ func TestEnvironmentCreateIsAtomicWhenAuditWriteFails(t *testing.T) {
 	}
 }
 
+func TestEnvironmentPlanReturnsConflictOnConcurrentMutation(t *testing.T) {
+	store := newFakeStore()
+	store.failEnvConflict = true
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-conflict-plan",
+		Status:         domain.EnvironmentStatusActive,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusNotRequested,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-conflict-plan",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		Revision:   1,
+		MaxRetries: 3,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/plan", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("plan conflict status = %d, want %d", rr.Code, http.StatusConflict)
+	}
+}
+
+func TestEnvironmentApproveReturnsConflictOnConcurrentMutation(t *testing.T) {
+	store := newFakeStore()
+	store.failEnvConflict = true
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-conflict-approve",
+		Status:         domain.EnvironmentStatusPendingApproval,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusPending,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-conflict-approve",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		LastPlanJobID: uuid.NewString(),
+		Revision:      2,
+		MaxRetries:    3,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+	if _, err := store.CreateJob(nil, domain.Job{
+		ID:            env.LastPlanJobID,
+		Type:          domain.JobTypePlan,
+		Status:        domain.JobStatusDone,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		EnvironmentID: env.ID,
+		Operation:     env.Operation,
+		Environment:   env.Spec,
+		TemplateName:  "basic",
+		Workdir:       "/tmp/workdir",
+		PlanPath:      ".infra-orch/plan/plan.bin",
+		MaxRetries:    env.MaxRetries,
+		RequestedBy:   admin.Email,
+	}); err != nil {
+		t.Fatalf("create plan job: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/approve", strings.NewReader(`{"comment":"cab approval"}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("approve conflict status = %d, want %d", rr.Code, http.StatusConflict)
+	}
+}
+
 func TestRequestDraftsReturnsStructuredEnvironmentDraft(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")
