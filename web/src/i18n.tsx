@@ -7,6 +7,8 @@ type CopyShape = {
   shell: {
     brandTitle: string
     brandSubtitle: string
+    workflowTitle: string
+    workflowHint: string
     nav: Record<'dashboard' | 'environments' | 'create' | 'jobs' | 'templates' | 'audit' | 'users', string>
     logout: string
     topbarKicker: string
@@ -201,6 +203,8 @@ const COPY: Record<Locale, CopyShape> = {
     shell: {
       brandTitle: 'Infra Orch Studio',
       brandSubtitle: 'Environment operations workspace',
+      workflowTitle: 'Plan -> Approval -> Apply -> Result',
+      workflowHint: 'Operate from environments first, then drill into execution detail.',
       nav: {
         dashboard: 'Dashboard',
         environments: 'Environments',
@@ -462,6 +466,8 @@ const COPY: Record<Locale, CopyShape> = {
     shell: {
       brandTitle: '인프라 오케스트레이션',
       brandSubtitle: '환경 운영 콘솔',
+      workflowTitle: '계획 -> 승인 -> 적용 -> 결과',
+      workflowHint: '항상 환경 화면에서 시작하고, 필요할 때만 실행 상세로 내려가세요.',
       nav: {
         dashboard: '대시보드',
         environments: '환경',

@@ -843,13 +843,23 @@ button:hover:not(:disabled) {
 .auth-title {
   margin: 0 0 8px;
   font-size: clamp(1.7rem, 3.8vw, 2.35rem);
-  line-height: 1.08;
-  white-space: nowrap;
+  line-height: 1.14;
+  white-space: normal;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .auth-subtitle,
 .auth-helper {
-  max-width: none;
+  max-width: min(56ch, 100%);
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  line-height: 1.48;
+}
+
+.auth-subtitle {
+  font-size: 0.98rem;
 }
 
 .segmented {
