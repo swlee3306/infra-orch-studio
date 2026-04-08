@@ -72,7 +72,8 @@ jobs:
           set -e
           FILE=k8s/app/overlays/prod/kustomization.yaml
           TAG="${{ steps.vars.outputs.TAG }}"
-          perl -0777 -i -pe "s/(name: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newName: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newTag: )[^\\n]+/\${1}$TAG/" "$FILE"
+          # newTag must be YAML string; unquoted numeric-looking tags break kustomize decoding.
+          perl -0777 -i -pe "s/(name: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newName: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newTag: )[^\\n]+/\${1}\"$TAG\"/" "$FILE"
           git diff -- "$FILE" || true
 
       - name: Commit and push
