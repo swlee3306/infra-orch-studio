@@ -17,6 +17,7 @@
 - `docs/design-integration-plan.md`
 - `docs/templates.md`
 - `docs/release-checklist.md`
+- `docs/release-readiness-2026-04-08.md`
 - `docs/ui-revalidation-log.md`
 - `docs/concurrency-smoke-checklist.md`
 - `docs/openclaw-concurrency-prompt.md`
