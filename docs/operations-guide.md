@@ -70,6 +70,7 @@ If operators report repeated `409` or stale mutation errors:
 - Run the two-tab drill in `docs/concurrency-smoke-checklist.md`.
 - Confirm conflict callout appears in web UI and refreshes revision/status.
 - Confirm `Retry last action` replays with latest revision and does not re-send stale revision values.
+- If OpenClaw artifacts were produced, run `hack/summarize-openclaw-report.sh <artifact-dir> --out <artifact-dir>/SUMMARY.md` to create a quick triage summary for handoff.
 
 ## Rollback Guidance
 
