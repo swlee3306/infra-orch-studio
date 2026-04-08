@@ -28,6 +28,7 @@
 - [ ] If using OpenClaw automation, run the prompt template in `docs/openclaw-concurrency-prompt.md` and archive artifacts.
 - [ ] Summarize OpenClaw artifacts with `hack/summarize-openclaw-report.sh <artifact-dir> --out <artifact-dir>/SUMMARY.md`.
 - [ ] Extract route-level UI TODOs with `hack/extract-openclaw-ui-todos.sh <artifact-dir> --out <artifact-dir>/UI-TODO.md`.
+- [ ] Record the final artifact path, tested commit SHA, and blocker status in `docs/ui-revalidation-log.md`.
 
 ## Operational Checks
 
