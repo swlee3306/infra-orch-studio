@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"os"
@@ -17,6 +18,13 @@ import (
 	"github.com/swlee3306/infra-orch-studio/internal/runtimecheck"
 	storemysql "github.com/swlee3306/infra-orch-studio/internal/storage/mysql"
 )
+
+type runnerEnvironmentStore interface {
+	UpdateJob(context.Context, domain.Job) (domain.Job, error)
+	GetEnvironment(context.Context, string) (domain.Environment, error)
+	UpdateEnvironment(context.Context, domain.Environment) (domain.Environment, error)
+	CreateAuditEvent(context.Context, domain.AuditEvent) (domain.AuditEvent, error)
+}
 
 func main() {
 	interval := envDuration("RUNNER_POLL_INTERVAL", 2*time.Second)
@@ -242,7 +250,7 @@ func env(key, def string) string {
 	return def
 }
 
-func failJob(store *storemysql.Store, job domain.Job, message string) {
+func failJob(store runnerEnvironmentStore, job domain.Job, message string) {
 	job.Status = domain.JobStatusFailed
 	job.Error = message
 	job.UpdatedAt = time.Now().UTC()
@@ -252,6 +260,13 @@ func failJob(store *storemysql.Store, job domain.Job, message string) {
 	}
 	env, err := store.GetEnvironment(context.Background(), job.EnvironmentID)
 	if err != nil {
+		return
+	}
+	if env.LastJobID != "" && env.LastJobID != job.ID {
+		recordSystemAudit(store, "environment", env.ID, "job.failed_ignored", "runner ignored stale failed job for environment state", map[string]any{
+			"job_id":      job.ID,
+			"expected_id": env.LastJobID,
+		})
 		return
 	}
 	env.Status = domain.EnvironmentStatusFailed
@@ -265,12 +280,19 @@ func failJob(store *storemysql.Store, job domain.Job, message string) {
 	})
 }
 
-func recordRunnerEnvironmentSuccess(store *storemysql.Store, job domain.Job) {
+func recordRunnerEnvironmentSuccess(store runnerEnvironmentStore, job domain.Job) {
 	if job.EnvironmentID == "" {
 		return
 	}
 	env, err := store.GetEnvironment(context.Background(), job.EnvironmentID)
 	if err != nil {
+		return
+	}
+	if env.LastJobID != "" && env.LastJobID != job.ID {
+		recordSystemAudit(store, "environment", env.ID, "job.succeeded_ignored", "runner ignored stale successful job for environment state", map[string]any{
+			"job_id":      job.ID,
+			"expected_id": env.LastJobID,
+		})
 		return
 	}
 	env.LastJobID = job.ID
@@ -302,14 +324,14 @@ func recordRunnerEnvironmentSuccess(store *storemysql.Store, job domain.Job) {
 	}
 }
 
-func recordSystemAudit(store *storemysql.Store, resourceType, resourceID, action, message string, metadata map[string]any) {
+func recordSystemAudit(store runnerEnvironmentStore, resourceType, resourceID, action, message string, metadata map[string]any) {
 	metadataJSON := ""
 	if len(metadata) > 0 {
 		if b, err := json.Marshal(metadata); err == nil {
 			metadataJSON = string(b)
 		}
 	}
-	_, _ = store.CreateAuditEvent(context.Background(), domain.AuditEvent{
+	event := domain.AuditEvent{
 		ID:           uuid.NewString(),
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
@@ -318,5 +340,8 @@ func recordSystemAudit(store *storemysql.Store, resourceType, resourceID, action
 		Message:      message,
 		MetadataJSON: metadataJSON,
 		CreatedAt:    time.Now().UTC(),
-	})
+	}
+	if _, err := store.CreateAuditEvent(context.Background(), event); err != nil && err != sql.ErrNoRows {
+		log.Printf("create audit event failed: action=%s resource=%s/%s err=%v", action, resourceType, resourceID, err)
+	}
 }
