@@ -620,6 +620,9 @@ func (s *Store) ListEnvironments(ctx context.Context, limit int) ([]domain.Envir
 
 func (s *Store) UpdateEnvironment(ctx context.Context, env domain.Environment) (domain.Environment, error) {
 	query, err := environmentUpdateSQL(env, true)
+	if err != nil {
+		return domain.Environment{}, err
+	}
 	out, err := s.exec(ctx, true, query)
 	if err != nil {
 		return domain.Environment{}, err
@@ -661,14 +664,27 @@ func (s *Store) UpdateEnvironmentWithJobAndAudit(ctx context.Context, env domain
 	if err != nil {
 		return domain.Environment{}, domain.Job{}, err
 	}
-	jobInsert, err := jobInsertSQL(job)
+	jobInsert, err := jobInsertIfUpdatedSQL(job, "@env_updated")
 	if err != nil {
 		return domain.Environment{}, domain.Job{}, err
 	}
-	query := "START TRANSACTION;\n" + jobInsert + "\n" + envUpdate + "\n" + auditInsertSQL(audit) + "\nCOMMIT;"
-	if _, err := s.exec(ctx, true, query); err != nil {
-		_, _ = s.exec(ctx, true, "ROLLBACK;")
+	auditInsert := auditInsertIfUpdatedSQL(audit, "@env_updated")
+	query := strings.Join([]string{
+		"START TRANSACTION;",
+		envUpdate,
+		"SET @env_updated := ROW_COUNT();",
+		jobInsert,
+		auditInsert,
+		"COMMIT;",
+		"SELECT @env_updated;",
+	}, "\n")
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
 		return domain.Environment{}, domain.Job{}, err
+	}
+	lines := outputLines(out)
+	if len(lines) == 0 || strings.TrimSpace(lines[len(lines)-1]) != "1" {
+		return domain.Environment{}, domain.Job{}, sql.ErrNoRows
 	}
 	return env, job, nil
 }
@@ -678,10 +694,22 @@ func (s *Store) UpdateEnvironmentWithAudit(ctx context.Context, env domain.Envir
 	if err != nil {
 		return domain.Environment{}, err
 	}
-	query := "START TRANSACTION;\n" + envUpdate + "\n" + auditInsertSQL(audit) + "\nCOMMIT;"
-	if _, err := s.exec(ctx, true, query); err != nil {
-		_, _ = s.exec(ctx, true, "ROLLBACK;")
+	auditInsert := auditInsertIfUpdatedSQL(audit, "@env_updated")
+	query := strings.Join([]string{
+		"START TRANSACTION;",
+		envUpdate,
+		"SET @env_updated := ROW_COUNT();",
+		auditInsert,
+		"COMMIT;",
+		"SELECT @env_updated;",
+	}, "\n")
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
 		return domain.Environment{}, err
+	}
+	lines := outputLines(out)
+	if len(lines) == 0 || strings.TrimSpace(lines[len(lines)-1]) != "1" {
+		return domain.Environment{}, sql.ErrNoRows
 	}
 	return env, nil
 }
@@ -782,6 +810,39 @@ func jobInsertSQL(j domain.Job) (string, error) {
 	), nil
 }
 
+func jobInsertIfUpdatedSQL(j domain.Job, updatedVar string) (string, error) {
+	envJSON, err := json.Marshal(j.Environment)
+	if err != nil {
+		return "", fmt.Errorf("marshal environment: %w", err)
+	}
+	return fmt.Sprintf(
+		`INSERT INTO jobs (
+			id, type, status, created_at, updated_at, environment_id, operation, environment_json, template_name, workdir, log_dir, plan_path, outputs_json, source_job_id, claim_token, retry_count, max_retries, requested_by, error
+		)
+		SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '', %d, %d, %s, %s
+		WHERE %s = 1;`,
+		quoteString(j.ID),
+		quoteString(string(j.Type)),
+		quoteString(string(j.Status)),
+		quoteTime(j.CreatedAt),
+		quoteTime(j.UpdatedAt),
+		quoteString(j.EnvironmentID),
+		quoteString(string(j.Operation)),
+		quoteString(string(envJSON)),
+		quoteString(j.TemplateName),
+		quoteString(j.Workdir),
+		quoteString(j.LogDir),
+		quoteString(j.PlanPath),
+		quoteString(j.OutputsJSON),
+		quoteString(j.SourceJobID),
+		j.RetryCount,
+		j.MaxRetries,
+		quoteString(j.RequestedBy),
+		quoteString(j.Error),
+		updatedVar,
+	), nil
+}
+
 func environmentInsertSQL(env domain.Environment) (string, error) {
 	specJSON, err := json.Marshal(env.Spec)
 	if err != nil {
@@ -822,6 +883,10 @@ func environmentInsertSQL(env domain.Environment) (string, error) {
 }
 
 func environmentUpdateSQL(env domain.Environment, includeRowCount bool) (string, error) {
+	if env.Revision <= 0 {
+		return "", fmt.Errorf("environment revision must be positive for update")
+	}
+	expectedRevision := env.Revision - 1
 	specJSON, err := json.Marshal(env.Spec)
 	if err != nil {
 		return "", fmt.Errorf("marshal environment spec: %w", err)
@@ -853,7 +918,8 @@ func environmentUpdateSQL(env domain.Environment, includeRowCount bool) (string,
 		     outputs_json = %s,
 		     revision = %d,
 		     updated_at = %s
-		 WHERE id = %s;`,
+		 WHERE id = %s
+		   AND revision = %d;`,
 		quoteString(env.Name),
 		quoteString(string(env.Status)),
 		quoteString(string(env.Operation)),
@@ -876,6 +942,7 @@ func environmentUpdateSQL(env domain.Environment, includeRowCount bool) (string,
 		env.Revision,
 		quoteTime(env.UpdatedAt),
 		quoteString(env.ID),
+		expectedRevision,
 	)
 	if includeRowCount {
 		query += "\nSELECT ROW_COUNT();"
@@ -897,6 +964,26 @@ func auditInsertSQL(event domain.AuditEvent) string {
 		quoteString(event.Message),
 		quoteString(event.MetadataJSON),
 		quoteTime(event.CreatedAt),
+	)
+}
+
+func auditInsertIfUpdatedSQL(event domain.AuditEvent, updatedVar string) string {
+	return fmt.Sprintf(
+		`INSERT INTO audit_events (
+			id, resource_type, resource_id, action, actor_user_id, actor_email, message, metadata_json, created_at
+		)
+		SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s
+		WHERE %s = 1;`,
+		quoteString(event.ID),
+		quoteString(event.ResourceType),
+		quoteString(event.ResourceID),
+		quoteString(event.Action),
+		quoteString(event.ActorUserID),
+		quoteString(event.ActorEmail),
+		quoteString(event.Message),
+		quoteString(event.MetadataJSON),
+		quoteTime(event.CreatedAt),
+		updatedVar,
 	)
 }
 
