@@ -14,7 +14,7 @@ images:
   newTag: "42cb5db"
 - name: 10.10.0.190:32000/infra-orch-web
   newName: 10.10.0.190:32000/infra-orch-web
-  newTag: "59417b8"
+  newTag: "e95cf60"
 
 replicas:
   - name: infra-orch-api
