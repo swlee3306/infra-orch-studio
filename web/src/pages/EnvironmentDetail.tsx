@@ -171,6 +171,7 @@ export default function EnvironmentDetailPage() {
   const [conflictHint, setConflictHint] = useState<string | null>(null)
   const [retryLabel, setRetryLabel] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [showQuickActions, setShowQuickActions] = useState(false)
   const retryRef = useRef<null | (() => Promise<void>)>(null)
 
   const environmentId = useMemo(() => id || '', [id])
@@ -229,6 +230,10 @@ export default function EnvironmentDetailPage() {
 
   useEffect(() => {
     load()
+  }, [environmentId])
+
+  useEffect(() => {
+    setShowQuickActions(false)
   }, [environmentId])
 
   async function runAction(
@@ -633,42 +638,48 @@ export default function EnvironmentDetailPage() {
               <h2>{ko ? '다음 운영 작업' : 'Next operator actions'}</h2>
             </div>
           </div>
-          <details className="console-details">
-            <summary>{ko ? '작업 안내 및 빠른 작업' : 'Show action guide and quick actions'}</summary>
-            <div className="stack-list" style={{ marginTop: 12 }}>
-              <div className="stack-row">
-                <div className="row-meta">{ko ? '1) 계획 검토에서 영향/리스크 확인' : '1) Confirm impact and risk in plan review'}</div>
+          <button type="button" className="ghost" onClick={() => setShowQuickActions((prev) => !prev)}>
+            {showQuickActions
+              ? ko ? '작업 안내 및 빠른 작업 접기' : 'Hide action guide and quick actions'
+              : ko ? '작업 안내 및 빠른 작업 보기' : 'Show action guide and quick actions'}
+          </button>
+          {showQuickActions ? (
+            <>
+              <div className="stack-list" style={{ marginTop: 12 }}>
+                <div className="stack-row">
+                  <div className="row-meta">{ko ? '1) 계획 검토에서 영향/리스크 확인' : '1) Confirm impact and risk in plan review'}</div>
+                </div>
+                <div className="stack-row">
+                  <div className="row-meta">{ko ? '2) 승인 제어에서 승인/적용/삭제 수행' : '2) Approve, apply, or destroy from approval control'}</div>
+                </div>
+                <div className="stack-row">
+                  <div className="row-meta">{ko ? '3) 실패 시 재시도 예산 확인 후 재시도' : '3) Use retry only when retry budget remains'}</div>
+                </div>
               </div>
-              <div className="stack-row">
-                <div className="row-meta">{ko ? '2) 승인 제어에서 승인/적용/삭제 수행' : '2) Approve, apply, or destroy from approval control'}</div>
+              <div className="detail-actions" style={{ marginTop: 14 }}>
+                {environment ? (
+                  <Link to={reviewRoute} className="ghost action-link action-link-button">
+                    {ko ? '계획 검토 열기' : 'Open plan review'}
+                  </Link>
+                ) : null}
+                {environment && (environment.approval_status === 'approved' || environment.status === 'pending_approval') ? (
+                  <Link to={approvalRoute} className="ghost action-link action-link-button">
+                    {ko ? '승인 제어 열기' : 'Open approval control'}
+                  </Link>
+                ) : null}
+                {canRetry ? (
+                  <button className="ghost" onClick={() => runAction('retry', (env) => environments.retry(environmentId, env?.revision))} disabled={busyAction !== null}>
+                    {busyAction === 'retry' ? copy.detail.retrying : copy.detail.retry}
+                  </button>
+                ) : null}
+                {canDestroy && environment ? (
+                  <Link to={approvalRoute} className="ghost action-link action-link-button danger">
+                    {copy.detail.openDestroyControl}
+                  </Link>
+                ) : null}
               </div>
-              <div className="stack-row">
-                <div className="row-meta">{ko ? '3) 실패 시 재시도 예산 확인 후 재시도' : '3) Use retry only when retry budget remains'}</div>
-              </div>
-            </div>
-            <div className="detail-actions" style={{ marginTop: 14 }}>
-              {environment ? (
-                <Link to={reviewRoute} className="ghost action-link action-link-button">
-                  {ko ? '계획 검토 열기' : 'Open plan review'}
-                </Link>
-              ) : null}
-              {environment && (environment.approval_status === 'approved' || environment.status === 'pending_approval') ? (
-                <Link to={approvalRoute} className="ghost action-link action-link-button">
-                  {ko ? '승인 제어 열기' : 'Open approval control'}
-                </Link>
-              ) : null}
-              {canRetry ? (
-                <button className="ghost" onClick={() => runAction('retry', (env) => environments.retry(environmentId, env?.revision))} disabled={busyAction !== null}>
-                  {busyAction === 'retry' ? copy.detail.retrying : copy.detail.retry}
-                </button>
-              ) : null}
-              {canDestroy && environment ? (
-                <Link to={approvalRoute} className="ghost action-link action-link-button danger">
-                  {copy.detail.openDestroyControl}
-                </Link>
-              ) : null}
-            </div>
-          </details>
+            </>
+          ) : null}
         </article>
       </section>
     </div>
