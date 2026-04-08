@@ -26,6 +26,7 @@
 - [ ] Open environment detail and confirm artifacts, audit, and recent jobs are linked.
 - [ ] Run `docs/concurrency-smoke-checklist.md` with two tabs and confirm conflict auto-refresh + smart retry behavior.
 - [ ] If using OpenClaw automation, run the prompt template in `docs/openclaw-concurrency-prompt.md` and archive artifacts.
+- [ ] Summarize OpenClaw artifacts with `hack/summarize-openclaw-report.sh <artifact-dir> --out <artifact-dir>/SUMMARY.md`.
 
 ## Operational Checks
 
