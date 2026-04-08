@@ -274,11 +274,26 @@ func failJob(store runnerEnvironmentStore, job domain.Job, message string) {
 	env.LastJobID = job.ID
 	env.Revision++
 	env.UpdatedAt = time.Now().UTC()
-	_, _ = store.UpdateEnvironment(context.Background(), env)
-	recordSystemAudit(store, "environment", env.ID, "job.failed", "runner marked environment failed", map[string]any{
-		"job_id": job.ID,
-		"error":  message,
-	})
+	if _, err := store.UpdateEnvironment(context.Background(), env); err == nil {
+		recordSystemAudit(store, "environment", env.ID, "job.failed", "runner marked environment failed", map[string]any{
+			"job_id": job.ID,
+			"error":  message,
+		})
+	} else if err == sql.ErrNoRows {
+		metadata := map[string]any{
+			"job_id":              job.ID,
+			"attempted_status":    string(env.Status),
+			"attempted_revision":  env.Revision,
+			"attempted_last_job":  env.LastJobID,
+			"attempted_operation": string(job.Operation),
+		}
+		if current, getErr := store.GetEnvironment(context.Background(), env.ID); getErr == nil {
+			metadata["current_status"] = string(current.Status)
+			metadata["current_revision"] = current.Revision
+			metadata["current_last_job"] = current.LastJobID
+		}
+		recordSystemAudit(store, "environment", env.ID, "job.failed_conflict", "runner detected concurrent environment update while handling failed job", metadata)
+	}
 }
 
 func recordRunnerEnvironmentSuccess(store runnerEnvironmentStore, job domain.Job) {
@@ -323,6 +338,21 @@ func recordRunnerEnvironmentSuccess(store runnerEnvironmentStore, job domain.Job
 			"job_type":  job.Type,
 			"operation": job.Operation,
 		})
+	} else if err == sql.ErrNoRows {
+		metadata := map[string]any{
+			"job_id":              job.ID,
+			"job_type":            string(job.Type),
+			"attempted_status":    string(env.Status),
+			"attempted_revision":  env.Revision,
+			"attempted_last_job":  env.LastJobID,
+			"attempted_operation": string(job.Operation),
+		}
+		if current, getErr := store.GetEnvironment(context.Background(), env.ID); getErr == nil {
+			metadata["current_status"] = string(current.Status)
+			metadata["current_revision"] = current.Revision
+			metadata["current_last_job"] = current.LastJobID
+		}
+		recordSystemAudit(store, "environment", env.ID, "job.succeeded_conflict", "runner detected concurrent environment update while handling successful job", metadata)
 	}
 }
 
