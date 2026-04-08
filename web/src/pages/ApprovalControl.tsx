@@ -4,7 +4,7 @@ import { AuditEvent, auth, Environment, environments, Job } from '../api'
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { buildApprovalCheckpoints, buildImpactSummary, findLatestPlanJob } from '../utils/environmentView'
-import { isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
+import { displayAuditAction, isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
 
 export default function ApprovalControlPage() {
   const nav = useNavigate()
@@ -105,7 +105,7 @@ export default function ApprovalControlPage() {
         <div>
           <div className="page-kicker">
             <Link to="/environments" className="text-link">
-              Environments
+              {ko ? '환경' : 'Environments'}
             </Link>{' '}
             / {copy.approval.kicker}
           </div>
@@ -287,14 +287,14 @@ export default function ApprovalControlPage() {
         <div className="section-head">
           <div>
             <div className="section-kicker">{ko ? '감사 추적' : 'Audit trail'}</div>
-            <h2>{ko ? '변경 불가 승인 타임라인' : 'Immutable approval timeline'}</h2>
+            <h2>{ko ? '변조 불가 승인 이력' : 'Immutable approval timeline'}</h2>
           </div>
         </div>
         <div className="audit-list">
           {auditItems.map((item) => (
             <div className="audit-item" key={item.id}>
               <div className="detail-top" style={{ alignItems: 'center' }}>
-                <strong>{item.action}</strong>
+                <strong>{displayAuditAction(item.action, ko)}</strong>
                 <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
               </div>
               <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>

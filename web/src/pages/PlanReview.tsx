@@ -21,12 +21,20 @@ function displayReviewSignal(signal: ReviewSignal, ko: boolean): ReviewSignal {
     label: labelMap[signal.label] || signal.label,
     detail: signal.detail
       .replace('This plan is destructive and will require an explicit confirmation before it should be approved.', '이 계획은 파괴적 작업이며 승인 전에 명시적 확인이 필요합니다.')
-      .replace('No security groups are attached. Validate tenant baseline inheritance before apply.', '보안 그룹이 연결되어 있지 않습니다. apply 전에 테넌트 기본 상속을 확인하세요.')
+      .replace('No security groups are attached. Validate tenant baseline inheritance before apply.', '보안 그룹이 연결되어 있지 않습니다. 적용 전에 테넌트 기본 상속을 확인하세요.')
       .replace(' will be included in the resulting environment state.', ' 항목이 결과 환경 상태에 포함됩니다.')
       .replace(' will be rendered through the fixed template path.', ' 구성이 고정 템플릿 경로로 렌더링됩니다.')
       .replace('Network ', '네트워크 ')
       .replace(' and subnet ', ' / 서브넷 '),
   }
+}
+
+function displayImpactLine(value?: string, ko = false): string {
+  if (!value) return '-'
+  if (!ko) return value
+  return value
+    .replace(/Estimated footprint includes (\d+) instances and (\d+) security references\./, '예상 자원 영향은 인스턴스 $1개와 보안 참조 $2개입니다.')
+    .replace('Negative spend delta expected after destroy is applied.', '삭제 적용 후 비용이 감소할 것으로 예상됩니다.')
 }
 
 export default function PlanReviewPage() {
@@ -113,7 +121,7 @@ export default function PlanReviewPage() {
         <div>
           <div className="page-kicker">
             <Link to="/environments" className="text-link">
-              Environments
+              {ko ? '환경' : 'Environments'}
             </Link>{' '}
             / {copy.review.kicker}
           </div>
@@ -228,7 +236,7 @@ export default function PlanReviewPage() {
             </div>
             <div className="meta-item">
               <span>{ko ? '자원 영향' : 'Footprint'}</span>
-              <strong>{impact?.cost_delta || '-'}</strong>
+              <strong>{displayImpactLine(impact?.cost_delta, ko)}</strong>
             </div>
             <div className="meta-item">
               <span>{ko ? '계획 산출물' : 'Plan artifact'}</span>

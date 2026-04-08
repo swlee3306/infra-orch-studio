@@ -108,11 +108,19 @@ export default function CreateEnvironmentPage() {
       .replace('Security references inherited', '보안 참조 상속')
       .replace('Template-backed plan', '템플릿 기반 계획')
       .replace('This plan is destructive and will require an explicit confirmation before it should be approved.', '이 계획은 파괴적 작업이며 승인 전에 명시적 확인이 필요합니다.')
-      .replace('No security groups are attached. Validate tenant baseline inheritance before apply.', '보안 그룹이 연결되어 있지 않습니다. apply 전에 테넌트 기본 상속을 확인하세요.')
+      .replace('No security groups are attached. Validate tenant baseline inheritance before apply.', '보안 그룹이 연결되어 있지 않습니다. 적용 전에 테넌트 기본 상속을 확인하세요.')
       .replace(' will be included in the resulting environment state.', ' 항목이 결과 환경 상태에 포함됩니다.')
       .replace(' will be rendered through the fixed template path.', ' 구성이 고정 템플릿 경로로 렌더링됩니다.')
       .replace('Network ', '네트워크 ')
       .replace(' and subnet ', ' / 서브넷 ')
+  }
+
+  function displayImpactLine(value?: string) {
+    if (!value) return '-'
+    if (!ko) return value
+    return value
+      .replace(/Estimated footprint includes (\d+) instances and (\d+) security references\./, '예상 자원 영향은 인스턴스 $1개와 보안 참조 $2개입니다.')
+      .replace('Negative spend delta expected after destroy is applied.', '삭제 적용 후 비용이 감소할 것으로 예상됩니다.')
   }
 
   useEffect(() => {
@@ -221,10 +229,12 @@ export default function CreateEnvironmentPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">Steps</div>
+              <div className="section-kicker">{ko ? '단계' : 'Steps'}</div>
               <h2>{copy.create.stepsTitle}</h2>
             </div>
-            <span className="badge badge-muted">{Math.round(((step + 1) / steps.length) * 100)}% complete</span>
+            <span className="badge badge-muted">
+              {Math.round(((step + 1) / steps.length) * 100)}% {ko ? '완료' : 'complete'}
+            </span>
           </div>
           <div className="stack-list">
             {steps.map((label, index) => (
@@ -364,15 +374,17 @@ export default function CreateEnvironmentPage() {
                     <strong>{ko ? '커스텀 모드' : 'Custom mode'}</strong>
                     <div className="row-meta">{ko ? '같은 렌더러 계약을 유지하되 목표 상태를 폼 입력으로 직접 구성합니다.' : 'Keep the same renderer contract, but drive the desired state directly from the form inputs.'}</div>
                   </div>
-                  <span className="badge badge-muted">Direct spec</span>
+                  <span className="badge badge-muted">{ko ? '직접 입력' : 'Direct spec'}</span>
                 </button>
               </div>
               <div className="stack-list">
                 {templateItems.length === 0 ? (
                   <div className="callout callout-warning">
-                    <strong>Template catalog is empty</strong>
+                    <strong>{ko ? '템플릿 카탈로그가 비어 있습니다' : 'Template catalog is empty'}</strong>
                     <p style={{ margin: '6px 0 0' }}>
-                      The server did not return any environment templates. You can continue in custom mode, but plan execution will stay blocked until a template set is available.
+                      {ko
+                        ? '서버가 환경 템플릿을 반환하지 않았습니다. 커스텀 모드로 진행할 수는 있지만 템플릿 세트가 준비되기 전까지 계획 실행은 차단됩니다.'
+                        : 'The server did not return any environment templates. You can continue in custom mode, but plan execution will stay blocked until a template set is available.'}
                     </p>
                   </div>
                 ) : (
@@ -471,7 +483,7 @@ export default function CreateEnvironmentPage() {
                     </div>
                     <div className="meta-item wizard-review-meta">
                       <span>{ko ? '비용 / 용량' : 'Cost / capacity'}</span>
-                      <strong>{impact?.cost_delta || '-'}</strong>
+                      <strong>{displayImpactLine(impact?.cost_delta)}</strong>
                     </div>
                     <div className="meta-item wizard-review-meta">
                       <span>{ko ? '템플릿' : 'Template'}</span>
@@ -479,7 +491,7 @@ export default function CreateEnvironmentPage() {
                     </div>
                     <div className="meta-item wizard-review-meta">
                       <span>{ko ? '모드' : 'Mode'}</span>
-                      <strong>{templateMode}</strong>
+                      <strong>{ko ? (templateMode === 'template' ? '템플릿' : '커스텀') : templateMode}</strong>
                     </div>
                     <div className="meta-item wizard-review-meta">
                       <span>{ko ? '입력 게이트' : 'Input gates'}</span>
