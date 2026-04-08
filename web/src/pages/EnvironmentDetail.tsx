@@ -181,6 +181,7 @@ export default function EnvironmentDetailPage() {
     [environment?.last_plan_job_id, environmentJobs],
   )
   const recentJobs = useMemo(() => environmentJobs.slice(0, 4), [environmentJobs])
+  const recentAuditItems = useMemo(() => auditItems.slice(0, 5), [auditItems])
   const updateValidation = useMemo(
     () => (editingSpec ? validateEnvironmentSpecForWizard(editingSpec) : { fieldErrors: {}, stepErrors: {} as Record<number, string[]> }),
     [editingSpec],
@@ -466,7 +467,7 @@ export default function EnvironmentDetailPage() {
               <strong>{environment?.spec.security_groups?.length || 0}</strong>
             </div>
             <div className="meta-item">
-              <span>{ko ? '계획 산출물' : 'Plan artifact'}</span>
+              <span>{ko ? '템플릿 세트' : 'Template set'}</span>
               <strong>{currentPlanJob?.template_name || selectedTemplate}</strong>
               <div className="row-meta">{ko ? '템플릿' : 'Template'}</div>
             </div>
@@ -587,12 +588,13 @@ export default function EnvironmentDetailPage() {
               <div className="section-kicker">{ko ? '감사' : 'Audit'}</div>
               <h2>{ko ? '승인 / 감사 타임라인' : 'Approval / audit timeline'}</h2>
             </div>
+            <span className="badge badge-muted">{ko ? '최신 5건' : 'Latest 5'}</span>
           </div>
           <div className="audit-list">
-            {auditItems.length === 0 ? (
+            {recentAuditItems.length === 0 ? (
               <div className="empty-state">{ko ? '아직 감사 이벤트가 없습니다.' : 'No audit events yet.'}</div>
             ) : (
-              auditItems.map((item) => {
+              recentAuditItems.map((item) => {
                 const metadata = parseJson(item.metadata_json)
                 return (
                   <div className="audit-item" key={item.id}>
@@ -615,6 +617,11 @@ export default function EnvironmentDetailPage() {
               })
             )}
           </div>
+          <div className="detail-actions" style={{ marginTop: 12 }}>
+            <Link to="/audit" className="ghost action-link action-link-button">
+              {ko ? '전체 감사 로그 열기' : 'Open full audit log'}
+            </Link>
+          </div>
         </article>
       </section>
 
@@ -622,47 +629,35 @@ export default function EnvironmentDetailPage() {
         <article className="console-card">
           <div className="section-head">
             <div>
-              <div className="section-kicker">{ko ? '안전한 작업 순서' : 'Safe action hierarchy'}</div>
-              <h2>{ko ? '보호된 작업' : 'Guarded operations'}</h2>
+              <div className="section-kicker">{ko ? '빠른 작업' : 'Quick actions'}</div>
+              <h2>{ko ? '다음 운영 작업' : 'Next operator actions'}</h2>
             </div>
           </div>
-          <div className="stack-list">
+          <details className="console-details">
+            <summary>{ko ? '작업 안내 보기' : 'Show action guide'}</summary>
+            <div className="stack-list" style={{ marginTop: 12 }}>
+              <div className="stack-row">
+                <div className="row-meta">{ko ? '1) 계획 검토에서 영향/리스크 확인' : '1) Confirm impact and risk in plan review'}</div>
+              </div>
+              <div className="stack-row">
+                <div className="row-meta">{ko ? '2) 승인 제어에서 승인/적용/삭제 수행' : '2) Approve, apply, or destroy from approval control'}</div>
+              </div>
+              <div className="stack-row">
+                <div className="row-meta">{ko ? '3) 실패 시 재시도 예산 확인 후 재시도' : '3) Use retry only when retry budget remains'}</div>
+              </div>
+            </div>
+          </details>
+          <div className="detail-actions" style={{ marginTop: 14 }}>
             {environment ? (
-              <Link to={reviewRoute} className="stack-row stack-row-link">
-                <div>
-                  <strong>{ko ? '계획 검토 열기' : 'Open plan review'}</strong>
-                  <div className="row-meta">{ko ? '이 환경의 위험 신호, 영향 요약, 승인 준비 상태를 확인합니다.' : 'Inspect risk signals, impact summary, and approval readiness for this environment.'}</div>
-                </div>
+              <Link to={reviewRoute} className="ghost action-link action-link-button">
+                {ko ? '계획 검토 열기' : 'Open plan review'}
               </Link>
             ) : null}
             {environment && (environment.approval_status === 'approved' || environment.status === 'pending_approval') ? (
-              <Link to={approvalRoute} className="stack-row stack-row-link">
-                <div>
-                  <strong>{ko ? '승인 제어 열기' : 'Open approval control'}</strong>
-                  <div className="row-meta">{ko ? '승인, apply, 파괴적 작업 확인을 위한 전용 보호 화면을 사용합니다.' : 'Use the dedicated guarded surface for approve, apply, and destructive confirmation.'}</div>
-                </div>
+              <Link to={approvalRoute} className="ghost action-link action-link-button">
+                {ko ? '승인 제어 열기' : 'Open approval control'}
               </Link>
             ) : null}
-            <div className="stack-row">
-              <div>
-                <strong>{ko ? '지금 운영 점검' : 'Operate now'}</strong>
-                <div className="row-meta">{ko ? '현재 상태를 새로고침하고 연결된 실행 기록을 확인합니다.' : 'Refresh current state and inspect the linked execution records.'}</div>
-              </div>
-            </div>
-            <div className="stack-row">
-              <div>
-                <strong>{ko ? '업데이트 계획' : 'Schedule update'}</strong>
-                <div className="row-meta">{ko ? '변경을 적용하기 전에 목표 상태를 수정하고 새 계획을 큐잉합니다.' : 'Edit desired state and queue a fresh plan before any mutation is applied.'}</div>
-              </div>
-            </div>
-            <div className="stack-row stack-row-danger">
-              <div>
-                <strong>{ko ? '환경 삭제' : 'Destroy environment'}</strong>
-                <div className="row-meta">{ko ? '위험한 작업입니다. destroy 계획을 큐잉하기 전에 명시적 확인이 필요합니다.' : 'Dangerous operation. Requires explicit confirmation before the destroy plan is queued.'}</div>
-              </div>
-            </div>
-          </div>
-          <div className="detail-actions" style={{ marginTop: 14 }}>
             {canRetry ? (
               <button className="ghost" onClick={() => runAction('retry', (env) => environments.retry(environmentId, env?.revision))} disabled={busyAction !== null}>
                 {busyAction === 'retry' ? copy.detail.retrying : copy.detail.retry}
