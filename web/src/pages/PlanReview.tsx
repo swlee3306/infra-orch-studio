@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job, ImpactSummary, ReviewSignal } from '../api'
 import { formatStatusLabel } from '../components/StatusBadge'
@@ -44,7 +44,9 @@ export default function PlanReviewPage() {
   const [approvalComment, setApprovalComment] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [conflictHint, setConflictHint] = useState<string | null>(null)
+  const [retryLabel, setRetryLabel] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const retryRef = useRef<null | (() => Promise<void>)>(null)
 
   const environmentId = id || ''
 
@@ -85,6 +87,8 @@ export default function PlanReviewPage() {
     setBusy(action)
     setError(null)
     setConflictHint(null)
+    setRetryLabel(null)
+    retryRef.current = null
     try {
       await fn()
       await load()
@@ -96,6 +100,8 @@ export default function PlanReviewPage() {
         setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(summarizeOperatorError(message))
+      retryRef.current = async () => run(action, fn)
+      setRetryLabel(action)
     } finally {
       setBusy(null)
     }
@@ -131,7 +137,18 @@ export default function PlanReviewPage() {
         </div>
       </section>
 
-      {error ? <section className="error-box">{error}</section> : null}
+      {error ? (
+        <section className="error-box">
+          <div>{error}</div>
+          {retryRef.current ? (
+            <div style={{ marginTop: 10 }}>
+              <button className="ghost" onClick={() => void retryRef.current?.()} disabled={busy !== null}>
+                {ko ? `마지막 작업 재시도${retryLabel ? ` (${retryLabel})` : ''}` : `Retry last action${retryLabel ? ` (${retryLabel})` : ''}`}
+              </button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
       {conflictHint ? (
         <section className="console-card">
           <div className="callout callout-warning">
