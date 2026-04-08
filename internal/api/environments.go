@@ -56,35 +56,31 @@ func validateEnvironmentPlanAccess(user domain.User, env domain.Environment, ope
 	if operation == domain.EnvironmentOperationDestroy {
 		return http.StatusBadRequest, "destroy plans must use POST /api/environments/{id}/destroy"
 	}
-	switch env.Status {
-	case domain.EnvironmentStatusPlanning, domain.EnvironmentStatusApplying, domain.EnvironmentStatusDestroying:
+	if domain.IsEnvironmentBusy(env.Status) {
 		return http.StatusBadRequest, "environment is busy with another operation"
-	case domain.EnvironmentStatusDestroyed:
-		if operation != domain.EnvironmentOperationCreate {
-			return http.StatusBadRequest, "destroyed environment must queue a create plan"
-		}
 	}
-	if operation == domain.EnvironmentOperationCreate && env.Status != domain.EnvironmentStatusDraft && env.Status != domain.EnvironmentStatusDestroyed {
+	if env.Status == domain.EnvironmentStatusDestroyed && operation != domain.EnvironmentOperationCreate {
+		return http.StatusBadRequest, "destroyed environment must queue a create plan"
+	}
+	if operation == domain.EnvironmentOperationCreate && !domain.CanQueuePlan(env.Status, operation) {
 		return http.StatusBadRequest, "create plan is only allowed for draft or destroyed environments"
 	}
-	if operation == domain.EnvironmentOperationUpdate && (env.Status == domain.EnvironmentStatusDraft || env.Status == domain.EnvironmentStatusDestroyed) {
+	if operation == domain.EnvironmentOperationUpdate && !domain.CanQueuePlan(env.Status, operation) {
 		return http.StatusBadRequest, "update plan is not allowed for draft or destroyed environments"
 	}
-	if operation == domain.EnvironmentOperationDestroy && env.Status == domain.EnvironmentStatusDestroyed {
-		return http.StatusBadRequest, "environment is already destroyed"
-	}
+	_ = user
 	return 0, ""
 }
 
 func validateEnvironmentApprovalAccess(env domain.Environment) (int, string) {
-	if env.Status != domain.EnvironmentStatusPendingApproval || env.ApprovalStatus != domain.ApprovalStatusPending {
+	if !domain.CanApprovePlan(env.Status, env.ApprovalStatus) {
 		return http.StatusBadRequest, "environment is not awaiting approval"
 	}
 	return 0, ""
 }
 
 func validateEnvironmentApplyAccess(env domain.Environment) (int, string) {
-	if env.Status != domain.EnvironmentStatusApproved || env.ApprovalStatus != domain.ApprovalStatusApproved {
+	if !domain.CanQueueApply(env.Status, env.ApprovalStatus, env.Operation) {
 		return http.StatusBadRequest, "environment is not approved for apply"
 	}
 	return 0, ""
@@ -100,15 +96,18 @@ func validateEnvironmentRetryAccess(user domain.User, env domain.Environment, la
 	if env.Status == domain.EnvironmentStatusDestroyed {
 		return http.StatusBadRequest, "destroyed environment cannot retry jobs"
 	}
+	if !domain.CanRetry(env.Status) {
+		return http.StatusBadRequest, "environment is not in failed state for retry"
+	}
 	return 0, ""
 }
 
 func validateEnvironmentDestroyAccess(env domain.Environment) (int, string) {
-	switch env.Status {
-	case domain.EnvironmentStatusPlanning, domain.EnvironmentStatusApplying, domain.EnvironmentStatusDestroying:
+	if !domain.CanQueueDestroy(env.Status) {
+		if env.Status == domain.EnvironmentStatusDestroyed {
+			return http.StatusBadRequest, "environment is already destroyed"
+		}
 		return http.StatusBadRequest, "environment is busy with another operation"
-	case domain.EnvironmentStatusDestroyed:
-		return http.StatusBadRequest, "environment is already destroyed"
 	}
 	return 0, ""
 }
