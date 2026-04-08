@@ -29,19 +29,23 @@
 
 ## Open Risks / Pending
 
-- **이미지 태그 정합성 불일치**
+- ~~이미지 태그 정합성 불일치~~ ✅ resolved
+  - 조치:
+    - `infra-orch-studio:8986044` (api/runner) 이미지 빌드/푸시
+    - `infra-orch-web:8986044` 이미지 빌드/푸시
+    - `k8s/app/overlays/prod/kustomization.yaml` 태그 정합성 반영
+    - `kubectl apply -k k8s/app/overlays/prod` + rollout 확인
   - 현재 배포 상태:
-    - `infra-orch-api`: `.../infra-orch-studio:42cb5db`
-    - `infra-orch-runner`: `.../infra-orch-studio:42cb5db`
-    - `infra-orch-web`: `.../infra-orch-web:0471383`
-  - UI는 최신 반영됐지만 API/runner는 구 태그를 사용 중이므로, 릴리즈 기준 커밋 정합성 확인이 필요
+    - `infra-orch-api`: `10.10.0.190:32000/infra-orch-studio:8986044`
+    - `infra-orch-runner`: `10.10.0.190:32000/infra-orch-studio:8986044`
+    - `infra-orch-web`: `10.10.0.190:32000/infra-orch-web:8986044`
 - MySQL migration “clean” 여부는 API 부팅 로그에서 오류는 없지만, 업그레이드 시나리오까지 포함한 별도 검증 로그가 필요
 - ingress/controller health 정책(Argo CD health gating 포함) 최종 확인 필요
 - rollback 경로 및 이전 이미지 태그 보존 정책 최종 확인 필요
 
 ## Recommended Next Action Order
 
-1. API/runner 이미지를 최신 기준 태그로 재배포해 web/API/runner 커밋 정합성 맞추기
-2. 재배포 직후 startup log + `/healthz` + template path 재확인
-3. create -> review -> approve -> apply 스모크 1회
+1. 최신 배포 태그(`8986044`) 기준 create -> review -> approve -> apply 스모크 1회
+2. 스모크 결과와 blocker 유무를 `docs/ui-revalidation-log.md`에 링크
+3. ingress health 정책/rollback 경로 최종 확인
 4. 결과를 `docs/release-checklist.md`와 함께 기록
