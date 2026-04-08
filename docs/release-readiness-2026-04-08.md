@@ -23,6 +23,10 @@
   - API pod 내부 `/healthz` 응답: `{"status":"ok"}`
   - API 로그: mysql store 연결, admin seed, template root 확인, listen 확인
   - runner 로그: startup 및 polling 시작 확인
+- Basic API smoke (`NodePort 30462`)
+  - `POST /api/auth/login` (admin@example.com) → `200`
+  - `GET /api/auth/me` (cookie session) → `200`
+  - `GET /api/environments?limit=5` → `200`
 - Template assets
   - API/runner 컨테이너 모두 `/app/templates/opentofu/environments/basic` 필수 파일 확인
   - 확인 파일: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf` (추가 파일 포함)
