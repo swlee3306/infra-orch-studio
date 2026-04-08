@@ -128,6 +128,14 @@ func bumpEnvironmentRevision(env *domain.Environment) {
 	env.Revision++
 }
 
+func writeEnvironmentMutationError(w http.ResponseWriter, err error, internalMessage string) {
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, http.StatusConflict, "environment changed concurrently; refresh and retry")
+		return
+	}
+	writeError(w, http.StatusInternalServerError, internalMessage)
+}
+
 func newAuditEvent(user domain.User, resourceType, resourceID, action, message string, metadata map[string]any, now time.Time) domain.AuditEvent {
 	metadataJSON := ""
 	if len(metadata) > 0 {
@@ -356,7 +364,7 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
 		updatedEnv, createdJob, err := bundler.UpdateEnvironmentWithJobAndAudit(r.Context(), env, job, audit)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "queue environment plan failed")
+			writeEnvironmentMutationError(w, err, "queue environment plan failed")
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{"environment": updatedEnv, "job": createdJob})
@@ -371,7 +379,7 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 	env.LastJobID = createdJob.ID
 	updatedEnv, err := s.jobs.UpdateEnvironment(r.Context(), env)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "update environment failed")
+		writeEnvironmentMutationError(w, err, "update environment failed")
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.plan_requested", "environment plan queued", map[string]any{
@@ -441,7 +449,7 @@ func (s *Server) handleEnvironmentApprove(w http.ResponseWriter, r *http.Request
 	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
 		env, err = bundler.UpdateEnvironmentWithAudit(r.Context(), env, audit)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "approve environment failed")
+			writeEnvironmentMutationError(w, err, "approve environment failed")
 			return
 		}
 		writeJSON(w, http.StatusOK, env)
@@ -449,7 +457,7 @@ func (s *Server) handleEnvironmentApprove(w http.ResponseWriter, r *http.Request
 	}
 	env, err = s.jobs.UpdateEnvironment(r.Context(), env)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "update environment failed")
+		writeEnvironmentMutationError(w, err, "update environment failed")
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.approved", "plan approved for apply", map[string]any{
@@ -525,7 +533,7 @@ func (s *Server) handleEnvironmentApply(w http.ResponseWriter, r *http.Request, 
 	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
 		env, createdJob, err := bundler.UpdateEnvironmentWithJobAndAudit(r.Context(), env, job, audit)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "queue apply failed")
+			writeEnvironmentMutationError(w, err, "queue apply failed")
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
@@ -542,7 +550,7 @@ func (s *Server) handleEnvironmentApply(w http.ResponseWriter, r *http.Request, 
 	env.UpdatedAt = now
 	env, err = s.jobs.UpdateEnvironment(r.Context(), env)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "update environment failed")
+		writeEnvironmentMutationError(w, err, "update environment failed")
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.apply_requested", "apply queued from approved plan", map[string]any{
@@ -618,7 +626,7 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
 		env, createdJob, err := bundler.UpdateEnvironmentWithJobAndAudit(r.Context(), env, retryJob, audit)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "queue retry failed")
+			writeEnvironmentMutationError(w, err, "queue retry failed")
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
@@ -640,7 +648,7 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 	env.UpdatedAt = now
 	env, err = s.jobs.UpdateEnvironment(r.Context(), env)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "update environment failed")
+		writeEnvironmentMutationError(w, err, "update environment failed")
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.retry_requested", "retry queued for failed job", map[string]any{
@@ -700,7 +708,7 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
 		env, createdJob, err := bundler.UpdateEnvironmentWithJobAndAudit(r.Context(), env, job, audit)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "queue destroy plan failed")
+			writeEnvironmentMutationError(w, err, "queue destroy plan failed")
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
@@ -715,7 +723,7 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 	env.LastJobID = createdJob.ID
 	env, err = s.jobs.UpdateEnvironment(r.Context(), env)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "update environment failed")
+		writeEnvironmentMutationError(w, err, "update environment failed")
 		return
 	}
 	s.recordAudit(r, user, "environment", env.ID, "environment.destroy_requested", "destroy plan queued", map[string]any{
