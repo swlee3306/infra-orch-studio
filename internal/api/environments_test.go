@@ -258,6 +258,82 @@ func TestEnvironmentApproveReturnsConflictOnConcurrentMutation(t *testing.T) {
 	}
 }
 
+func TestEnvironmentPlanRejectsExpectedRevisionMismatch(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-rev-plan",
+		Status:         domain.EnvironmentStatusActive,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusNotRequested,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-rev-plan",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		Revision:   3,
+		MaxRetries: 3,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/plan", strings.NewReader(`{"expected_revision":2}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("revision mismatch status = %d, want %d", rr.Code, http.StatusConflict)
+	}
+}
+
+func TestEnvironmentDestroyRejectsExpectedRevisionMismatch(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-rev-destroy",
+		Status:         domain.EnvironmentStatusActive,
+		Operation:      domain.EnvironmentOperationUpdate,
+		ApprovalStatus: domain.ApprovalStatusNotRequested,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-rev-destroy",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		Revision:   5,
+		MaxRetries: 3,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/destroy", strings.NewReader(`{"confirmation_name":"env-rev-destroy","expected_revision":4}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("destroy revision mismatch status = %d, want %d", rr.Code, http.StatusConflict)
+	}
+}
+
 func TestRequestDraftsReturnsStructuredEnvironmentDraft(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")

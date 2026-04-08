@@ -25,15 +25,22 @@ type planEnvironmentRequest struct {
 	Spec         *domain.EnvironmentSpec     `json:"spec,omitempty"`
 	TemplateName string                      `json:"template_name,omitempty"`
 	Operation    domain.EnvironmentOperation `json:"operation,omitempty"`
+	ExpectedRev  *int                        `json:"expected_revision,omitempty"`
 }
 
 type approveEnvironmentRequest struct {
-	Comment string `json:"comment,omitempty"`
+	Comment     string `json:"comment,omitempty"`
+	ExpectedRev *int   `json:"expected_revision,omitempty"`
 }
 
 type destroyEnvironmentRequest struct {
 	ConfirmationName string `json:"confirmation_name,omitempty"`
 	Comment          string `json:"comment,omitempty"`
+	ExpectedRev      *int   `json:"expected_revision,omitempty"`
+}
+
+type revisionPreconditionRequest struct {
+	ExpectedRev *int `json:"expected_revision,omitempty"`
 }
 
 type environmentMutationBundler interface {
@@ -134,6 +141,16 @@ func writeEnvironmentMutationError(w http.ResponseWriter, err error, internalMes
 		return
 	}
 	writeError(w, http.StatusInternalServerError, internalMessage)
+}
+
+func validateExpectedRevision(env domain.Environment, expected *int) (int, string) {
+	if expected == nil {
+		return 0, ""
+	}
+	if *expected != env.Revision {
+		return http.StatusConflict, "environment revision precondition failed; refresh and retry"
+	}
+	return 0, ""
 }
 
 func newAuditEvent(user domain.User, resourceType, resourceID, action, message string, metadata map[string]any, now time.Time) domain.AuditEvent {
@@ -345,6 +362,10 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 		writeError(w, code, msg)
 		return
 	}
+	if code, msg := validateExpectedRevision(env, req.ExpectedRev); code != 0 {
+		writeError(w, code, msg)
+		return
+	}
 
 	now := time.Now().UTC()
 	env.Name = env.Spec.EnvironmentName
@@ -433,6 +454,10 @@ func (s *Server) handleEnvironmentApprove(w http.ResponseWriter, r *http.Request
 			return
 		}
 	}
+	if code, msg := validateExpectedRevision(env, req.ExpectedRev); code != 0 {
+		writeError(w, code, msg)
+		return
+	}
 	now := time.Now().UTC()
 	env.ApprovalStatus = domain.ApprovalStatusApproved
 	env.Status = domain.EnvironmentStatusApproved
@@ -489,6 +514,17 @@ func (s *Server) handleEnvironmentApply(w http.ResponseWriter, r *http.Request, 
 	}
 	if env.ApprovalStatus != domain.ApprovalStatusApproved {
 		writeError(w, http.StatusBadRequest, "plan approval is required before apply")
+		return
+	}
+	var req revisionPreconditionRequest
+	if r.Body != nil && r.ContentLength > 0 {
+		if err := decodeJSON(r.Body, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+	}
+	if code, msg := validateExpectedRevision(env, req.ExpectedRev); code != 0 {
+		writeError(w, code, msg)
 		return
 	}
 	if code, msg := validateEnvironmentApplyAccess(env); code != 0 {
@@ -583,6 +619,17 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusBadRequest, "environment has no job to retry")
 		return
 	}
+	var req revisionPreconditionRequest
+	if r.Body != nil && r.ContentLength > 0 {
+		if err := decodeJSON(r.Body, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+	}
+	if code, msg := validateExpectedRevision(env, req.ExpectedRev); code != 0 {
+		writeError(w, code, msg)
+		return
+	}
 	lastJob, err := s.jobs.GetJob(r.Context(), env.LastJobID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "load last job failed")
@@ -645,6 +692,7 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 		env.Status = domain.EnvironmentStatusPlanning
 	}
 	resetEnvironmentAttemptState(&env)
+	bumpEnvironmentRevision(&env)
 	env.UpdatedAt = now
 	env, err = s.jobs.UpdateEnvironment(r.Context(), env)
 	if err != nil {
@@ -687,6 +735,10 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if code, msg := validateEnvironmentDestroyAccess(env); code != 0 {
+		writeError(w, code, msg)
+		return
+	}
+	if code, msg := validateExpectedRevision(env, req.ExpectedRev); code != 0 {
 		writeError(w, code, msg)
 		return
 	}
