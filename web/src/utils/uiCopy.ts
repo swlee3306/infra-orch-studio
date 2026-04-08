@@ -130,6 +130,7 @@ export function summarizeAuditMessage(message?: string | null, ko = false): stri
   return message
     .replace('Plan approved for environment ', '환경 계획 승인: ')
     .replace('Plan requested for environment ', '환경 계획 요청: ')
+    .replace('environment plan queued', '환경 계획이 큐에 등록되었습니다')
     .replace('Apply requested for environment ', '환경 적용 요청: ')
     .replace('Destroy requested for environment ', '환경 삭제 요청: ')
     .replace('Retry requested for environment ', '환경 재시도 요청: ')
@@ -138,6 +139,7 @@ export function summarizeAuditMessage(message?: string | null, ko = false): stri
     .replace('Apply succeeded for environment ', '환경 적용 성공: ')
     .replace('Destroy succeeded for environment ', '환경 삭제 성공: ')
     .replace('environment created and initial plan queued', '환경이 생성되었고 초기 계획이 큐에 등록되었습니다')
+    .replace('runner updated environment state from job', '러너가 작업 결과로 환경 상태를 갱신했습니다')
     .replace('runner marked environment failed', '러너가 환경을 실패 상태로 기록했습니다')
 }
 
