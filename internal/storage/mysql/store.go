@@ -476,6 +476,18 @@ func (s *Store) SetUserPassword(ctx context.Context, id string, passwordHash str
 	return s.GetUserByID(ctx, id)
 }
 
+func (s *Store) SetUserAdmin(ctx context.Context, id string, isAdmin bool) (domain.User, error) {
+	query := fmt.Sprintf(
+		`UPDATE users SET is_admin = %s, updated_at = UTC_TIMESTAMP(6) WHERE id = %s;`,
+		boolLiteral(isAdmin),
+		quoteString(id),
+	)
+	if _, err := s.exec(ctx, true, query); err != nil {
+		return domain.User{}, err
+	}
+	return s.GetUserByID(ctx, id)
+}
+
 func (s *Store) UpsertAdminUser(ctx context.Context, user domain.User) (domain.User, error) {
 	now := user.UpdatedAt
 	if now.IsZero() {

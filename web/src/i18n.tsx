@@ -181,6 +181,9 @@ type CopyShape = {
     resettingPassword: string
     passwordFor: string
     passwordUpdated: string
+    grantAdmin: string
+    revokeAdmin: string
+    updatingRole: string
   }
   guide: {
     title: string
@@ -393,6 +396,9 @@ const COPY: Record<Locale, CopyShape> = {
       resettingPassword: 'Resetting password...',
       passwordFor: 'Password for',
       passwordUpdated: 'Updated password for',
+      grantAdmin: 'Grant admin',
+      revokeAdmin: 'Revoke admin',
+      updatingRole: 'Updating role...',
     },
     guide: {
       title: 'Operator guide',
@@ -651,6 +657,9 @@ const COPY: Record<Locale, CopyShape> = {
       resettingPassword: '비밀번호 재설정 중...',
       passwordFor: '대상 계정',
       passwordUpdated: '비밀번호를 갱신했습니다',
+      grantAdmin: '관리자 부여',
+      revokeAdmin: '관리자 해제',
+      updatingRole: '권한 변경 중...',
     },
     guide: {
       title: '운영 가이드',

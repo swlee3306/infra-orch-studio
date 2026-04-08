@@ -36,6 +36,10 @@ type adminUserPasswordRequest struct {
 	Password string `json:"password"`
 }
 
+type adminUserRoleRequest struct {
+	IsAdmin bool `json:"is_admin"`
+}
+
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -217,6 +221,54 @@ func (s *Server) handleAdminUserRoute(w http.ResponseWriter, r *http.Request, us
 		if req.Disabled {
 			action = "user.disabled"
 			message = "admin disabled user account"
+		}
+		s.recordAudit(r, user, "user", updated.ID, action, message, map[string]any{
+			"email":       updated.Email,
+			"is_admin":    updated.IsAdmin,
+			"is_disabled": updated.Disabled,
+		})
+		writeJSON(w, http.StatusOK, updated)
+	case "role":
+		var req adminUserRoleRequest
+		if err := decodeJSON(r.Body, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+		if target.IsAdmin && !req.IsAdmin {
+			items, err := s.auth.ListUsers(r.Context(), 500)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "list users failed")
+				return
+			}
+			activeAdmins := 0
+			for _, item := range items {
+				if item.IsAdmin && !item.Disabled && item.ID != target.ID {
+					activeAdmins++
+				}
+			}
+			if activeAdmins == 0 {
+				writeError(w, http.StatusBadRequest, "cannot demote last active admin")
+				return
+			}
+			if target.ID == user.ID {
+				writeError(w, http.StatusBadRequest, "cannot demote current admin session")
+				return
+			}
+		}
+		updated, err := s.auth.SetUserAdmin(r.Context(), target.ID, req.IsAdmin)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.NotFound(w, r)
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "update user role failed")
+			return
+		}
+		action := "user.role_granted"
+		message := "admin granted admin role"
+		if !req.IsAdmin {
+			action = "user.role_revoked"
+			message = "admin revoked admin role"
 		}
 		s.recordAudit(r, user, "user", updated.ID, action, message, map[string]any{
 			"email":       updated.Email,

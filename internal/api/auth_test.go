@@ -317,3 +317,45 @@ func TestAdminCanResetUserPassword(t *testing.T) {
 		t.Fatalf("expected password reset audit, got %+v", audits)
 	}
 }
+
+func TestAdminCanChangeUserRole(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	operator := mustUser(t, "operator@example.com", false, "password123")
+	secondAdmin := mustUser(t, "second-admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	seedSession(store, operator, "operator-session-token")
+	seedSession(store, secondAdmin, "second-admin-session-token")
+	srv := newTestServer(store)
+
+	grantReq := httptest.NewRequest(http.MethodPost, "/api/admin/users/"+operator.ID+"/role", strings.NewReader(`{"is_admin":true}`))
+	grantReq.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	grantRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(grantRR, grantReq)
+	if grantRR.Code != http.StatusOK {
+		t.Fatalf("grant role status = %d, want %d", grantRR.Code, http.StatusOK)
+	}
+
+	revokeReq := httptest.NewRequest(http.MethodPost, "/api/admin/users/"+secondAdmin.ID+"/role", strings.NewReader(`{"is_admin":false}`))
+	revokeReq.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	revokeRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(revokeRR, revokeReq)
+	if revokeRR.Code != http.StatusOK {
+		t.Fatalf("revoke role status = %d, want %d", revokeRR.Code, http.StatusOK)
+	}
+}
+
+func TestCannotDemoteLastActiveAdmin(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/users/"+admin.ID+"/role", strings.NewReader(`{"is_admin":false}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("demote last admin status = %d, want %d", rr.Code, http.StatusBadRequest)
+	}
+}
