@@ -1,3 +1,5 @@
+import type { Environment } from '../api'
+
 function currentLocale(): 'en' | 'ko' {
   if (typeof window === 'undefined') return 'en'
   return window.localStorage.getItem('infra-orch:locale') === 'ko' ? 'ko' : 'en'
@@ -7,6 +9,56 @@ export function isRevisionConflictError(message?: string | null): boolean {
   if (!message) return false
   const normalized = message.toLowerCase()
   return normalized.includes('environment changed concurrently') || normalized.includes('revision precondition failed')
+}
+
+function shortJob(id?: string): string {
+  if (!id) return '-'
+  return id.slice(0, 8)
+}
+
+export function summarizeEnvironmentConflictDelta(
+  previous: Environment | null,
+  current: Environment | null,
+  ko: boolean,
+): string {
+  if (!previous || !current) {
+    return ko
+      ? '최신 환경 상태를 다시 불러왔습니다. 화면 값을 확인한 뒤 다시 시도하세요.'
+      : 'The latest environment state was reloaded. Review the updated values and retry.'
+  }
+
+  const changes: string[] = []
+  if (previous.revision !== current.revision) {
+    changes.push(
+      ko
+        ? `리비전 ${previous.revision ?? 0} -> ${current.revision ?? 0}`
+        : `revision ${previous.revision ?? 0} -> ${current.revision ?? 0}`,
+    )
+  }
+  if (previous.status !== current.status) {
+    changes.push(ko ? `상태 ${previous.status} -> ${current.status}` : `status ${previous.status} -> ${current.status}`)
+  }
+  if (previous.approval_status !== current.approval_status) {
+    changes.push(
+      ko
+        ? `승인 ${previous.approval_status} -> ${current.approval_status}`
+        : `approval ${previous.approval_status} -> ${current.approval_status}`,
+    )
+  }
+  if (previous.last_job_id !== current.last_job_id) {
+    changes.push(
+      ko
+        ? `마지막 작업 ${shortJob(previous.last_job_id)} -> ${shortJob(current.last_job_id)}`
+        : `last job ${shortJob(previous.last_job_id)} -> ${shortJob(current.last_job_id)}`,
+    )
+  }
+
+  if (changes.length === 0) {
+    return ko
+      ? '최신 환경 상태를 다시 불러왔지만 주요 필드는 동일합니다. 다시 시도해 보세요.'
+      : 'The latest environment state was reloaded and key fields are unchanged. Please retry.'
+  }
+  return ko ? `동시 변경이 감지되어 상태를 갱신했습니다: ${changes.join(', ')}` : `Concurrent changes detected; state refreshed: ${changes.join(', ')}`
 }
 
 export function summarizeOperatorError(message?: string | null): string {

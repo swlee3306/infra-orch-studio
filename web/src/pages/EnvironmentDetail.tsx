@@ -5,7 +5,7 @@ import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
-import { errorLooksRaw, isRevisionConflictError, summarizeAuditMessage, summarizeOperatorError } from '../utils/uiCopy'
+import { errorLooksRaw, isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
 
 function parseJson(value?: string): any {
   if (!value) return null
@@ -168,6 +168,7 @@ export default function EnvironmentDetailPage() {
   const [selectedTemplate, setSelectedTemplate] = useState('basic')
   const [editingSpec, setEditingSpec] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [conflictHint, setConflictHint] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
 
   const environmentId = useMemo(() => id || '', [id])
@@ -184,16 +185,16 @@ export default function EnvironmentDetailPage() {
   )
   const updateErrorCount = Object.keys(updateValidation.fieldErrors).length
 
-  async function load() {
+  async function load(): Promise<Environment | null> {
     setError(null)
     try {
       const me = await auth.me()
       setViewer(me)
     } catch {
       nav('/login')
-      return
+      return null
     }
-    if (!environmentId) return
+    if (!environmentId) return null
 
     try {
       const [env, audit, environmentJobsResponse, artifactResponse, templateRes] = await Promise.all([
@@ -216,8 +217,10 @@ export default function EnvironmentDetailPage() {
       }
       const planTemplate = envJobs.find((item) => item.id === env.last_plan_job_id)?.template_name || 'basic'
       setSelectedTemplate(planTemplate)
+      return env
     } catch (err: any) {
       setError(err?.message || 'failed')
+      return null
     }
   }
 
@@ -235,13 +238,16 @@ export default function EnvironmentDetailPage() {
     }
     setBusyAction(action)
     setError(null)
+    setConflictHint(null)
     try {
       await fn()
       await load()
     } catch (err: any) {
       const message = err?.message || 'failed'
       if (isRevisionConflictError(message)) {
-        await load()
+        const previous = environment
+        const refreshed = await load()
+        setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(message)
     } finally {
@@ -275,7 +281,7 @@ export default function EnvironmentDetailPage() {
           <p className="page-copy">{copy.detail.copy}</p>
         </div>
         <div className="hero-actions">
-          <button className="ghost" onClick={load}>
+          <button className="ghost" onClick={() => { setConflictHint(null); void load() }}>
             {copy.detail.refresh}
           </button>
           {environment ? (
@@ -326,6 +332,14 @@ export default function EnvironmentDetailPage() {
               <div style={{ marginTop: 8 }}>{error}</div>
             </details>
           ) : null}
+        </section>
+      ) : null}
+      {conflictHint ? (
+        <section className="console-card">
+          <div className="callout callout-warning">
+            <strong>{ko ? '동시 변경 감지' : 'Concurrent change detected'}</strong>
+            <p style={{ margin: '6px 0 0' }}>{conflictHint}</p>
+          </div>
         </section>
       ) : null}
 

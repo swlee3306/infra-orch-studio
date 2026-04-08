@@ -4,7 +4,7 @@ import { AuditEvent, auth, Environment, environments, Job } from '../api'
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { buildApprovalCheckpoints, buildImpactSummary, findLatestPlanJob } from '../utils/environmentView'
-import { isRevisionConflictError, summarizeAuditMessage, summarizeOperatorError } from '../utils/uiCopy'
+import { isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
 
 export default function ApprovalControlPage() {
   const nav = useNavigate()
@@ -20,16 +20,17 @@ export default function ApprovalControlPage() {
   const [typedConfirmation, setTypedConfirmation] = useState('')
   const [destroyComment, setDestroyComment] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [conflictHint, setConflictHint] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
-  async function load() {
+  async function load(): Promise<Environment | null> {
     setError(null)
     try {
       const me = await auth.me()
       setViewer(me)
     } catch {
       nav('/login')
-      return
+      return null
     }
     try {
       const [env, audit, environmentJobs] = await Promise.all([
@@ -40,8 +41,10 @@ export default function ApprovalControlPage() {
       setEnvironment(env)
       setAuditItems(audit.items)
       setJobsForEnvironment(environmentJobs.items)
+      return env
     } catch (err: any) {
       setError(err?.message || 'failed')
+      return null
     }
   }
 
@@ -69,13 +72,16 @@ export default function ApprovalControlPage() {
     if (opts?.confirm && !window.confirm(opts.confirm)) return
     setBusy(action)
     setError(null)
+    setConflictHint(null)
     try {
       await fn()
       await load()
     } catch (err: any) {
       const message = err?.message || 'failed'
       if (isRevisionConflictError(message)) {
-        await load()
+        const previous = environment
+        const refreshed = await load()
+        setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(summarizeOperatorError(message))
     } finally {
@@ -101,7 +107,7 @@ export default function ApprovalControlPage() {
           <p className="page-copy">{copy.approval.copy}</p>
         </div>
         <div className="hero-actions">
-          <button className="ghost" onClick={load}>
+          <button className="ghost" onClick={() => { setConflictHint(null); void load() }}>
             {copy.approval.refresh}
           </button>
           {environment ? (
@@ -118,6 +124,14 @@ export default function ApprovalControlPage() {
       </section>
 
       {error ? <section className="error-box">{error}</section> : null}
+      {conflictHint ? (
+        <section className="console-card">
+          <div className="callout callout-warning">
+            <strong>{ko ? '동시 변경 감지' : 'Concurrent change detected'}</strong>
+            <p style={{ margin: '6px 0 0' }}>{conflictHint}</p>
+          </div>
+        </section>
+      ) : null}
 
       <section className="dashboard-grid">
         <article className="console-card">
