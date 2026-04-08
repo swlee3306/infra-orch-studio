@@ -17,6 +17,7 @@
 - `docs/design-integration-plan.md`
 - `docs/templates.md`
 - `docs/release-checklist.md`
+- `docs/ui-revalidation-log.md`
 - `docs/concurrency-smoke-checklist.md`
 - `docs/openclaw-concurrency-prompt.md`
 - `hack/summarize-openclaw-report.sh`
