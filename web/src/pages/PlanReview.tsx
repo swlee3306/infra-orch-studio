@@ -4,6 +4,7 @@ import { AuditEvent, auth, Environment, environments, Job, ImpactSummary, Review
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { latestApprovalEvent } from '../utils/environmentView'
+import { isRevisionConflictError, summarizeOperatorError } from '../utils/uiCopy'
 
 function displayReviewSignal(signal: ReviewSignal, ko: boolean): ReviewSignal {
   if (!ko) return signal
@@ -84,7 +85,11 @@ export default function PlanReviewPage() {
       await fn()
       await load()
     } catch (err: any) {
-      setError(err?.message || 'failed')
+      const message = err?.message || 'failed'
+      if (isRevisionConflictError(message)) {
+        await load()
+      }
+      setError(summarizeOperatorError(message))
     } finally {
       setBusy(null)
     }

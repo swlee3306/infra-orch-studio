@@ -5,7 +5,7 @@ import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
-import { errorLooksRaw, summarizeAuditMessage, summarizeOperatorError } from '../utils/uiCopy'
+import { errorLooksRaw, isRevisionConflictError, summarizeAuditMessage, summarizeOperatorError } from '../utils/uiCopy'
 
 function parseJson(value?: string): any {
   if (!value) return null
@@ -239,7 +239,11 @@ export default function EnvironmentDetailPage() {
       await fn()
       await load()
     } catch (err: any) {
-      setError(err?.message || 'failed')
+      const message = err?.message || 'failed'
+      if (isRevisionConflictError(message)) {
+        await load()
+      }
+      setError(message)
     } finally {
       setBusyAction(null)
     }

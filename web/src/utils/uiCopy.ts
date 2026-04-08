@@ -3,6 +3,12 @@ function currentLocale(): 'en' | 'ko' {
   return window.localStorage.getItem('infra-orch:locale') === 'ko' ? 'ko' : 'en'
 }
 
+export function isRevisionConflictError(message?: string | null): boolean {
+  if (!message) return false
+  const normalized = message.toLowerCase()
+  return normalized.includes('environment changed concurrently') || normalized.includes('revision precondition failed')
+}
+
 export function summarizeOperatorError(message?: string | null): string {
   const ko = currentLocale() === 'ko'
   if (!message) return ko ? '예상하지 못한 플랫폼 오류가 발생했습니다.' : 'An unexpected platform error occurred.'

@@ -4,7 +4,7 @@ import { AuditEvent, auth, Environment, environments, Job } from '../api'
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { buildApprovalCheckpoints, buildImpactSummary, findLatestPlanJob } from '../utils/environmentView'
-import { summarizeAuditMessage } from '../utils/uiCopy'
+import { isRevisionConflictError, summarizeAuditMessage, summarizeOperatorError } from '../utils/uiCopy'
 
 export default function ApprovalControlPage() {
   const nav = useNavigate()
@@ -73,7 +73,11 @@ export default function ApprovalControlPage() {
       await fn()
       await load()
     } catch (err: any) {
-      setError(err?.message || 'failed')
+      const message = err?.message || 'failed'
+      if (isRevisionConflictError(message)) {
+        await load()
+      }
+      setError(summarizeOperatorError(message))
     } finally {
       setBusy(null)
     }
