@@ -82,8 +82,8 @@ export default function App() {
             </div>
             <div className="sidebar-foot">
             <div className="sidebar-foot-copy">
-                <strong>{locale === 'ko' ? '계획 -> 승인 -> 적용 -> 결과' : 'Plan -> Approval -> Apply -> Result'}</strong>
-                <p>{locale === 'ko' ? '항상 환경 화면에서 시작하고, 필요할 때만 실행 상세로 내려가세요.' : 'Operate from environments first, then drill into execution detail.'}</p>
+                <strong>{copy.shell.workflowTitle}</strong>
+                <p>{copy.shell.workflowHint}</p>
               </div>
               <button
                 className="ghost sidebar-logout"
