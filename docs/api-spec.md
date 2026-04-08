@@ -82,6 +82,19 @@ This endpoint is available only when `ALLOW_PUBLIC_SIGNUP=true`.
   - resets the managed user password
   - records a `user.password_reset` audit event
 
+### `POST /api/admin/users/:id/role`
+- Auth required.
+- Admin only.
+- Body:
+```json
+{ "is_admin": true }
+```
+- Behavior:
+  - grants or revokes admin role
+  - the last active admin cannot be demoted
+  - the current admin session cannot demote itself
+  - records `user.role_granted` or `user.role_revoked`
+
 ## Request Drafts
 
 ### `POST /api/request-drafts`

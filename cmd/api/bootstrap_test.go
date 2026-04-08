@@ -126,6 +126,17 @@ func (s *bootstrapAuthStore) SetUserPassword(_ context.Context, id string, passw
 	return domain.User{}, sql.ErrNoRows
 }
 
+func (s *bootstrapAuthStore) SetUserAdmin(_ context.Context, id string, isAdmin bool) (domain.User, error) {
+	for email, user := range s.users {
+		if user.ID == id {
+			user.IsAdmin = isAdmin
+			s.users[email] = user
+			return user, nil
+		}
+	}
+	return domain.User{}, sql.ErrNoRows
+}
+
 func (s *bootstrapAuthStore) UpsertAdminUser(_ context.Context, user domain.User) (domain.User, error) {
 	user.Email = strings.ToLower(user.Email)
 	user.IsAdmin = true

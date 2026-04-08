@@ -13,6 +13,7 @@ type AuthStore interface {
 	ListUsers(ctx context.Context, limit int) ([]domain.User, error)
 	SetUserDisabled(ctx context.Context, id string, disabled bool) (domain.User, error)
 	SetUserPassword(ctx context.Context, id string, passwordHash string) (domain.User, error)
+	SetUserAdmin(ctx context.Context, id string, isAdmin bool) (domain.User, error)
 	UpsertAdminUser(ctx context.Context, user domain.User) (domain.User, error)
 
 	CreateSession(ctx context.Context, session domain.Session) (domain.Session, error)

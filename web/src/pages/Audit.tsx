@@ -34,6 +34,8 @@ function displayAuditAction(action: string, ko: boolean): string {
     'user.disabled': ko ? '사용자 비활성화' : 'User account disabled',
     'user.enabled': ko ? '사용자 재활성화' : 'User account re-enabled',
     'user.password_reset': ko ? '사용자 비밀번호 재설정' : 'User password reset',
+    'user.role_granted': ko ? '관리자 권한 부여' : 'Admin role granted',
+    'user.role_revoked': ko ? '관리자 권한 해제' : 'Admin role revoked',
     'environment.created': ko ? '환경 생성' : 'Environment created',
     'environment.plan_requested': ko ? '환경 계획 요청' : 'Environment plan requested',
     'environment.approved': ko ? '환경 승인' : 'Environment approved',

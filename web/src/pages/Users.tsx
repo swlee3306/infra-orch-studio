@@ -28,6 +28,7 @@ export default function UsersPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(false)
   const [statusTargetId, setStatusTargetId] = useState<string | null>(null)
+  const [roleTargetId, setRoleTargetId] = useState<string | null>(null)
   const [passwordTargetId, setPasswordTargetId] = useState<string | null>(null)
   const [nextPassword, setNextPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -111,6 +112,25 @@ export default function UsersPage() {
     }
   }
 
+  async function onToggleRole(item: User) {
+    setRoleTargetId(item.id)
+    setError(null)
+    setNotice(null)
+    try {
+      const updated = await auth.setUserRole(item.id, { is_admin: !item.is_admin })
+      setNotice(
+        ko
+          ? `${updated.email} 계정의 관리자 권한을 ${updated.is_admin ? '부여' : '해제'}했습니다.`
+          : `${updated.is_admin ? 'Granted' : 'Revoked'} admin role for ${updated.email}.`,
+      )
+      await load()
+    } catch (err: any) {
+      setError(err?.message || 'failed')
+    } finally {
+      setRoleTargetId(null)
+    }
+  }
+
   if (viewer && !viewer.is_admin) {
     return (
       <div className="page-stack">
@@ -180,6 +200,18 @@ export default function UsersPage() {
                         : item.is_disabled
                           ? copy.users.enable
                           : copy.users.disable}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost"
+                      disabled={roleTargetId === item.id || (viewer?.id === item.id && item.is_admin)}
+                      onClick={() => onToggleRole(item)}
+                    >
+                      {roleTargetId === item.id
+                        ? copy.users.updatingRole
+                        : item.is_admin
+                          ? copy.users.revokeAdmin
+                          : copy.users.grantAdmin}
                     </button>
                     <button
                       type="button"
