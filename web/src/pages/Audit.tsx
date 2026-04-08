@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AuditEvent, audit, auth, environments, Environment } from '../api'
+import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
-import { summarizeAuditMessage } from '../utils/uiCopy'
+import { displayAuditAction, summarizeAuditMessage } from '../utils/uiCopy'
 
 type AuditRecord = AuditEvent & {
   environmentName?: string
@@ -26,28 +27,6 @@ function primaryEnvironmentRoute(environmentId: string, items: Environment[]): s
   if (environment.status === 'pending_approval') return `/environments/${environmentId}/review`
   if (environment.approval_status === 'approved') return `/environments/${environmentId}/approval`
   return `/environments/${environmentId}`
-}
-
-function displayAuditAction(action: string, ko: boolean): string {
-  const map: Record<string, string> = {
-    'user.provisioned': ko ? '사용자 계정 생성' : 'User account provisioned',
-    'user.disabled': ko ? '사용자 비활성화' : 'User account disabled',
-    'user.enabled': ko ? '사용자 재활성화' : 'User account re-enabled',
-    'user.password_reset': ko ? '사용자 비밀번호 재설정' : 'User password reset',
-    'user.role_granted': ko ? '관리자 권한 부여' : 'Admin role granted',
-    'user.role_revoked': ko ? '관리자 권한 해제' : 'Admin role revoked',
-    'environment.created': ko ? '환경 생성' : 'Environment created',
-    'environment.plan_requested': ko ? '환경 계획 요청' : 'Environment plan requested',
-    'environment.approved': ko ? '환경 승인' : 'Environment approved',
-    'environment.apply_requested': ko ? '환경 적용 요청' : 'Environment apply requested',
-    'environment.destroy_requested': ko ? '환경 삭제 요청' : 'Environment destroy requested',
-    'environment.retry_requested': ko ? '환경 재시도 요청' : 'Environment retry requested',
-    'environment.plan_failed': ko ? '환경 계획 실패' : 'Environment plan failed',
-    'environment.apply_failed': ko ? '환경 적용 실패' : 'Environment apply failed',
-    'environment.apply_succeeded': ko ? '환경 적용 성공' : 'Environment apply succeeded',
-    'environment.destroy_succeeded': ko ? '환경 삭제 성공' : 'Environment destroy succeeded',
-  }
-  return map[action] || action
 }
 
 export default function AuditPage() {
@@ -248,7 +227,7 @@ export default function AuditPage() {
                     </div>
                     <div className="meta-item">
                       <span>{ko ? '유형 / 상태' : 'Type / Status'}</span>
-                      <strong>{item.resource_type === 'environment' ? item.environmentStatus || 'environment' : item.resource_type}</strong>
+                      <strong>{item.resource_type === 'environment' ? formatStatusLabel(item.environmentStatus || 'environment', ko) : item.resource_type}</strong>
                     </div>
                   </div>
                   {item.message ? <div style={{ marginTop: 10 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}

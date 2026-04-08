@@ -5,7 +5,7 @@ import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
-import { errorLooksRaw, isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
+import { displayAuditAction, errorLooksRaw, isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
 
 function parseJson(value?: string): any {
   if (!value) return null
@@ -279,7 +279,7 @@ export default function EnvironmentDetailPage() {
         <div>
           <div className="page-kicker">
             <Link to="/environments" className="text-link">
-              Ops / Environments
+              {ko ? '운영 / 환경' : 'Ops / Environments'}
             </Link>{' '}
             / {copy.detail.kicker}
           </div>
@@ -318,7 +318,7 @@ export default function EnvironmentDetailPage() {
             <button
               onClick={() =>
                 runAction('apply', (env) => environments.apply(environmentId, env?.revision), {
-                  confirmMessage: 'Queue apply for the currently approved plan?',
+                  confirmMessage: ko ? '현재 승인된 계획으로 apply를 큐잉할까요?' : 'Queue apply for the currently approved plan?',
                 })
               }
               disabled={busyAction !== null}
@@ -597,7 +597,7 @@ export default function EnvironmentDetailPage() {
                 return (
                   <div className="audit-item" key={item.id}>
                     <div className="detail-top" style={{ alignItems: 'center' }}>
-                      <strong>{item.action}</strong>
+                      <strong>{displayAuditAction(item.action, ko)}</strong>
                       <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
                     </div>
                     <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>

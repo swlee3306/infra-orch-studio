@@ -137,7 +137,36 @@ export function summarizeAuditMessage(message?: string | null, ko = false): stri
     .replace('Apply failed for environment ', '환경 적용 실패: ')
     .replace('Apply succeeded for environment ', '환경 적용 성공: ')
     .replace('Destroy succeeded for environment ', '환경 삭제 성공: ')
+    .replace('environment created and initial plan queued', '환경이 생성되었고 초기 계획이 큐에 등록되었습니다')
     .replace('runner marked environment failed', '러너가 환경을 실패 상태로 기록했습니다')
+}
+
+export function displayAuditAction(action: string, ko = false): string {
+  const map: Record<string, string> = {
+    'user.provisioned': ko ? '사용자 계정 생성' : 'User account provisioned',
+    'user.disabled': ko ? '사용자 비활성화' : 'User account disabled',
+    'user.enabled': ko ? '사용자 재활성화' : 'User account re-enabled',
+    'user.password_reset': ko ? '사용자 비밀번호 재설정' : 'User password reset',
+    'user.role_granted': ko ? '관리자 권한 부여' : 'Admin role granted',
+    'user.role_revoked': ko ? '관리자 권한 해제' : 'Admin role revoked',
+    'environment.created': ko ? '환경 생성' : 'Environment created',
+    'environment.plan_requested': ko ? '환경 계획 요청' : 'Environment plan requested',
+    'environment.approved': ko ? '환경 승인' : 'Environment approved',
+    'environment.apply_requested': ko ? '환경 적용 요청' : 'Environment apply requested',
+    'environment.destroy_requested': ko ? '환경 삭제 요청' : 'Environment destroy requested',
+    'environment.retry_requested': ko ? '환경 재시도 요청' : 'Environment retry requested',
+    'environment.plan_failed': ko ? '환경 계획 실패' : 'Environment plan failed',
+    'environment.apply_failed': ko ? '환경 적용 실패' : 'Environment apply failed',
+    'environment.apply_succeeded': ko ? '환경 적용 성공' : 'Environment apply succeeded',
+    'environment.destroy_succeeded': ko ? '환경 삭제 성공' : 'Environment destroy succeeded',
+    'job.failed': ko ? '실행 실패' : 'Execution failed',
+    'job.succeeded': ko ? '실행 성공' : 'Execution succeeded',
+    'job.failed_conflict': ko ? '실행 실패(충돌 반영)' : 'Execution failed (conflict)',
+    'job.succeeded_conflict': ko ? '실행 성공(충돌 반영)' : 'Execution succeeded (conflict)',
+    'job.failed_ignored': ko ? '실행 실패(구버전 무시)' : 'Execution failed (stale ignored)',
+    'job.succeeded_ignored': ko ? '실행 성공(구버전 무시)' : 'Execution succeeded (stale ignored)',
+  }
+  return map[action] || action
 }
 
 export function errorLooksRaw(message?: string | null): boolean {
