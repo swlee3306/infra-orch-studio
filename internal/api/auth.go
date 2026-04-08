@@ -216,6 +216,12 @@ func (s *Server) handleAdminUserRoute(w http.ResponseWriter, r *http.Request, us
 			writeError(w, http.StatusInternalServerError, "update user status failed")
 			return
 		}
+		if req.Disabled {
+			if err := s.auth.DeleteSessionsByUserID(r.Context(), target.ID); err != nil {
+				writeError(w, http.StatusInternalServerError, "revoke user sessions failed")
+				return
+			}
+		}
 		action := "user.enabled"
 		message := "admin re-enabled user account"
 		if req.Disabled {
@@ -294,6 +300,10 @@ func (s *Server) handleAdminUserRoute(w http.ResponseWriter, r *http.Request, us
 				return
 			}
 			writeError(w, http.StatusInternalServerError, "reset user password failed")
+			return
+		}
+		if err := s.auth.DeleteSessionsByUserID(r.Context(), target.ID); err != nil {
+			writeError(w, http.StatusInternalServerError, "revoke user sessions failed")
 			return
 		}
 		s.recordAudit(r, user, "user", updated.ID, "user.password_reset", "admin reset user password", map[string]any{

@@ -390,6 +390,17 @@ func (f *fakeStore) DeleteSessionByTokenHash(_ context.Context, tokenHash string
 	return nil
 }
 
+func (f *fakeStore) DeleteSessionsByUserID(_ context.Context, userID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for tokenHash, session := range f.sessions {
+		if session.UserID == userID {
+			delete(f.sessions, tokenHash)
+		}
+	}
+	return nil
+}
+
 func mustHashPassword(t interface{ Fatalf(string, ...any) }, password string) string {
 	hash, err := security.HashPassword(password)
 	if err != nil {

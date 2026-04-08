@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
+	"github.com/swlee3306/infra-orch-studio/internal/security"
 )
 
 func TestAuthSignupMeAndLogout(t *testing.T) {
@@ -262,6 +263,9 @@ func TestAdminCanDisableUserAndBlockLogin(t *testing.T) {
 	if meRR.Code != http.StatusUnauthorized {
 		t.Fatalf("disabled session status = %d, want %d", meRR.Code, http.StatusUnauthorized)
 	}
+	if _, ok := store.sessions[security.HashToken("operator-session-token")]; ok {
+		t.Fatalf("expected disabled user session to be revoked")
+	}
 }
 
 func TestCannotDisableLastActiveAdmin(t *testing.T) {
@@ -300,6 +304,14 @@ func TestAdminCanResetUserPassword(t *testing.T) {
 	srv.mux.ServeHTTP(loginRR, loginReq)
 	if loginRR.Code != http.StatusOK {
 		t.Fatalf("login with reset password status = %d, want %d", loginRR.Code, http.StatusOK)
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
+	meReq.AddCookie(cookieFromToken("operator-session-token", srv.cookieName))
+	meRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(meRR, meReq)
+	if meRR.Code != http.StatusUnauthorized {
+		t.Fatalf("old session after password reset status = %d, want %d", meRR.Code, http.StatusUnauthorized)
 	}
 
 	audits, err := store.ListAuditEvents(context.Background(), "user", operator.ID, 10)
