@@ -232,7 +232,7 @@ export default function EnvironmentDetailPage() {
 
   async function runAction(
     action: string,
-    fn: () => Promise<any>,
+    execute: (env: Environment | null) => Promise<any>,
     options?: { confirmMessage?: string },
   ) {
     if (options?.confirmMessage && !window.confirm(options.confirmMessage)) {
@@ -244,7 +244,7 @@ export default function EnvironmentDetailPage() {
     setRetryLabel(null)
     retryRef.current = null
     try {
-      await fn()
+      await execute(environment)
       await load()
     } catch (err: any) {
       const message = err?.message || 'failed'
@@ -254,7 +254,7 @@ export default function EnvironmentDetailPage() {
         setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(message)
-      retryRef.current = async () => runAction(action, fn, options)
+      retryRef.current = async () => runAction(action, execute, options)
       setRetryLabel(action)
     } finally {
       setBusyAction(null)
@@ -304,20 +304,20 @@ export default function EnvironmentDetailPage() {
             className="ghost"
             disabled={!canPlanUpdate || busyAction !== null}
             onClick={() =>
-              runAction('update-plan', () => environments.plan(environmentId, editingSpec, 'update', selectedTemplate, environment?.revision))
+              runAction('update-plan', (env) => environments.plan(environmentId, editingSpec, 'update', selectedTemplate, env?.revision))
             }
           >
             {busyAction === 'update-plan' ? copy.detail.queueing : copy.detail.queueUpdate}
           </button>
           {canApprove ? (
-            <button onClick={() => runAction('approve', () => environments.approve(environmentId, { expected_revision: environment?.revision }))} disabled={busyAction !== null}>
+            <button onClick={() => runAction('approve', (env) => environments.approve(environmentId, { expected_revision: env?.revision }))} disabled={busyAction !== null}>
               {busyAction === 'approve' ? copy.detail.approving : copy.detail.approve}
             </button>
           ) : null}
           {canApply ? (
             <button
               onClick={() =>
-                runAction('apply', () => environments.apply(environmentId, environment?.revision), {
+                runAction('apply', (env) => environments.apply(environmentId, env?.revision), {
                   confirmMessage: 'Queue apply for the currently approved plan?',
                 })
               }
@@ -664,7 +664,7 @@ export default function EnvironmentDetailPage() {
           </div>
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {canRetry ? (
-              <button className="ghost" onClick={() => runAction('retry', () => environments.retry(environmentId, environment?.revision))} disabled={busyAction !== null}>
+              <button className="ghost" onClick={() => runAction('retry', (env) => environments.retry(environmentId, env?.revision))} disabled={busyAction !== null}>
                 {busyAction === 'retry' ? copy.detail.retrying : copy.detail.retry}
               </button>
             ) : null}

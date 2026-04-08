@@ -83,14 +83,14 @@ export default function PlanReviewPage() {
 
   const approvalEvent = useMemo(() => latestApprovalEvent(auditItems), [auditItems])
 
-  async function run(action: string, fn: () => Promise<any>) {
+  async function run(action: string, execute: (env: Environment | null) => Promise<any>) {
     setBusy(action)
     setError(null)
     setConflictHint(null)
     setRetryLabel(null)
     retryRef.current = null
     try {
-      await fn()
+      await execute(environment)
       await load()
     } catch (err: any) {
       const message = err?.message || 'failed'
@@ -100,7 +100,7 @@ export default function PlanReviewPage() {
         setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(summarizeOperatorError(message))
-      retryRef.current = async () => run(action, fn)
+      retryRef.current = async () => run(action, execute)
       setRetryLabel(action)
     } finally {
       setBusy(null)
@@ -250,12 +250,12 @@ export default function PlanReviewPage() {
           </label>
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {viewer?.is_admin && environment?.status === 'pending_approval' ? (
-              <button onClick={() => run('approve', () => environments.approve(environmentId, { comment: approvalComment.trim(), expected_revision: environment?.revision }))} disabled={!ack || busy !== null}>
+              <button onClick={() => run('approve', (env) => environments.approve(environmentId, { comment: approvalComment.trim(), expected_revision: env?.revision }))} disabled={!ack || busy !== null}>
                 {busy === 'approve' ? copy.review.approving : copy.review.approve}
               </button>
             ) : null}
             {viewer?.is_admin && environment?.approval_status === 'approved' ? (
-              <button onClick={() => run('apply', () => environments.apply(environmentId, environment?.revision))} disabled={!ack || busy !== null}>
+              <button onClick={() => run('apply', (env) => environments.apply(environmentId, env?.revision))} disabled={!ack || busy !== null}>
                 {busy === 'apply' ? copy.review.applying : copy.review.apply}
               </button>
             ) : null}
