@@ -20,6 +20,7 @@
 - `docs/concurrency-smoke-checklist.md`
 - `docs/openclaw-concurrency-prompt.md`
 - `hack/summarize-openclaw-report.sh`
+- `hack/extract-openclaw-ui-todos.sh`
 - `docs/documentation-map.md`
 
 ## Historical Snapshot / Analysis
