@@ -152,6 +152,7 @@ CREATE TABLE IF NOT EXISTS environments (
 	workdir TEXT NOT NULL,
 	plan_path TEXT NOT NULL,
 	outputs_json LONGTEXT NOT NULL,
+	revision INT NOT NULL DEFAULT 0,
 	created_at DATETIME(6) NOT NULL,
 	updated_at DATETIME(6) NOT NULL,
 	INDEX idx_environments_updated_at (updated_at),
@@ -194,6 +195,9 @@ DELETE FROM sessions WHERE expires_at <= UTC_TIMESTAMP(6);
 	}
 	if err := s.addColumnIfMissing(ctx, "users", "is_disabled", "BOOLEAN NOT NULL DEFAULT FALSE"); err != nil {
 		return fmt.Errorf("migrate alter users: %w", err)
+	}
+	if err := s.addColumnIfMissing(ctx, "environments", "revision", "INT NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("migrate alter environments: %w", err)
 	}
 	return nil
 }
@@ -789,8 +793,8 @@ func environmentInsertSQL(env domain.Environment) (string, error) {
 	}
 	return fmt.Sprintf(
 		`INSERT INTO environments (
-			id, name, status, operation, approval_status, spec_json, created_by_user_id, created_by_email, approved_by_user_id, approved_by_email, approved_at, last_plan_job_id, last_apply_job_id, last_job_id, last_error, retry_count, max_retries, workdir, plan_path, outputs_json, created_at, updated_at
-		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %d, %s, %s, %s, %s, %s);`,
+			id, name, status, operation, approval_status, spec_json, created_by_user_id, created_by_email, approved_by_user_id, approved_by_email, approved_at, last_plan_job_id, last_apply_job_id, last_job_id, last_error, retry_count, max_retries, workdir, plan_path, outputs_json, revision, created_at, updated_at
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %d, %s, %s, %s, %d, %s, %s);`,
 		quoteString(env.ID),
 		quoteString(env.Name),
 		quoteString(string(env.Status)),
@@ -811,6 +815,7 @@ func environmentInsertSQL(env domain.Environment) (string, error) {
 		quoteString(env.Workdir),
 		quoteString(env.PlanPath),
 		quoteString(env.OutputsJSON),
+		env.Revision,
 		quoteTime(env.CreatedAt),
 		quoteTime(env.UpdatedAt),
 	), nil
@@ -846,6 +851,7 @@ func environmentUpdateSQL(env domain.Environment, includeRowCount bool) (string,
 		     workdir = %s,
 		     plan_path = %s,
 		     outputs_json = %s,
+		     revision = %d,
 		     updated_at = %s
 		 WHERE id = %s;`,
 		quoteString(env.Name),
@@ -867,6 +873,7 @@ func environmentUpdateSQL(env domain.Environment, includeRowCount bool) (string,
 		quoteString(env.Workdir),
 		quoteString(env.PlanPath),
 		quoteString(env.OutputsJSON),
+		env.Revision,
 		quoteTime(env.UpdatedAt),
 		quoteString(env.ID),
 	)
@@ -950,6 +957,7 @@ func environmentSelectColumns() string {
 		base64ColumnExpr("workdir"),
 		base64ColumnExpr("plan_path"),
 		base64ColumnExpr("outputs_json"),
+		"revision",
 		fmt.Sprintf("DATE_FORMAT(created_at, '%s')", sqlTimeFormat),
 		fmt.Sprintf("DATE_FORMAT(updated_at, '%s')", sqlTimeFormat),
 	}, ", ")
@@ -1078,7 +1086,7 @@ func parseJobLine(line string) (domain.Job, error) {
 
 func parseEnvironmentLine(line string) (domain.Environment, error) {
 	fields := strings.Split(line, "\t")
-	if len(fields) != 22 {
+	if len(fields) != 23 {
 		return domain.Environment{}, fmt.Errorf("unexpected environment field count: %d", len(fields))
 	}
 
@@ -1154,10 +1162,13 @@ func parseEnvironmentLine(line string) (domain.Environment, error) {
 	if env.OutputsJSON, err = decodeBase64Field(fields[19]); err != nil {
 		return domain.Environment{}, err
 	}
-	if env.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[20]); err != nil {
+	if env.Revision, err = parseIntField(fields[20]); err != nil {
+		return domain.Environment{}, err
+	}
+	if env.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[21]); err != nil {
 		return domain.Environment{}, fmt.Errorf("parse environment created_at: %w", err)
 	}
-	if env.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[21]); err != nil {
+	if env.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[22]); err != nil {
 		return domain.Environment{}, fmt.Errorf("parse environment updated_at: %w", err)
 	}
 	return env, nil

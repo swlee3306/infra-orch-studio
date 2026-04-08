@@ -124,6 +124,10 @@ func resetEnvironmentAttemptState(env *domain.Environment) {
 	env.LastPlanJobID = ""
 }
 
+func bumpEnvironmentRevision(env *domain.Environment) {
+	env.Revision++
+}
+
 func newAuditEvent(user domain.User, resourceType, resourceID, action, message string, metadata map[string]any, now time.Time) domain.AuditEvent {
 	metadataJSON := ""
 	if len(metadata) > 0 {
@@ -184,6 +188,7 @@ func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user
 			CreatedByUserID: user.ID,
 			CreatedByEmail:  user.Email,
 			MaxRetries:      3,
+			Revision:        1,
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		}
@@ -338,6 +343,7 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 	env.Operation = operation
 	env.Status = domain.EnvironmentStatusPlanning
 	resetEnvironmentAttemptState(&env)
+	bumpEnvironmentRevision(&env)
 	env.UpdatedAt = now
 	job := newEnvironmentPlanJob(env, req.TemplateName, user.Email, now)
 	env.LastPlanJobID = job.ID
@@ -425,6 +431,7 @@ func (s *Server) handleEnvironmentApprove(w http.ResponseWriter, r *http.Request
 	env.ApprovedByUserID = user.ID
 	env.ApprovedByEmail = user.Email
 	env.ApprovedAt = &now
+	bumpEnvironmentRevision(&env)
 	env.UpdatedAt = now
 	audit := newAuditEvent(user, "environment", env.ID, "environment.approved", "plan approved for apply", map[string]any{
 		"plan_job_id":   env.LastPlanJobID,
@@ -509,6 +516,7 @@ func (s *Server) handleEnvironmentApply(w http.ResponseWriter, r *http.Request, 
 	env.Status = domain.EnvironmentStatusApplying
 	env.LastApplyJobID = job.ID
 	env.LastJobID = job.ID
+	bumpEnvironmentRevision(&env)
 	env.UpdatedAt = now
 	audit := newAuditEvent(user, "environment", env.ID, "environment.apply_requested", "apply queued from approved plan", map[string]any{
 		"job_id":        job.ID,
@@ -601,6 +609,7 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 		env.Status = domain.EnvironmentStatusPlanning
 	}
 	resetEnvironmentAttemptState(&env)
+	bumpEnvironmentRevision(&env)
 	env.UpdatedAt = now
 	audit := newAuditEvent(user, "environment", env.ID, "environment.retry_requested", "retry queued for failed job", map[string]any{
 		"job_id":        retryJob.ID,
@@ -677,6 +686,7 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 	env.Operation = domain.EnvironmentOperationDestroy
 	env.Status = domain.EnvironmentStatusPlanning
 	resetEnvironmentAttemptState(&env)
+	bumpEnvironmentRevision(&env)
 	env.UpdatedAt = now
 	job := newEnvironmentPlanJob(env, "", user.Email, now)
 	env.LastPlanJobID = job.ID

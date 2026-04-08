@@ -272,6 +272,7 @@ func failJob(store runnerEnvironmentStore, job domain.Job, message string) {
 	env.Status = domain.EnvironmentStatusFailed
 	env.LastError = message
 	env.LastJobID = job.ID
+	env.Revision++
 	env.UpdatedAt = time.Now().UTC()
 	_, _ = store.UpdateEnvironment(context.Background(), env)
 	recordSystemAudit(store, "environment", env.ID, "job.failed", "runner marked environment failed", map[string]any{
@@ -300,6 +301,7 @@ func recordRunnerEnvironmentSuccess(store runnerEnvironmentStore, job domain.Job
 	env.Workdir = job.Workdir
 	env.PlanPath = job.PlanPath
 	env.OutputsJSON = job.OutputsJSON
+	env.Revision++
 	env.UpdatedAt = time.Now().UTC()
 
 	switch job.Type {

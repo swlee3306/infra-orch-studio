@@ -53,6 +53,7 @@ type Environment struct {
 	Workdir          string               `json:"workdir,omitempty"`
 	PlanPath         string               `json:"plan_path,omitempty"`
 	OutputsJSON      string               `json:"outputs_json,omitempty"`
+	Revision         int                  `json:"revision,omitempty"`
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`
 }
