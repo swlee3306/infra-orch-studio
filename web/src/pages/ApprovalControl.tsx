@@ -162,13 +162,13 @@ export default function ApprovalControlPage() {
           </label>
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {canApprove ? (
-              <button onClick={() => run('approve', () => environments.approve(environmentId, { comment: approvalComment.trim() }))} disabled={busy !== null}>
+              <button onClick={() => run('approve', () => environments.approve(environmentId, { comment: approvalComment.trim(), expected_revision: environment?.revision }))} disabled={busy !== null}>
                 {busy === 'approve' ? copy.approval.approving : copy.approval.approveRequest}
               </button>
             ) : null}
             {canApply ? (
               <button
-                onClick={() => run('apply', () => environments.apply(environmentId), { confirm: ko ? '승인된 계획에서 apply를 큐잉할까요?' : 'Queue apply from the approved plan?' })}
+                onClick={() => run('apply', () => environments.apply(environmentId, environment?.revision), { confirm: ko ? '승인된 계획에서 apply를 큐잉할까요?' : 'Queue apply from the approved plan?' })}
                 disabled={busy !== null}
               >
                 {busy === 'apply' ? copy.approval.applying : copy.approval.queueUpdate}
@@ -230,6 +230,7 @@ export default function ApprovalControlPage() {
                   run('destroy', () => environments.destroy(environmentId, {
                     confirmation_name: environment?.name || '',
                     comment: destroyComment.trim(),
+                    expected_revision: environment?.revision,
                   }), {
                     confirm: ko ? `${environment?.name || environmentId} 환경에 대한 destroy 계획을 큐잉할까요?` : `Queue destroy plan for ${environment?.name || environmentId}?`,
                   })

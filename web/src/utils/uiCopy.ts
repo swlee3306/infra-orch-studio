@@ -55,6 +55,14 @@ export function summarizeOperatorError(message?: string | null): string {
   if (normalized.includes('failed to create plan')) {
     return ko ? '계획 작업을 생성하지 못했습니다.' : 'The plan job could not be created.'
   }
+  if (
+    normalized.includes('environment changed concurrently') ||
+    normalized.includes('revision precondition failed')
+  ) {
+    return ko
+      ? '다른 작업이 먼저 반영되어 현재 화면 정보가 오래되었습니다. 새로고침 후 다시 시도하세요.'
+      : 'Another change was applied first, so this view is stale. Refresh and retry.'
+  }
   return message
 }
 

@@ -83,6 +83,7 @@ export type Environment = {
   workdir?: string
   plan_path?: string
   outputs_json?: string
+  revision?: number
   created_at: string
   updated_at: string
 }
@@ -285,19 +286,27 @@ export const environments = {
       method: 'POST',
       body: JSON.stringify({ spec, template_name: templateName }),
     }),
-  plan: (id: string, spec?: EnvironmentSpec, operation?: string, templateName?: string) =>
+  plan: (id: string, spec?: EnvironmentSpec, operation?: string, templateName?: string, expectedRevision?: number) =>
     req<EnvironmentMutationResponse>('/environments/' + id + '/plan', {
       method: 'POST',
-      body: JSON.stringify({ spec, operation, template_name: templateName }),
+      body: JSON.stringify({ spec, operation, template_name: templateName, expected_revision: expectedRevision }),
     }),
-  approve: (id: string, payload?: { comment?: string }) =>
+  approve: (id: string, payload?: { comment?: string; expected_revision?: number }) =>
     req<Environment>('/environments/' + id + '/approve', {
       method: 'POST',
       body: JSON.stringify(payload || {}),
     }),
-  apply: (id: string) => req<EnvironmentMutationResponse>('/environments/' + id + '/apply', { method: 'POST' }),
-  retry: (id: string) => req<EnvironmentMutationResponse>('/environments/' + id + '/retry', { method: 'POST' }),
-  destroy: (id: string, payload: { confirmation_name: string; comment?: string }) =>
+  apply: (id: string, expectedRevision?: number) =>
+    req<EnvironmentMutationResponse>('/environments/' + id + '/apply', {
+      method: 'POST',
+      body: JSON.stringify({ expected_revision: expectedRevision }),
+    }),
+  retry: (id: string, expectedRevision?: number) =>
+    req<EnvironmentMutationResponse>('/environments/' + id + '/retry', {
+      method: 'POST',
+      body: JSON.stringify({ expected_revision: expectedRevision }),
+    }),
+  destroy: (id: string, payload: { confirmation_name: string; comment?: string; expected_revision?: number }) =>
     req<EnvironmentMutationResponse>('/environments/' + id + '/destroy', {
       method: 'POST',
       body: JSON.stringify(payload),

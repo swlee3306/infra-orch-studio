@@ -288,20 +288,20 @@ export default function EnvironmentDetailPage() {
             className="ghost"
             disabled={!canPlanUpdate || busyAction !== null}
             onClick={() =>
-              runAction('update-plan', () => environments.plan(environmentId, editingSpec, 'update', selectedTemplate))
+              runAction('update-plan', () => environments.plan(environmentId, editingSpec, 'update', selectedTemplate, environment?.revision))
             }
           >
             {busyAction === 'update-plan' ? copy.detail.queueing : copy.detail.queueUpdate}
           </button>
           {canApprove ? (
-            <button onClick={() => runAction('approve', () => environments.approve(environmentId))} disabled={busyAction !== null}>
+            <button onClick={() => runAction('approve', () => environments.approve(environmentId, { expected_revision: environment?.revision }))} disabled={busyAction !== null}>
               {busyAction === 'approve' ? copy.detail.approving : copy.detail.approve}
             </button>
           ) : null}
           {canApply ? (
             <button
               onClick={() =>
-                runAction('apply', () => environments.apply(environmentId), {
+                runAction('apply', () => environments.apply(environmentId, environment?.revision), {
                   confirmMessage: 'Queue apply for the currently approved plan?',
                 })
               }
@@ -633,7 +633,7 @@ export default function EnvironmentDetailPage() {
           </div>
           <div className="detail-actions" style={{ marginTop: 14 }}>
             {canRetry ? (
-              <button className="ghost" onClick={() => runAction('retry', () => environments.retry(environmentId))} disabled={busyAction !== null}>
+              <button className="ghost" onClick={() => runAction('retry', () => environments.retry(environmentId, environment?.revision))} disabled={busyAction !== null}>
                 {busyAction === 'retry' ? copy.detail.retrying : copy.detail.retry}
               </button>
             ) : null}
