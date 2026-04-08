@@ -65,6 +65,12 @@ If plan/apply jobs fail:
 - Check that the OpenStack config secret still matches the configured cloud name.
 - If the issue is storage-related, inspect PVC binding and MySQL pod health before retrying.
 
+If operators report repeated `409` or stale mutation errors:
+
+- Run the two-tab drill in `docs/concurrency-smoke-checklist.md`.
+- Confirm conflict callout appears in web UI and refreshes revision/status.
+- Confirm `Retry last action` replays with latest revision and does not re-send stale revision values.
+
 ## Rollback Guidance
 
 - Roll back by reverting the overlay image tag and reapplying the same environment overlay.
