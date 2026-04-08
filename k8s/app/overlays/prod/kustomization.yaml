@@ -11,10 +11,10 @@ resources:
 images:
 - name: 10.10.0.190:32000/infra-orch-studio
   newName: 10.10.0.190:32000/infra-orch-studio
-  newTag: "42cb5db"
+  newTag: "8986044"
 - name: 10.10.0.190:32000/infra-orch-web
   newName: 10.10.0.190:32000/infra-orch-web
-  newTag: "0471383"
+  newTag: "8986044"
 
 replicas:
   - name: infra-orch-api
