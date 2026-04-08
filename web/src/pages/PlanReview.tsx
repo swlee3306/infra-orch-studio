@@ -4,7 +4,7 @@ import { AuditEvent, auth, Environment, environments, Job, ImpactSummary, Review
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { latestApprovalEvent } from '../utils/environmentView'
-import { isRevisionConflictError, summarizeOperatorError } from '../utils/uiCopy'
+import { isRevisionConflictError, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
 
 function displayReviewSignal(signal: ReviewSignal, ko: boolean): ReviewSignal {
   if (!ko) return signal
@@ -43,18 +43,19 @@ export default function PlanReviewPage() {
   const [ack, setAck] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [conflictHint, setConflictHint] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
   const environmentId = id || ''
 
-  async function load() {
+  async function load(): Promise<Environment | null> {
     setError(null)
     try {
       const me = await auth.me()
       setViewer(me)
     } catch {
       nav('/login')
-      return
+      return null
     }
     try {
       const [env, audit, review] = await Promise.all([
@@ -67,8 +68,10 @@ export default function PlanReviewPage() {
       setPlanJob(review.plan_job || null)
       setReviewSignals(review.review_signals)
       setImpact(review.impact_summary)
+      return env
     } catch (err: any) {
       setError(err?.message || 'failed')
+      return null
     }
   }
 
@@ -81,13 +84,16 @@ export default function PlanReviewPage() {
   async function run(action: string, fn: () => Promise<any>) {
     setBusy(action)
     setError(null)
+    setConflictHint(null)
     try {
       await fn()
       await load()
     } catch (err: any) {
       const message = err?.message || 'failed'
       if (isRevisionConflictError(message)) {
-        await load()
+        const previous = environment
+        const refreshed = await load()
+        setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(summarizeOperatorError(message))
     } finally {
@@ -109,7 +115,7 @@ export default function PlanReviewPage() {
           <p className="page-copy">{copy.review.copy}</p>
         </div>
         <div className="hero-actions">
-          <button className="ghost" onClick={load}>
+          <button className="ghost" onClick={() => { setConflictHint(null); void load() }}>
             {copy.review.refresh}
           </button>
           {environment ? (
@@ -126,6 +132,14 @@ export default function PlanReviewPage() {
       </section>
 
       {error ? <section className="error-box">{error}</section> : null}
+      {conflictHint ? (
+        <section className="console-card">
+          <div className="callout callout-warning">
+            <strong>{ko ? '동시 변경 감지' : 'Concurrent change detected'}</strong>
+            <p style={{ margin: '6px 0 0' }}>{conflictHint}</p>
+          </div>
+        </section>
+      ) : null}
 
       <section className="stats-grid">
         <article className="metric-card metric-card-primary">
