@@ -17,6 +17,7 @@
 - `docs/design-integration-plan.md`
 - `docs/templates.md`
 - `docs/release-checklist.md`
+- `docs/concurrency-smoke-checklist.md`
 - `docs/documentation-map.md`
 
 ## Historical Snapshot / Analysis

@@ -24,6 +24,7 @@
 - [ ] Open plan review and confirm review signals, impact summary, and approval comment flow work.
 - [ ] Approve as admin, then apply from approval control.
 - [ ] Open environment detail and confirm artifacts, audit, and recent jobs are linked.
+- [ ] Run `docs/concurrency-smoke-checklist.md` with two tabs and confirm conflict auto-refresh + smart retry behavior.
 
 ## Operational Checks
 
