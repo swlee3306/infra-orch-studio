@@ -224,34 +224,10 @@ func (s *Store) addColumnIfMissing(ctx context.Context, tableName string, column
 }
 
 func (s *Store) CreateJob(ctx context.Context, j domain.Job) (domain.Job, error) {
-	envJSON, err := json.Marshal(j.Environment)
+	query, err := jobInsertSQL(j)
 	if err != nil {
-		return domain.Job{}, fmt.Errorf("marshal environment: %w", err)
+		return domain.Job{}, err
 	}
-
-	query := fmt.Sprintf(
-		`INSERT INTO jobs (
-			id, type, status, created_at, updated_at, environment_id, operation, environment_json, template_name, workdir, log_dir, plan_path, outputs_json, source_job_id, claim_token, retry_count, max_retries, requested_by, error
-		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '', %d, %d, %s, %s);`,
-		quoteString(j.ID),
-		quoteString(string(j.Type)),
-		quoteString(string(j.Status)),
-		quoteTime(j.CreatedAt),
-		quoteTime(j.UpdatedAt),
-		quoteString(j.EnvironmentID),
-		quoteString(string(j.Operation)),
-		quoteString(string(envJSON)),
-		quoteString(j.TemplateName),
-		quoteString(j.Workdir),
-		quoteString(j.LogDir),
-		quoteString(j.PlanPath),
-		quoteString(j.OutputsJSON),
-		quoteString(j.SourceJobID),
-		j.RetryCount,
-		j.MaxRetries,
-		quoteString(j.RequestedBy),
-		quoteString(j.Error),
-	)
 	if _, err := s.exec(ctx, true, query); err != nil {
 		return domain.Job{}, err
 	}
@@ -564,41 +540,10 @@ func (s *Store) DeleteSessionByTokenHash(ctx context.Context, tokenHash string) 
 }
 
 func (s *Store) CreateEnvironment(ctx context.Context, env domain.Environment) (domain.Environment, error) {
-	specJSON, err := json.Marshal(env.Spec)
+	query, err := environmentInsertSQL(env)
 	if err != nil {
-		return domain.Environment{}, fmt.Errorf("marshal environment spec: %w", err)
+		return domain.Environment{}, err
 	}
-	approvedAt := "NULL"
-	if env.ApprovedAt != nil {
-		approvedAt = quoteTime(*env.ApprovedAt)
-	}
-	query := fmt.Sprintf(
-		`INSERT INTO environments (
-			id, name, status, operation, approval_status, spec_json, created_by_user_id, created_by_email, approved_by_user_id, approved_by_email, approved_at, last_plan_job_id, last_apply_job_id, last_job_id, last_error, retry_count, max_retries, workdir, plan_path, outputs_json, created_at, updated_at
-		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %d, %s, %s, %s, %s, %s);`,
-		quoteString(env.ID),
-		quoteString(env.Name),
-		quoteString(string(env.Status)),
-		quoteString(string(env.Operation)),
-		quoteString(string(env.ApprovalStatus)),
-		quoteString(string(specJSON)),
-		quoteString(env.CreatedByUserID),
-		quoteString(env.CreatedByEmail),
-		quoteString(env.ApprovedByUserID),
-		quoteString(env.ApprovedByEmail),
-		approvedAt,
-		quoteString(env.LastPlanJobID),
-		quoteString(env.LastApplyJobID),
-		quoteString(env.LastJobID),
-		quoteString(env.LastError),
-		env.RetryCount,
-		env.MaxRetries,
-		quoteString(env.Workdir),
-		quoteString(env.PlanPath),
-		quoteString(env.OutputsJSON),
-		quoteTime(env.CreatedAt),
-		quoteTime(env.UpdatedAt),
-	)
 	if _, err := s.exec(ctx, true, query); err != nil {
 		return domain.Environment{}, err
 	}
@@ -640,60 +585,7 @@ func (s *Store) ListEnvironments(ctx context.Context, limit int) ([]domain.Envir
 }
 
 func (s *Store) UpdateEnvironment(ctx context.Context, env domain.Environment) (domain.Environment, error) {
-	specJSON, err := json.Marshal(env.Spec)
-	if err != nil {
-		return domain.Environment{}, fmt.Errorf("marshal environment spec: %w", err)
-	}
-	approvedAt := "NULL"
-	if env.ApprovedAt != nil {
-		approvedAt = quoteTime(*env.ApprovedAt)
-	}
-	query := fmt.Sprintf(
-		`UPDATE environments
-		 SET name = %s,
-		     status = %s,
-		     operation = %s,
-		     approval_status = %s,
-		     spec_json = %s,
-		     created_by_user_id = %s,
-		     created_by_email = %s,
-		     approved_by_user_id = %s,
-		     approved_by_email = %s,
-		     approved_at = %s,
-		     last_plan_job_id = %s,
-		     last_apply_job_id = %s,
-		     last_job_id = %s,
-		     last_error = %s,
-		     retry_count = %d,
-		     max_retries = %d,
-		     workdir = %s,
-		     plan_path = %s,
-		     outputs_json = %s,
-		     updated_at = %s
-		 WHERE id = %s;
-		 SELECT ROW_COUNT();`,
-		quoteString(env.Name),
-		quoteString(string(env.Status)),
-		quoteString(string(env.Operation)),
-		quoteString(string(env.ApprovalStatus)),
-		quoteString(string(specJSON)),
-		quoteString(env.CreatedByUserID),
-		quoteString(env.CreatedByEmail),
-		quoteString(env.ApprovedByUserID),
-		quoteString(env.ApprovedByEmail),
-		approvedAt,
-		quoteString(env.LastPlanJobID),
-		quoteString(env.LastApplyJobID),
-		quoteString(env.LastJobID),
-		quoteString(env.LastError),
-		env.RetryCount,
-		env.MaxRetries,
-		quoteString(env.Workdir),
-		quoteString(env.PlanPath),
-		quoteString(env.OutputsJSON),
-		quoteTime(env.UpdatedAt),
-		quoteString(env.ID),
-	)
+	query, err := environmentUpdateSQL(env, true)
 	out, err := s.exec(ctx, true, query)
 	if err != nil {
 		return domain.Environment{}, err
@@ -706,24 +598,58 @@ func (s *Store) UpdateEnvironment(ctx context.Context, env domain.Environment) (
 }
 
 func (s *Store) CreateAuditEvent(ctx context.Context, event domain.AuditEvent) (domain.AuditEvent, error) {
-	query := fmt.Sprintf(
-		`INSERT INTO audit_events (
-			id, resource_type, resource_id, action, actor_user_id, actor_email, message, metadata_json, created_at
-		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);`,
-		quoteString(event.ID),
-		quoteString(event.ResourceType),
-		quoteString(event.ResourceID),
-		quoteString(event.Action),
-		quoteString(event.ActorUserID),
-		quoteString(event.ActorEmail),
-		quoteString(event.Message),
-		quoteString(event.MetadataJSON),
-		quoteTime(event.CreatedAt),
-	)
+	query := auditInsertSQL(event)
 	if _, err := s.exec(ctx, true, query); err != nil {
 		return domain.AuditEvent{}, err
 	}
 	return event, nil
+}
+
+func (s *Store) CreateEnvironmentWithJobAndAudit(ctx context.Context, env domain.Environment, job domain.Job, audit domain.AuditEvent) (domain.Environment, domain.Job, error) {
+	envInsert, err := environmentInsertSQL(env)
+	if err != nil {
+		return domain.Environment{}, domain.Job{}, err
+	}
+	jobInsert, err := jobInsertSQL(job)
+	if err != nil {
+		return domain.Environment{}, domain.Job{}, err
+	}
+	query := "START TRANSACTION;\n" + envInsert + "\n" + jobInsert + "\n" + auditInsertSQL(audit) + "\nCOMMIT;"
+	if _, err := s.exec(ctx, true, query); err != nil {
+		_, _ = s.exec(ctx, true, "ROLLBACK;")
+		return domain.Environment{}, domain.Job{}, err
+	}
+	return env, job, nil
+}
+
+func (s *Store) UpdateEnvironmentWithJobAndAudit(ctx context.Context, env domain.Environment, job domain.Job, audit domain.AuditEvent) (domain.Environment, domain.Job, error) {
+	envUpdate, err := environmentUpdateSQL(env, false)
+	if err != nil {
+		return domain.Environment{}, domain.Job{}, err
+	}
+	jobInsert, err := jobInsertSQL(job)
+	if err != nil {
+		return domain.Environment{}, domain.Job{}, err
+	}
+	query := "START TRANSACTION;\n" + jobInsert + "\n" + envUpdate + "\n" + auditInsertSQL(audit) + "\nCOMMIT;"
+	if _, err := s.exec(ctx, true, query); err != nil {
+		_, _ = s.exec(ctx, true, "ROLLBACK;")
+		return domain.Environment{}, domain.Job{}, err
+	}
+	return env, job, nil
+}
+
+func (s *Store) UpdateEnvironmentWithAudit(ctx context.Context, env domain.Environment, audit domain.AuditEvent) (domain.Environment, error) {
+	envUpdate, err := environmentUpdateSQL(env, false)
+	if err != nil {
+		return domain.Environment{}, err
+	}
+	query := "START TRANSACTION;\n" + envUpdate + "\n" + auditInsertSQL(audit) + "\nCOMMIT;"
+	if _, err := s.exec(ctx, true, query); err != nil {
+		_, _ = s.exec(ctx, true, "ROLLBACK;")
+		return domain.Environment{}, err
+	}
+	return env, nil
 }
 
 func (s *Store) ListAuditEvents(ctx context.Context, resourceType, resourceID string, limit int) ([]domain.AuditEvent, error) {
@@ -790,6 +716,151 @@ func (s *Store) exec(ctx context.Context, withDatabase bool, query string) (stri
 		return "", fmt.Errorf("mysql exec failed: %s", errOut)
 	}
 	return string(out), nil
+}
+
+func jobInsertSQL(j domain.Job) (string, error) {
+	envJSON, err := json.Marshal(j.Environment)
+	if err != nil {
+		return "", fmt.Errorf("marshal environment: %w", err)
+	}
+	return fmt.Sprintf(
+		`INSERT INTO jobs (
+			id, type, status, created_at, updated_at, environment_id, operation, environment_json, template_name, workdir, log_dir, plan_path, outputs_json, source_job_id, claim_token, retry_count, max_retries, requested_by, error
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '', %d, %d, %s, %s);`,
+		quoteString(j.ID),
+		quoteString(string(j.Type)),
+		quoteString(string(j.Status)),
+		quoteTime(j.CreatedAt),
+		quoteTime(j.UpdatedAt),
+		quoteString(j.EnvironmentID),
+		quoteString(string(j.Operation)),
+		quoteString(string(envJSON)),
+		quoteString(j.TemplateName),
+		quoteString(j.Workdir),
+		quoteString(j.LogDir),
+		quoteString(j.PlanPath),
+		quoteString(j.OutputsJSON),
+		quoteString(j.SourceJobID),
+		j.RetryCount,
+		j.MaxRetries,
+		quoteString(j.RequestedBy),
+		quoteString(j.Error),
+	), nil
+}
+
+func environmentInsertSQL(env domain.Environment) (string, error) {
+	specJSON, err := json.Marshal(env.Spec)
+	if err != nil {
+		return "", fmt.Errorf("marshal environment spec: %w", err)
+	}
+	approvedAt := "NULL"
+	if env.ApprovedAt != nil {
+		approvedAt = quoteTime(*env.ApprovedAt)
+	}
+	return fmt.Sprintf(
+		`INSERT INTO environments (
+			id, name, status, operation, approval_status, spec_json, created_by_user_id, created_by_email, approved_by_user_id, approved_by_email, approved_at, last_plan_job_id, last_apply_job_id, last_job_id, last_error, retry_count, max_retries, workdir, plan_path, outputs_json, created_at, updated_at
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %d, %s, %s, %s, %s, %s);`,
+		quoteString(env.ID),
+		quoteString(env.Name),
+		quoteString(string(env.Status)),
+		quoteString(string(env.Operation)),
+		quoteString(string(env.ApprovalStatus)),
+		quoteString(string(specJSON)),
+		quoteString(env.CreatedByUserID),
+		quoteString(env.CreatedByEmail),
+		quoteString(env.ApprovedByUserID),
+		quoteString(env.ApprovedByEmail),
+		approvedAt,
+		quoteString(env.LastPlanJobID),
+		quoteString(env.LastApplyJobID),
+		quoteString(env.LastJobID),
+		quoteString(env.LastError),
+		env.RetryCount,
+		env.MaxRetries,
+		quoteString(env.Workdir),
+		quoteString(env.PlanPath),
+		quoteString(env.OutputsJSON),
+		quoteTime(env.CreatedAt),
+		quoteTime(env.UpdatedAt),
+	), nil
+}
+
+func environmentUpdateSQL(env domain.Environment, includeRowCount bool) (string, error) {
+	specJSON, err := json.Marshal(env.Spec)
+	if err != nil {
+		return "", fmt.Errorf("marshal environment spec: %w", err)
+	}
+	approvedAt := "NULL"
+	if env.ApprovedAt != nil {
+		approvedAt = quoteTime(*env.ApprovedAt)
+	}
+	query := fmt.Sprintf(
+		`UPDATE environments
+		 SET name = %s,
+		     status = %s,
+		     operation = %s,
+		     approval_status = %s,
+		     spec_json = %s,
+		     created_by_user_id = %s,
+		     created_by_email = %s,
+		     approved_by_user_id = %s,
+		     approved_by_email = %s,
+		     approved_at = %s,
+		     last_plan_job_id = %s,
+		     last_apply_job_id = %s,
+		     last_job_id = %s,
+		     last_error = %s,
+		     retry_count = %d,
+		     max_retries = %d,
+		     workdir = %s,
+		     plan_path = %s,
+		     outputs_json = %s,
+		     updated_at = %s
+		 WHERE id = %s;`,
+		quoteString(env.Name),
+		quoteString(string(env.Status)),
+		quoteString(string(env.Operation)),
+		quoteString(string(env.ApprovalStatus)),
+		quoteString(string(specJSON)),
+		quoteString(env.CreatedByUserID),
+		quoteString(env.CreatedByEmail),
+		quoteString(env.ApprovedByUserID),
+		quoteString(env.ApprovedByEmail),
+		approvedAt,
+		quoteString(env.LastPlanJobID),
+		quoteString(env.LastApplyJobID),
+		quoteString(env.LastJobID),
+		quoteString(env.LastError),
+		env.RetryCount,
+		env.MaxRetries,
+		quoteString(env.Workdir),
+		quoteString(env.PlanPath),
+		quoteString(env.OutputsJSON),
+		quoteTime(env.UpdatedAt),
+		quoteString(env.ID),
+	)
+	if includeRowCount {
+		query += "\nSELECT ROW_COUNT();"
+	}
+	return query, nil
+}
+
+func auditInsertSQL(event domain.AuditEvent) string {
+	return fmt.Sprintf(
+		`INSERT INTO audit_events (
+			id, resource_type, resource_id, action, actor_user_id, actor_email, message, metadata_json, created_at
+		) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);`,
+		quoteString(event.ID),
+		quoteString(event.ResourceType),
+		quoteString(event.ResourceID),
+		quoteString(event.Action),
+		quoteString(event.ActorUserID),
+		quoteString(event.ActorEmail),
+		quoteString(event.Message),
+		quoteString(event.MetadataJSON),
+		quoteTime(event.CreatedAt),
+	)
 }
 
 func outputLines(out string) []string {

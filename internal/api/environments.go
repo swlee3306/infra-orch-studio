@@ -36,6 +36,12 @@ type destroyEnvironmentRequest struct {
 	Comment          string `json:"comment,omitempty"`
 }
 
+type environmentMutationBundler interface {
+	CreateEnvironmentWithJobAndAudit(ctx context.Context, env domain.Environment, job domain.Job, audit domain.AuditEvent) (domain.Environment, domain.Job, error)
+	UpdateEnvironmentWithJobAndAudit(ctx context.Context, env domain.Environment, job domain.Job, audit domain.AuditEvent) (domain.Environment, domain.Job, error)
+	UpdateEnvironmentWithAudit(ctx context.Context, env domain.Environment, audit domain.AuditEvent) (domain.Environment, error)
+}
+
 func defaultEnvironmentPlanOperation(env domain.Environment) domain.EnvironmentOperation {
 	if env.Status == domain.EnvironmentStatusDraft || env.Status == domain.EnvironmentStatusDestroyed {
 		return domain.EnvironmentOperationCreate
@@ -119,6 +125,26 @@ func resetEnvironmentAttemptState(env *domain.Environment) {
 	env.LastPlanJobID = ""
 }
 
+func newAuditEvent(user domain.User, resourceType, resourceID, action, message string, metadata map[string]any, now time.Time) domain.AuditEvent {
+	metadataJSON := ""
+	if len(metadata) > 0 {
+		if b, err := json.Marshal(metadata); err == nil {
+			metadataJSON = string(b)
+		}
+	}
+	return domain.AuditEvent{
+		ID:           uuid.NewString(),
+		ResourceType: resourceType,
+		ResourceID:   resourceID,
+		Action:       action,
+		ActorUserID:  user.ID,
+		ActorEmail:   user.Email,
+		Message:      message,
+		MetadataJSON: metadataJSON,
+		CreatedAt:    now,
+	}
+}
+
 func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user domain.User) {
 	switch r.Method {
 	case http.MethodGet:
@@ -162,12 +188,29 @@ func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		}
+		job := newEnvironmentPlanJob(env, req.TemplateName, user.Email, now)
+		env.LastPlanJobID = job.ID
+		env.LastJobID = job.ID
+		env.UpdatedAt = time.Now().UTC()
+		audit := newAuditEvent(user, "environment", env.ID, "environment.created", "environment created and initial plan queued", map[string]any{
+			"job_id":        job.ID,
+			"template_name": job.TemplateName,
+		}, now)
+		if bundler, ok := s.jobs.(environmentMutationBundler); ok {
+			createdEnv, job, err := bundler.CreateEnvironmentWithJobAndAudit(r.Context(), env, job, audit)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "create environment failed")
+				return
+			}
+			writeJSON(w, http.StatusCreated, map[string]any{"environment": createdEnv, "job": job})
+			return
+		}
 		createdEnv, err := s.jobs.CreateEnvironment(r.Context(), env)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "create environment failed")
 			return
 		}
-		job := newEnvironmentPlanJob(createdEnv, req.TemplateName, user.Email, now)
+		job = newEnvironmentPlanJob(createdEnv, req.TemplateName, user.Email, now)
 		createdJob, err := s.jobs.CreateJob(r.Context(), job)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "create plan job failed")
@@ -298,6 +341,22 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 	resetEnvironmentAttemptState(&env)
 	env.UpdatedAt = now
 	job := newEnvironmentPlanJob(env, req.TemplateName, user.Email, now)
+	env.LastPlanJobID = job.ID
+	env.LastJobID = job.ID
+	audit := newAuditEvent(user, "environment", env.ID, "environment.plan_requested", "environment plan queued", map[string]any{
+		"job_id":        job.ID,
+		"operation":     operation,
+		"template_name": job.TemplateName,
+	}, now)
+	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
+		updatedEnv, createdJob, err := bundler.UpdateEnvironmentWithJobAndAudit(r.Context(), env, job, audit)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "queue environment plan failed")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"environment": updatedEnv, "job": createdJob})
+		return
+	}
 	createdJob, err := s.jobs.CreateJob(r.Context(), job)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "create plan job failed")
@@ -368,6 +427,20 @@ func (s *Server) handleEnvironmentApprove(w http.ResponseWriter, r *http.Request
 	env.ApprovedByEmail = user.Email
 	env.ApprovedAt = &now
 	env.UpdatedAt = now
+	audit := newAuditEvent(user, "environment", env.ID, "environment.approved", "plan approved for apply", map[string]any{
+		"plan_job_id":   env.LastPlanJobID,
+		"template_name": job.TemplateName,
+		"comment":       req.Comment,
+	}, now)
+	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
+		env, err = bundler.UpdateEnvironmentWithAudit(r.Context(), env, audit)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "approve environment failed")
+			return
+		}
+		writeJSON(w, http.StatusOK, env)
+		return
+	}
 	env, err = s.jobs.UpdateEnvironment(r.Context(), env)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "update environment failed")
@@ -433,6 +506,23 @@ func (s *Server) handleEnvironmentApply(w http.ResponseWriter, r *http.Request, 
 		SourceJobID:   planJob.ID,
 		MaxRetries:    env.MaxRetries,
 		RequestedBy:   user.Email,
+	}
+	env.Status = domain.EnvironmentStatusApplying
+	env.LastApplyJobID = job.ID
+	env.LastJobID = job.ID
+	env.UpdatedAt = now
+	audit := newAuditEvent(user, "environment", env.ID, "environment.apply_requested", "apply queued from approved plan", map[string]any{
+		"job_id":        job.ID,
+		"template_name": job.TemplateName,
+	}, now)
+	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
+		env, createdJob, err := bundler.UpdateEnvironmentWithJobAndAudit(r.Context(), env, job, audit)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "queue apply failed")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
+		return
 	}
 	createdJob, err := s.jobs.CreateJob(r.Context(), job)
 	if err != nil {
@@ -504,6 +594,28 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 	retryJob.Error = ""
 	retryJob.RetryCount = lastJob.RetryCount + 1
 	retryJob.RequestedBy = user.Email
+	env.RetryCount++
+	env.LastJobID = retryJob.ID
+	if retryJob.Type == domain.JobTypeApply {
+		env.Status = domain.EnvironmentStatusApplying
+	} else {
+		env.Status = domain.EnvironmentStatusPlanning
+	}
+	resetEnvironmentAttemptState(&env)
+	env.UpdatedAt = now
+	audit := newAuditEvent(user, "environment", env.ID, "environment.retry_requested", "retry queued for failed job", map[string]any{
+		"job_id":        retryJob.ID,
+		"template_name": retryJob.TemplateName,
+	}, now)
+	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
+		env, createdJob, err := bundler.UpdateEnvironmentWithJobAndAudit(r.Context(), env, retryJob, audit)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "queue retry failed")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
+		return
+	}
 	createdJob, err := s.jobs.CreateJob(r.Context(), retryJob)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "create retry job failed")
@@ -568,6 +680,23 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 	resetEnvironmentAttemptState(&env)
 	env.UpdatedAt = now
 	job := newEnvironmentPlanJob(env, "", user.Email, now)
+	env.LastPlanJobID = job.ID
+	env.LastJobID = job.ID
+	audit := newAuditEvent(user, "environment", env.ID, "environment.destroy_requested", "destroy plan queued", map[string]any{
+		"job_id":            job.ID,
+		"template_name":     job.TemplateName,
+		"confirmation_name": req.ConfirmationName,
+		"comment":           req.Comment,
+	}, now)
+	if bundler, ok := s.jobs.(environmentMutationBundler); ok {
+		env, createdJob, err := bundler.UpdateEnvironmentWithJobAndAudit(r.Context(), env, job, audit)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "queue destroy plan failed")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"environment": env, "job": createdJob})
+		return
+	}
 	createdJob, err := s.jobs.CreateJob(r.Context(), job)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "create destroy plan failed")

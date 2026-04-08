@@ -128,6 +128,40 @@ func TestEnvironmentLifecycleApprovalAndAudit(t *testing.T) {
 	}
 }
 
+func TestEnvironmentCreateIsAtomicWhenAuditWriteFails(t *testing.T) {
+	store := newFakeStore()
+	store.failAudit = true
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments", strings.NewReader(`{
+		"spec": {
+			"environment_name": "atomic-env",
+			"tenant_name": "tenant-a",
+			"network": {"name": "net-a", "cidr": "10.0.0.0/24"},
+			"subnet": {"name": "sub-a", "cidr": "10.0.0.0/25", "enable_dhcp": true},
+			"instances": [{"name": "vm-a", "image": "ubuntu", "flavor": "small", "count": 1}]
+		}
+	}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("create status = %d, want %d", rr.Code, http.StatusInternalServerError)
+	}
+	if got := len(store.environments); got != 0 {
+		t.Fatalf("environments persisted = %d, want 0", got)
+	}
+	if got := len(store.jobs); got != 0 {
+		t.Fatalf("jobs persisted = %d, want 0", got)
+	}
+	if got := len(store.audits); got != 0 {
+		t.Fatalf("audits persisted = %d, want 0", got)
+	}
+}
+
 func TestRequestDraftsReturnsStructuredEnvironmentDraft(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")

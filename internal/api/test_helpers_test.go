@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sort"
 	"strings"
 	"sync"
@@ -24,6 +25,8 @@ type fakeStore struct {
 	jobs         map[string]domain.Job
 	environments map[string]domain.Environment
 	audits       []domain.AuditEvent
+
+	failAudit bool
 }
 
 func newFakeStore() *fakeStore {
@@ -172,8 +175,52 @@ func (f *fakeStore) UpdateEnvironment(_ context.Context, env domain.Environment)
 func (f *fakeStore) CreateAuditEvent(_ context.Context, event domain.AuditEvent) (domain.AuditEvent, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.failAudit {
+		return domain.AuditEvent{}, errors.New("audit write failed")
+	}
 	f.audits = append(f.audits, event)
 	return event, nil
+}
+
+func (f *fakeStore) CreateEnvironmentWithJobAndAudit(_ context.Context, env domain.Environment, job domain.Job, audit domain.AuditEvent) (domain.Environment, domain.Job, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failAudit {
+		return domain.Environment{}, domain.Job{}, errors.New("audit write failed")
+	}
+	f.environments[env.ID] = env
+	f.jobs[job.ID] = job
+	f.audits = append(f.audits, audit)
+	return env, job, nil
+}
+
+func (f *fakeStore) UpdateEnvironmentWithJobAndAudit(_ context.Context, env domain.Environment, job domain.Job, audit domain.AuditEvent) (domain.Environment, domain.Job, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failAudit {
+		return domain.Environment{}, domain.Job{}, errors.New("audit write failed")
+	}
+	if _, ok := f.environments[env.ID]; !ok {
+		return domain.Environment{}, domain.Job{}, sql.ErrNoRows
+	}
+	f.environments[env.ID] = env
+	f.jobs[job.ID] = job
+	f.audits = append(f.audits, audit)
+	return env, job, nil
+}
+
+func (f *fakeStore) UpdateEnvironmentWithAudit(_ context.Context, env domain.Environment, audit domain.AuditEvent) (domain.Environment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failAudit {
+		return domain.Environment{}, errors.New("audit write failed")
+	}
+	if _, ok := f.environments[env.ID]; !ok {
+		return domain.Environment{}, sql.ErrNoRows
+	}
+	f.environments[env.ID] = env
+	f.audits = append(f.audits, audit)
+	return env, nil
 }
 
 func (f *fakeStore) ListAuditEvents(_ context.Context, resourceType, resourceID string, limit int) ([]domain.AuditEvent, error) {
