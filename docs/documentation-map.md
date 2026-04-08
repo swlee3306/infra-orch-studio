@@ -18,6 +18,7 @@
 - `docs/templates.md`
 - `docs/release-checklist.md`
 - `docs/concurrency-smoke-checklist.md`
+- `docs/openclaw-concurrency-prompt.md`
 - `docs/documentation-map.md`
 
 ## Historical Snapshot / Analysis
