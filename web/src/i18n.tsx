@@ -177,6 +177,10 @@ type CopyShape = {
     enabling: string
     disabling: string
     enable: string
+    resetPassword: string
+    resettingPassword: string
+    passwordFor: string
+    passwordUpdated: string
   }
   guide: {
     title: string
@@ -385,6 +389,10 @@ const COPY: Record<Locale, CopyShape> = {
       enable: 'Re-enable',
       enabling: 'Re-enabling...',
       disabling: 'Disabling...',
+      resetPassword: 'Reset password',
+      resettingPassword: 'Resetting password...',
+      passwordFor: 'Password for',
+      passwordUpdated: 'Updated password for',
     },
     guide: {
       title: 'Operator guide',
@@ -639,6 +647,10 @@ const COPY: Record<Locale, CopyShape> = {
       enable: '재활성화',
       enabling: '재활성화 중...',
       disabling: '비활성화 중...',
+      resetPassword: '비밀번호 재설정',
+      resettingPassword: '비밀번호 재설정 중...',
+      passwordFor: '대상 계정',
+      passwordUpdated: '비밀번호를 갱신했습니다',
     },
     guide: {
       title: '운영 가이드',

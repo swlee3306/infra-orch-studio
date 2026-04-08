@@ -71,6 +71,17 @@ This endpoint is available only when `ALLOW_PUBLIC_SIGNUP=true`.
   - the current admin session cannot disable itself
   - the last active admin cannot be disabled
 
+### `POST /api/admin/users/:id/password`
+- Auth required.
+- Admin only.
+- Body:
+```json
+{ "password": "change-me-456" }
+```
+- Behavior:
+  - resets the managed user password
+  - records a `user.password_reset` audit event
+
 ## Request Drafts
 
 ### `POST /api/request-drafts`

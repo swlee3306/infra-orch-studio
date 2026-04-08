@@ -115,6 +115,17 @@ func (s *bootstrapAuthStore) SetUserDisabled(_ context.Context, id string, disab
 	return domain.User{}, sql.ErrNoRows
 }
 
+func (s *bootstrapAuthStore) SetUserPassword(_ context.Context, id string, passwordHash string) (domain.User, error) {
+	for email, user := range s.users {
+		if user.ID == id {
+			user.PasswordHash = passwordHash
+			s.users[email] = user
+			return user, nil
+		}
+	}
+	return domain.User{}, sql.ErrNoRows
+}
+
 func (s *bootstrapAuthStore) UpsertAdminUser(_ context.Context, user domain.User) (domain.User, error) {
 	user.Email = strings.ToLower(user.Email)
 	user.IsAdmin = true

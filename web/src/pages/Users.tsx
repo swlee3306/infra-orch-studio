@@ -28,6 +28,8 @@ export default function UsersPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(false)
   const [statusTargetId, setStatusTargetId] = useState<string | null>(null)
+  const [passwordTargetId, setPasswordTargetId] = useState<string | null>(null)
+  const [nextPassword, setNextPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -87,6 +89,25 @@ export default function UsersPage() {
       setError(err?.message || 'failed')
     } finally {
       setStatusTargetId(null)
+    }
+  }
+
+  async function onResetPassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (!passwordTargetId || !nextPassword) return
+    setLoading(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const updated = await auth.resetUserPassword(passwordTargetId, { password: nextPassword })
+      setNotice(ko ? `${updated.email} 계정의 비밀번호를 갱신했습니다.` : `Updated password for ${updated.email}.`)
+      setNextPassword('')
+      setPasswordTargetId(null)
+      await load()
+    } catch (err: any) {
+      setError(err?.message || 'failed')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -160,12 +181,62 @@ export default function UsersPage() {
                           ? copy.users.enable
                           : copy.users.disable}
                     </button>
+                    <button
+                      type="button"
+                      className="ghost"
+                      disabled={loading}
+                      onClick={() => {
+                        setPasswordTargetId(item.id)
+                        setNextPassword('')
+                        setNotice(null)
+                        setError(null)
+                      }}
+                    >
+                      {copy.users.resetPassword}
+                    </button>
                   </div>
                 </div>
               ))
             )}
           </div>
         </article>
+
+        {passwordTargetId ? (
+          <article className="console-card">
+            <div className="section-head">
+              <div>
+                <div className="section-kicker">{copy.users.kicker}</div>
+                <h2>{copy.users.resetPassword}</h2>
+              </div>
+            </div>
+            <form className="form-grid" onSubmit={onResetPassword}>
+              <label className="field">
+                <span>{copy.users.passwordFor}</span>
+                <input
+                  value={users.find((item) => item.id === passwordTargetId)?.email || ''}
+                  readOnly
+                />
+              </label>
+              <label className="field">
+                <span>{copy.users.password}</span>
+                <input
+                  type="password"
+                  value={nextPassword}
+                  onChange={(e) => setNextPassword(e.target.value)}
+                  placeholder={ko ? '최소 8자 이상' : 'At least 8 characters'}
+                />
+              </label>
+              <div className="detail-actions">
+                <button type="submit" disabled={loading || !nextPassword}>
+                  {loading ? copy.users.resettingPassword : copy.users.resetPassword}
+                </button>
+                <button type="button" className="ghost" onClick={() => setPasswordTargetId(null)}>
+                  {ko ? '취소' : 'Cancel'}
+                </button>
+              </div>
+            </form>
+          </article>
+        ) : null}
 
         <article className="console-card">
           <div className="section-head">

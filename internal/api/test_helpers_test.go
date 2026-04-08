@@ -320,6 +320,19 @@ func (f *fakeStore) SetUserDisabled(_ context.Context, id string, disabled bool)
 	return user, nil
 }
 
+func (f *fakeStore) SetUserPassword(_ context.Context, id string, passwordHash string) (domain.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	user, ok := f.users[id]
+	if !ok {
+		return domain.User{}, sql.ErrNoRows
+	}
+	user.PasswordHash = passwordHash
+	user.UpdatedAt = time.Now().UTC()
+	f.users[id] = user
+	return user, nil
+}
+
 func (f *fakeStore) UpsertAdminUser(_ context.Context, user domain.User) (domain.User, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -32,6 +32,10 @@ type adminUserStatusRequest struct {
 	Disabled bool `json:"disabled"`
 }
 
+type adminUserPasswordRequest struct {
+	Password string `json:"password"`
+}
+
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -153,11 +157,12 @@ func (s *Server) handleAdminUserRoute(w http.ResponseWriter, r *http.Request, us
 	}
 	id := strings.TrimPrefix(path.Clean(r.URL.Path), "/api/admin/users/")
 	parts := strings.Split(id, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] != "disable" {
+	if len(parts) != 2 || parts[0] == "" {
 		http.NotFound(w, r)
 		return
 	}
 	targetID := parts[0]
+	actionName := parts[1]
 
 	target, err := s.auth.GetUserByID(r.Context(), targetID)
 	if err != nil {
@@ -169,54 +174,85 @@ func (s *Server) handleAdminUserRoute(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 
-	var req adminUserStatusRequest
-	if err := decodeJSON(r.Body, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-	if target.ID == user.ID && req.Disabled {
-		writeError(w, http.StatusBadRequest, "cannot disable current admin session")
-		return
-	}
-	if target.IsAdmin && req.Disabled {
-		items, err := s.auth.ListUsers(r.Context(), 500)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "list users failed")
+	switch actionName {
+	case "disable":
+		var req adminUserStatusRequest
+		if err := decodeJSON(r.Body, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
 			return
 		}
-		activeAdmins := 0
-		for _, item := range items {
-			if item.IsAdmin && !item.Disabled && item.ID != target.ID {
-				activeAdmins++
+		if target.ID == user.ID && req.Disabled {
+			writeError(w, http.StatusBadRequest, "cannot disable current admin session")
+			return
+		}
+		if target.IsAdmin && req.Disabled {
+			items, err := s.auth.ListUsers(r.Context(), 500)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "list users failed")
+				return
+			}
+			activeAdmins := 0
+			for _, item := range items {
+				if item.IsAdmin && !item.Disabled && item.ID != target.ID {
+					activeAdmins++
+				}
+			}
+			if activeAdmins == 0 {
+				writeError(w, http.StatusBadRequest, "cannot disable last active admin")
+				return
 			}
 		}
-		if activeAdmins == 0 {
-			writeError(w, http.StatusBadRequest, "cannot disable last active admin")
-			return
-		}
-	}
 
-	updated, err := s.auth.SetUserDisabled(r.Context(), target.ID, req.Disabled)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
+		updated, err := s.auth.SetUserDisabled(r.Context(), target.ID, req.Disabled)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.NotFound(w, r)
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "update user status failed")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "update user status failed")
-		return
+		action := "user.enabled"
+		message := "admin re-enabled user account"
+		if req.Disabled {
+			action = "user.disabled"
+			message = "admin disabled user account"
+		}
+		s.recordAudit(r, user, "user", updated.ID, action, message, map[string]any{
+			"email":       updated.Email,
+			"is_admin":    updated.IsAdmin,
+			"is_disabled": updated.Disabled,
+		})
+		writeJSON(w, http.StatusOK, updated)
+	case "password":
+		var req adminUserPasswordRequest
+		if err := decodeJSON(r.Body, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+		passwordHash, err := security.HashPassword(req.Password)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		updated, err := s.auth.SetUserPassword(r.Context(), target.ID, passwordHash)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.NotFound(w, r)
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "reset user password failed")
+			return
+		}
+		s.recordAudit(r, user, "user", updated.ID, "user.password_reset", "admin reset user password", map[string]any{
+			"email":       updated.Email,
+			"is_admin":    updated.IsAdmin,
+			"is_disabled": updated.Disabled,
+		})
+		writeJSON(w, http.StatusOK, updated)
+	default:
+		http.NotFound(w, r)
 	}
-	action := "user.enabled"
-	message := "admin re-enabled user account"
-	if req.Disabled {
-		action = "user.disabled"
-		message = "admin disabled user account"
-	}
-	s.recordAudit(r, user, "user", updated.ID, action, message, map[string]any{
-		"email":       updated.Email,
-		"is_admin":    updated.IsAdmin,
-		"is_disabled": updated.Disabled,
-	})
-	writeJSON(w, http.StatusOK, updated)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
