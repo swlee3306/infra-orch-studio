@@ -34,6 +34,7 @@ export default function App() {
     if (location.pathname.startsWith('/jobs')) return 'jobs'
     return 'dashboard'
   })()
+  const deferGuidePanel = routeKey === 'environmentDetail'
   const title = copy.shell.routeTitles[routeKey as RouteGuideKey]
 
   return (
@@ -119,7 +120,7 @@ export default function App() {
             </header>
 
             <div className="app-content">
-              <GuidePanel routeKey={routeKey as RouteGuideKey} />
+              {!deferGuidePanel ? <GuidePanel routeKey={routeKey as RouteGuideKey} /> : null}
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
@@ -135,6 +136,7 @@ export default function App() {
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="*" element={<DashboardPage />} />
               </Routes>
+              {deferGuidePanel ? <GuidePanel routeKey={routeKey as RouteGuideKey} /> : null}
             </div>
           </main>
         </div>
