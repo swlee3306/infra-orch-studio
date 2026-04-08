@@ -464,6 +464,18 @@ func (s *Store) SetUserDisabled(ctx context.Context, id string, disabled bool) (
 	return s.GetUserByID(ctx, id)
 }
 
+func (s *Store) SetUserPassword(ctx context.Context, id string, passwordHash string) (domain.User, error) {
+	query := fmt.Sprintf(
+		`UPDATE users SET password_hash = %s, updated_at = UTC_TIMESTAMP(6) WHERE id = %s;`,
+		quoteString(passwordHash),
+		quoteString(id),
+	)
+	if _, err := s.exec(ctx, true, query); err != nil {
+		return domain.User{}, err
+	}
+	return s.GetUserByID(ctx, id)
+}
+
 func (s *Store) UpsertAdminUser(ctx context.Context, user domain.User) (domain.User, error) {
 	now := user.UpdatedAt
 	if now.IsZero() {

@@ -278,3 +278,42 @@ func TestCannotDisableLastActiveAdmin(t *testing.T) {
 		t.Fatalf("disable last admin status = %d, want %d", rr.Code, http.StatusBadRequest)
 	}
 }
+
+func TestAdminCanResetUserPassword(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	operator := mustUser(t, "operator@example.com", false, "password123")
+	seedSession(store, admin, "admin-session-token")
+	seedSession(store, operator, "operator-session-token")
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/users/"+operator.ID+"/password", strings.NewReader(`{"password":"new-password-123"}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("reset password status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"email":"operator@example.com","password":"new-password-123"}`))
+	loginRR := httptest.NewRecorder()
+	srv.mux.ServeHTTP(loginRR, loginReq)
+	if loginRR.Code != http.StatusOK {
+		t.Fatalf("login with reset password status = %d, want %d", loginRR.Code, http.StatusOK)
+	}
+
+	audits, err := store.ListAuditEvents(context.Background(), "user", operator.ID, 10)
+	if err != nil {
+		t.Fatalf("list user audits: %v", err)
+	}
+	found := false
+	for _, item := range audits {
+		if item.Action == "user.password_reset" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected password reset audit, got %+v", audits)
+	}
+}

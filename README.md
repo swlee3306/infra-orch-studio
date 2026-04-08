@@ -30,6 +30,7 @@
 - `GET /api/admin/users` (admin only, managed user inventory)
 - `POST /api/admin/users` (admin only, bootstrap/onboarding)
 - `POST /api/admin/users/:id/disable` (admin only, disable/re-enable managed user)
+- `POST /api/admin/users/:id/password` (admin only, reset managed user password)
 
 세션은 **httpOnly cookie** 기반.
 공개 signup은 기본적으로 꺼져 있으며, `ALLOW_PUBLIC_SIGNUP=true` 일 때만 허용된다.

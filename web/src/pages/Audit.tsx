@@ -33,6 +33,7 @@ function displayAuditAction(action: string, ko: boolean): string {
     'user.provisioned': ko ? '사용자 계정 생성' : 'User account provisioned',
     'user.disabled': ko ? '사용자 비활성화' : 'User account disabled',
     'user.enabled': ko ? '사용자 재활성화' : 'User account re-enabled',
+    'user.password_reset': ko ? '사용자 비밀번호 재설정' : 'User password reset',
     'environment.created': ko ? '환경 생성' : 'Environment created',
     'environment.plan_requested': ko ? '환경 계획 요청' : 'Environment plan requested',
     'environment.approved': ko ? '환경 승인' : 'Environment approved',

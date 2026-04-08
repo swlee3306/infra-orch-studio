@@ -209,6 +209,10 @@ export type AdminUserStatusRequest = {
   disabled: boolean
 }
 
+export type AdminUserPasswordRequest = {
+  password: string
+}
+
 export type AdminUserListResponse = {
   items: User[]
 }
@@ -253,6 +257,8 @@ export const auth = {
     req<User>('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
   setUserDisabled: (id: string, payload: AdminUserStatusRequest) =>
     req<User>('/admin/users/' + id + '/disable', { method: 'POST', body: JSON.stringify(payload) }),
+  resetUserPassword: (id: string, payload: AdminUserPasswordRequest) =>
+    req<User>('/admin/users/' + id + '/password', { method: 'POST', body: JSON.stringify(payload) }),
 }
 
 export const jobs = {
