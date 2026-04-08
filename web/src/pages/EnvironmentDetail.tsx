@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
@@ -169,7 +169,9 @@ export default function EnvironmentDetailPage() {
   const [editingSpec, setEditingSpec] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [conflictHint, setConflictHint] = useState<string | null>(null)
+  const [retryLabel, setRetryLabel] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const retryRef = useRef<null | (() => Promise<void>)>(null)
 
   const environmentId = useMemo(() => id || '', [id])
   const [artifacts, setArtifacts] = useState<{ workdir?: string; plan_path?: string; outputs_json?: string } | null>(null)
@@ -239,6 +241,8 @@ export default function EnvironmentDetailPage() {
     setBusyAction(action)
     setError(null)
     setConflictHint(null)
+    setRetryLabel(null)
+    retryRef.current = null
     try {
       await fn()
       await load()
@@ -250,6 +254,8 @@ export default function EnvironmentDetailPage() {
         setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(message)
+      retryRef.current = async () => runAction(action, fn, options)
+      setRetryLabel(action)
     } finally {
       setBusyAction(null)
     }
@@ -326,6 +332,13 @@ export default function EnvironmentDetailPage() {
       {error ? (
         <section className="error-box">
           <strong>{summarizeOperatorError(error)}</strong>
+          {retryRef.current ? (
+            <div style={{ marginTop: 10 }}>
+              <button className="ghost" onClick={() => void retryRef.current?.()} disabled={busyAction !== null}>
+                {ko ? `마지막 작업 재시도${retryLabel ? ` (${retryLabel})` : ''}` : `Retry last action${retryLabel ? ` (${retryLabel})` : ''}`}
+              </button>
+            </div>
+          ) : null}
           {errorLooksRaw(error) && summarizeOperatorError(error) !== error ? (
             <details style={{ marginTop: 8 }}>
               <summary>{ko ? '원본 오류 보기' : 'Show raw error'}</summary>
