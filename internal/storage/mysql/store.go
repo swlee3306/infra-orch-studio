@@ -563,6 +563,12 @@ func (s *Store) DeleteSessionByTokenHash(ctx context.Context, tokenHash string) 
 	return err
 }
 
+func (s *Store) DeleteSessionsByUserID(ctx context.Context, userID string) error {
+	query := fmt.Sprintf(`DELETE FROM sessions WHERE user_id = %s;`, quoteString(userID))
+	_, err := s.exec(ctx, true, query)
+	return err
+}
+
 func (s *Store) CreateEnvironment(ctx context.Context, env domain.Environment) (domain.Environment, error) {
 	query, err := environmentInsertSQL(env)
 	if err != nil {

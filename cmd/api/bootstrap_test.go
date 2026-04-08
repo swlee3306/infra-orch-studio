@@ -161,3 +161,7 @@ func (s *bootstrapAuthStore) GetSessionWithUser(context.Context, string) (domain
 func (s *bootstrapAuthStore) DeleteSessionByTokenHash(context.Context, string) error {
 	panic("unexpected DeleteSessionByTokenHash call")
 }
+
+func (s *bootstrapAuthStore) DeleteSessionsByUserID(context.Context, string) error {
+	panic("unexpected DeleteSessionsByUserID call")
+}

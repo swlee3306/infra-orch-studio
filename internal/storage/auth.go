@@ -19,4 +19,5 @@ type AuthStore interface {
 	CreateSession(ctx context.Context, session domain.Session) (domain.Session, error)
 	GetSessionWithUser(ctx context.Context, tokenHash string) (domain.Session, domain.User, error)
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
+	DeleteSessionsByUserID(ctx context.Context, userID string) error
 }
