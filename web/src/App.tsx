@@ -41,7 +41,7 @@ export default function App() {
     if (location.pathname.startsWith('/jobs')) return 'jobs'
     return 'dashboard'
   })()
-  const deferGuidePanel = routeKey === 'environmentDetail'
+  const deferGuidePanel = routeKey === 'environmentDetail' || routeKey === 'dashboard' || routeKey === 'environments'
   const title = location.pathname.startsWith('/providers')
     ? ko
       ? '공급자 연결'
