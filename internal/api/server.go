@@ -12,6 +12,7 @@ import (
 type Config struct {
 	JobStore              storage.Store
 	AuthStore             storage.AuthStore
+	ProviderStore         storage.ProviderStore
 	CookieName            string
 	SessionTTL            time.Duration
 	AllowedOrigins        []string
@@ -26,6 +27,7 @@ type Server struct {
 	mux                   *http.ServeMux
 	jobs                  storage.Store
 	auth                  storage.AuthStore
+	providers             storage.ProviderStore
 	cookieName            string
 	sessionTTL            time.Duration
 	allowedOrigins        map[string]struct{}
@@ -53,6 +55,7 @@ func NewServer(cfg Config) *Server {
 	s := &Server{
 		jobs:                  cfg.JobStore,
 		auth:                  cfg.AuthStore,
+		providers:             cfg.ProviderStore,
 		cookieName:            cookieName,
 		sessionTTL:            sessionTTL,
 		allowedOrigins:        make(map[string]struct{}, len(origins)),

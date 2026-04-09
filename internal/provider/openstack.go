@@ -24,6 +24,25 @@ type CloudConnection struct {
 	EndpointOverride map[string]string `json:"endpoint_override,omitempty"`
 }
 
+type CloudConfig struct {
+	Name              string
+	RegionName        string
+	Interface         string
+	IdentityInterface string
+	EndpointOverride  map[string]string
+	Auth              CloudAuth
+}
+
+type CloudAuth struct {
+	AuthURL           string
+	Username          string
+	Password          string
+	ProjectName       string
+	ProjectID         string
+	UserDomainName    string
+	ProjectDomainName string
+}
+
 type Catalog struct {
 	Provider       string           `json:"provider"`
 	FetchedAt      time.Time        `json:"fetched_at"`
@@ -45,20 +64,48 @@ type ResourceDetail struct {
 }
 
 type Service struct {
-	path string
+	path   string
+	clouds map[string]cloudEntry
 }
 
 func New(path string) *Service {
 	return &Service{path: path}
 }
 
+func NewWithClouds(configs []CloudConfig) *Service {
+	clouds := make(map[string]cloudEntry, len(configs))
+	for _, item := range configs {
+		name := strings.TrimSpace(item.Name)
+		if name == "" {
+			continue
+		}
+		clouds[name] = cloudEntry{
+			RegionName:        strings.TrimSpace(item.RegionName),
+			IdentityAPIVer:    3,
+			Interface:         strings.TrimSpace(item.Interface),
+			IdentityInterface: strings.TrimSpace(item.IdentityInterface),
+			EndpointOverride:  item.EndpointOverride,
+			Auth: cloudAuth{
+				AuthURL:           strings.TrimSpace(item.Auth.AuthURL),
+				Username:          strings.TrimSpace(item.Auth.Username),
+				Password:          item.Auth.Password,
+				ProjectName:       strings.TrimSpace(item.Auth.ProjectName),
+				ProjectID:         strings.TrimSpace(item.Auth.ProjectID),
+				UserDomainName:    strings.TrimSpace(item.Auth.UserDomainName),
+				ProjectDomainName: strings.TrimSpace(item.Auth.ProjectDomainName),
+			},
+		}
+	}
+	return &Service{clouds: clouds}
+}
+
 func (s *Service) ListClouds() ([]CloudConnection, error) {
-	parsed, err := loadCloudsFile(s.path)
+	clouds, err := s.loadCloudMap()
 	if err != nil {
 		return nil, err
 	}
-	out := make([]CloudConnection, 0, len(parsed.Clouds))
-	for name, c := range parsed.Clouds {
+	out := make([]CloudConnection, 0, len(clouds))
+	for name, c := range clouds {
 		out = append(out, CloudConnection{
 			Name:             name,
 			Region:           c.RegionName,
@@ -73,11 +120,11 @@ func (s *Service) ListClouds() ([]CloudConnection, error) {
 }
 
 func (s *Service) FetchCatalog(cloudName string) (Catalog, error) {
-	parsed, err := loadCloudsFile(s.path)
+	clouds, err := s.loadCloudMap()
 	if err != nil {
 		return Catalog{}, err
 	}
-	cloud, ok := parsed.Clouds[cloudName]
+	cloud, ok := clouds[cloudName]
 	if !ok {
 		return Catalog{}, fmt.Errorf("cloud %q not found in %s", cloudName, s.path)
 	}
@@ -122,6 +169,17 @@ func (s *Service) FetchCatalog(cloudName string) (Catalog, error) {
 		c.Instances = namesFromDetails(items)
 	}
 	return c, nil
+}
+
+func (s *Service) loadCloudMap() (map[string]cloudEntry, error) {
+	if len(s.clouds) > 0 {
+		return s.clouds, nil
+	}
+	parsed, err := loadCloudsFile(s.path)
+	if err != nil {
+		return nil, err
+	}
+	return parsed.Clouds, nil
 }
 
 type cloudsFile struct {
