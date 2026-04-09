@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AuditEvent, auth, Environment, environments, Job, TemplateDescriptor, templates } from '../api'
+import { AuditEvent, auth, Environment, environments, Job, ProviderCatalog, ProviderConnection, providers, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
@@ -166,6 +166,9 @@ export default function EnvironmentDetailPage() {
   const [environmentJobs, setEnvironmentJobs] = useState<Job[]>([])
   const [templateItems, setTemplateItems] = useState<TemplateDescriptor[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState('basic')
+  const [providerItems, setProviderItems] = useState<ProviderConnection[]>([])
+  const [providerName, setProviderName] = useState('')
+  const [providerCatalog, setProviderCatalog] = useState<ProviderCatalog | null>(null)
   const [editingSpec, setEditingSpec] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [conflictHint, setConflictHint] = useState<string | null>(null)
@@ -233,6 +236,31 @@ export default function EnvironmentDetailPage() {
   useEffect(() => {
     load()
   }, [environmentId])
+
+  useEffect(() => {
+    providers
+      .list()
+      .then((res) => {
+        setProviderItems(res.items)
+        const preferred = res.default_cloud && res.items.some((item) => item.name === res.default_cloud) ? res.default_cloud : res.items[0]?.name || ''
+        setProviderName(preferred)
+      })
+      .catch(() => {
+        setProviderItems([])
+        setProviderName('')
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!providerName) {
+      setProviderCatalog(null)
+      return
+    }
+    providers
+      .resources(providerName)
+      .then((catalog) => setProviderCatalog(catalog))
+      .catch(() => setProviderCatalog(null))
+  }, [providerName])
 
   useEffect(() => {
     setShowQuickActions(false)
@@ -492,7 +520,36 @@ export default function EnvironmentDetailPage() {
                   ))}
                 </select>
               </label>
-              {editingSpec ? <EnvironmentSpecForm value={editingSpec} onChange={setEditingSpec} errors={updateValidation.fieldErrors} /> : null}
+              {providerItems.length > 0 ? (
+                <label className="field" style={{ marginBottom: 14 }}>
+                  <span>{ko ? '공급자' : 'Provider'}</span>
+                  <select value={providerName} onChange={(e) => setProviderName(e.target.value)}>
+                    {providerItems.map((item) => (
+                      <option key={item.name} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {editingSpec ? (
+                <EnvironmentSpecForm
+                  value={editingSpec}
+                  onChange={setEditingSpec}
+                  errors={updateValidation.fieldErrors}
+                  resourceHints={
+                    providerCatalog
+                      ? {
+                          images: providerCatalog.images,
+                          flavors: providerCatalog.flavors,
+                          networks: providerCatalog.networks,
+                          securityGroups: providerCatalog.security_groups || [],
+                          keyPairs: providerCatalog.key_pairs || [],
+                        }
+                      : undefined
+                  }
+                />
+              ) : null}
             </div>
           </details>
         </article>

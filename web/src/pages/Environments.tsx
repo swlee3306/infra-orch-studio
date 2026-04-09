@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { auth, Environment, EnvironmentSpec, environments, TemplateDescriptor, templates, User } from '../api'
+import { auth, Environment, EnvironmentSpec, environments, ProviderCatalog, ProviderConnection, providers, TemplateDescriptor, templates, User } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { useI18n } from '../i18n'
 import StatusBadge from '../components/StatusBadge'
@@ -59,6 +59,9 @@ export default function EnvironmentsPage() {
   const [spec, setSpec] = useState<EnvironmentSpec>(createDefaultSpec)
   const [templateItems, setTemplateItems] = useState<TemplateDescriptor[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState('basic')
+  const [providerItems, setProviderItems] = useState<ProviderConnection[]>([])
+  const [providerName, setProviderName] = useState('')
+  const [providerCatalog, setProviderCatalog] = useState<ProviderCatalog | null>(null)
 
   async function load() {
     setError(null)
@@ -99,6 +102,31 @@ export default function EnvironmentsPage() {
         setSelectedTemplate('basic')
       })
   }, [])
+
+  useEffect(() => {
+    providers
+      .list()
+      .then((res) => {
+        setProviderItems(res.items)
+        const preferred = res.default_cloud && res.items.some((item) => item.name === res.default_cloud) ? res.default_cloud : res.items[0]?.name || ''
+        setProviderName(preferred)
+      })
+      .catch(() => {
+        setProviderItems([])
+        setProviderName('')
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!providerName) {
+      setProviderCatalog(null)
+      return
+    }
+    providers
+      .resources(providerName)
+      .then((catalog) => setProviderCatalog(catalog))
+      .catch(() => setProviderCatalog(null))
+  }, [providerName])
 
   const summary = useMemo(() => {
     const base = { total: items.length, pending: 0, failed: 0 }
@@ -328,7 +356,33 @@ export default function EnvironmentsPage() {
                 ))}
               </select>
             </label>
-            <EnvironmentSpecForm value={spec} onChange={setSpec} />
+            {providerItems.length > 0 ? (
+              <label className="field">
+                <span>{ko ? '공급자' : 'Provider'}</span>
+                <select value={providerName} onChange={(e) => setProviderName(e.target.value)}>
+                  {providerItems.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <EnvironmentSpecForm
+              value={spec}
+              onChange={setSpec}
+              resourceHints={
+                providerCatalog
+                  ? {
+                      images: providerCatalog.images,
+                      flavors: providerCatalog.flavors,
+                      networks: providerCatalog.networks,
+                      securityGroups: providerCatalog.security_groups || [],
+                      keyPairs: providerCatalog.key_pairs || [],
+                    }
+                  : undefined
+              }
+            />
             {createError ? <div className="error-box">{summarizeOperatorError(createError)}</div> : null}
             <div className="detail-actions">
               <button type="submit" disabled={creating}>

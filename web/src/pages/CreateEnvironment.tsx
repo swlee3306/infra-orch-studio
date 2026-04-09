@@ -431,7 +431,11 @@ export default function CreateEnvironmentPage() {
                     </select>
                   </label>
                   <div className="row-meta" style={{ marginTop: 8 }}>
-                    {providerBusy ? (ko ? '공급자 자원을 불러오는 중...' : 'Loading provider resources...') : providerCatalog ? `${providerCatalog.images.length} images · ${providerCatalog.flavors.length} flavors · ${providerCatalog.networks.length} networks` : '-'}
+                    {providerBusy
+                      ? (ko ? '공급자 자원을 불러오는 중...' : 'Loading provider resources...')
+                      : providerCatalog
+                        ? `${providerCatalog.images.length} images · ${providerCatalog.flavors.length} flavors · ${providerCatalog.networks.length} networks · ${(providerCatalog.security_groups || []).length} security groups · ${(providerCatalog.key_pairs || []).length} keypairs`
+                        : '-'}
                   </div>
                   {providerError ? <div className="error-box" style={{ marginTop: 10 }}>{summarizeOperatorError(providerError)}</div> : null}
                 </div>
@@ -482,7 +486,18 @@ export default function CreateEnvironmentPage() {
               onChange={setSpec}
               sections={stepSections[step]}
               errors={validation.fieldErrors}
-              resourceHints={providerCatalog ? { images: providerCatalog.images, flavors: providerCatalog.flavors, networks: providerCatalog.networks, instances: providerCatalog.instances } : undefined}
+              resourceHints={
+                providerCatalog
+                  ? {
+                      images: providerCatalog.images,
+                      flavors: providerCatalog.flavors,
+                      networks: providerCatalog.networks,
+                      securityGroups: providerCatalog.security_groups || [],
+                      keyPairs: providerCatalog.key_pairs || [],
+                      instances: providerCatalog.instances,
+                    }
+                  : undefined
+              }
             />
           ) : null}
 

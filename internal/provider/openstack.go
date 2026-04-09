@@ -44,17 +44,21 @@ type CloudAuth struct {
 }
 
 type Catalog struct {
-	Provider        string           `json:"provider"`
-	FetchedAt       time.Time        `json:"fetched_at"`
-	Images          []string         `json:"images"`
-	Flavors         []string         `json:"flavors"`
-	Networks        []string         `json:"networks"`
-	Instances       []string         `json:"instances"`
-	ImageDetails    []ResourceDetail `json:"image_details,omitempty"`
-	FlavorDetails   []ResourceDetail `json:"flavor_details,omitempty"`
-	NetworkDetails  []ResourceDetail `json:"network_details,omitempty"`
-	InstanceDetails []ResourceDetail `json:"instance_details,omitempty"`
-	Errors          []string         `json:"errors,omitempty"`
+	Provider             string           `json:"provider"`
+	FetchedAt            time.Time        `json:"fetched_at"`
+	Images               []string         `json:"images"`
+	Flavors              []string         `json:"flavors"`
+	Networks             []string         `json:"networks"`
+	SecurityGroups       []string         `json:"security_groups,omitempty"`
+	KeyPairs             []string         `json:"key_pairs,omitempty"`
+	Instances            []string         `json:"instances"`
+	ImageDetails         []ResourceDetail `json:"image_details,omitempty"`
+	FlavorDetails        []ResourceDetail `json:"flavor_details,omitempty"`
+	NetworkDetails       []ResourceDetail `json:"network_details,omitempty"`
+	SecurityGroupDetails []ResourceDetail `json:"security_group_details,omitempty"`
+	KeyPairDetails       []ResourceDetail `json:"key_pair_details,omitempty"`
+	InstanceDetails      []ResourceDetail `json:"instance_details,omitempty"`
+	Errors               []string         `json:"errors,omitempty"`
 }
 
 type ResourceDetail struct {
@@ -161,6 +165,18 @@ func (s *Service) FetchCatalog(cloudName string) (Catalog, error) {
 	} else {
 		c.NetworkDetails = items
 		c.Networks = namesFromDetails(items)
+	}
+	if items, err := fetchSecurityGroupDetails(token, cloud, endpoints); err != nil {
+		addErr(fmt.Errorf("security_groups: %w", err))
+	} else {
+		c.SecurityGroupDetails = items
+		c.SecurityGroups = namesFromDetails(items)
+	}
+	if items, err := fetchKeyPairDetails(token, cloud, endpoints); err != nil {
+		addErr(fmt.Errorf("key_pairs: %w", err))
+	} else {
+		c.KeyPairDetails = items
+		c.KeyPairs = namesFromDetails(items)
 	}
 	if items, err := fetchInstanceDetails(token, cloud, endpoints); err != nil {
 		addErr(fmt.Errorf("instances: %w", err))
@@ -468,6 +484,81 @@ func fetchInstanceDetails(token string, cloud cloudEntry, endpoints endpointMap)
 				"image":       nestedName(item["image"]),
 				"created":     getString(item, "created"),
 				"updated":     getString(item, "updated"),
+			}),
+		})
+	}
+	return sortDetails(out), nil
+}
+
+func fetchSecurityGroupDetails(token string, cloud cloudEntry, endpoints endpointMap) ([]ResourceDetail, error) {
+	base := chooseEndpoint(cloud, endpoints, "network")
+	if base == "" {
+		return nil, fmt.Errorf("network endpoint not found")
+	}
+	u := withPath(base, "/v2.0/security-groups")
+	body, err := doGet(token, u)
+	if err != nil {
+		return nil, err
+	}
+	var parsed struct {
+		SecurityGroups []map[string]any `json:"security_groups"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil, err
+	}
+	out := make([]ResourceDetail, 0, len(parsed.SecurityGroups))
+	for _, item := range parsed.SecurityGroups {
+		name := getString(item, "name")
+		id := getString(item, "id")
+		if name == "" && id == "" {
+			continue
+		}
+		out = append(out, ResourceDetail{
+			ID:   id,
+			Name: nameOrFallback(name, id),
+			Attributes: compactAttributes(map[string]string{
+				"description": getString(item, "description"),
+				"project_id":  getString(item, "project_id"),
+			}),
+		})
+	}
+	return sortDetails(out), nil
+}
+
+func fetchKeyPairDetails(token string, cloud cloudEntry, endpoints endpointMap) ([]ResourceDetail, error) {
+	base := chooseEndpoint(cloud, endpoints, "compute")
+	if base == "" {
+		return nil, fmt.Errorf("compute endpoint not found")
+	}
+	u := withPath(base, "/v2.1/os-keypairs")
+	body, err := doGet(token, u)
+	if err != nil {
+		return nil, err
+	}
+	var parsed struct {
+		KeyPairs []map[string]any `json:"keypairs"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil, err
+	}
+	out := make([]ResourceDetail, 0, len(parsed.KeyPairs))
+	for _, item := range parsed.KeyPairs {
+		payload, ok := item["keypair"].(map[string]any)
+		if !ok {
+			payload = item
+		}
+		name := getString(payload, "name")
+		id := getString(payload, "fingerprint")
+		if name == "" && id == "" {
+			continue
+		}
+		out = append(out, ResourceDetail{
+			ID:   id,
+			Name: nameOrFallback(name, id),
+			Attributes: compactAttributes(map[string]string{
+				"type":       getString(payload, "type"),
+				"user_id":    getString(payload, "user_id"),
+				"public_key": getString(payload, "public_key"),
 			}),
 		})
 	}
