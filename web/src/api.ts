@@ -270,6 +270,25 @@ export type AdminUserListResponse = {
   items: User[]
 }
 
+export type OverviewFailure = {
+  id: string
+  name: string
+  status: string
+  last_error?: string
+  updated_at?: string
+}
+
+export type OverviewResponse = {
+  environments_total: number
+  pending_approval: number
+  approved_waiting_apply: number
+  applying: number
+  failed: number
+  active: number
+  destroyed: number
+  recent_failures: OverviewFailure[]
+}
+
 // VITE_API_URL should point to the API base.
 // - prod (nginx proxy): "/api"
 // - dev: "http://localhost:8080/api"
@@ -399,6 +418,10 @@ export const audit = {
     const suffix = query.toString()
     return req<AuditFeedResponse>(`/audit${suffix ? `?${suffix}` : ''}`)
   },
+}
+
+export const overview = {
+  get: () => req<OverviewResponse>('/overview'),
 }
 
 export const requestDrafts = {

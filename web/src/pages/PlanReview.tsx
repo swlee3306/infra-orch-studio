@@ -89,6 +89,19 @@ export default function PlanReviewPage() {
     load()
   }, [environmentId])
 
+  useEffect(() => {
+    if (!environment) return
+    const waiting =
+      environment.status === 'planning' ||
+      environment.status === 'approved' ||
+      (environment.status === 'pending_approval' && !planJob)
+    if (!waiting) return
+    const timer = window.setInterval(() => {
+      void load()
+    }, 4000)
+    return () => window.clearInterval(timer)
+  }, [environment?.status, environment?.id, planJob?.id])
+
   const approvalEvent = useMemo(() => latestApprovalEvent(auditItems), [auditItems])
 
   async function run(action: string, execute: (env: Environment | null) => Promise<any>) {

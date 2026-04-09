@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 export type Locale = 'en' | 'ko'
-type RouteGuideKey = 'dashboard' | 'environments' | 'create' | 'environmentDetail' | 'review' | 'approval' | 'jobs' | 'jobDetail' | 'templates' | 'audit' | 'users'
+type RouteGuideKey = 'dashboard' | 'guidedStart' | 'environments' | 'create' | 'environmentDetail' | 'review' | 'approval' | 'jobs' | 'jobDetail' | 'templates' | 'audit' | 'users'
 
 type CopyShape = {
   shell: {
@@ -9,7 +9,7 @@ type CopyShape = {
     brandSubtitle: string
     workflowTitle: string
     workflowHint: string
-    nav: Record<'dashboard' | 'environments' | 'create' | 'jobs' | 'templates' | 'audit' | 'users', string>
+    nav: Record<'dashboard' | 'guidedStart' | 'environments' | 'create' | 'jobs' | 'templates' | 'audit' | 'users', string>
     logout: string
     topbarKicker: string
     routeTitles: Record<RouteGuideKey, string>
@@ -207,6 +207,7 @@ const COPY: Record<Locale, CopyShape> = {
       workflowHint: 'Operate from environments first, then drill into execution detail.',
       nav: {
         dashboard: 'Dashboard',
+        guidedStart: 'Guided Start',
         environments: 'Environments',
         create: 'Create Flow',
         jobs: 'Executions',
@@ -218,6 +219,7 @@ const COPY: Record<Locale, CopyShape> = {
       topbarKicker: 'Environment operations',
       routeTitles: {
         dashboard: 'Dashboard',
+        guidedStart: 'Guided Start',
         environments: 'Environments',
         create: 'Create Environment',
         environmentDetail: 'Environment Detail',
@@ -419,6 +421,10 @@ const COPY: Record<Locale, CopyShape> = {
           summary: 'Use this page to spot approvals, failures, and recent lifecycle changes first.',
           items: ['Open blocked approvals from the approval panel.', 'Open failed environments from the incident panel.', 'Use recent lifecycle rows to jump into detail.'],
         },
+        guidedStart: {
+          summary: 'Start here when you want the full workflow presented as a single low-friction cycle.',
+          items: ['Follow Create, Review, Approval, and Result in order.', 'Use the live overview when available.', 'Drop into the linked surface only when you need to act.'],
+        },
         environments: {
           summary: 'Use filters to narrow lifecycle state, then open detail, review, or approval control.',
           items: ['Search by environment, tenant, owner, or lifecycle.', 'Use quick create only for fast operator-driven plan requests.', 'Use row-level next steps to jump into the right surface.'],
@@ -470,6 +476,7 @@ const COPY: Record<Locale, CopyShape> = {
       workflowHint: '항상 환경 화면에서 시작하고, 필요할 때만 실행 상세로 내려가세요.',
       nav: {
         dashboard: '대시보드',
+        guidedStart: '가이드 시작',
         environments: '환경',
         create: '생성 흐름',
         jobs: '실행 이력',
@@ -481,6 +488,7 @@ const COPY: Record<Locale, CopyShape> = {
       topbarKicker: '환경 운영',
       routeTitles: {
         dashboard: '대시보드',
+        guidedStart: '가이드 시작',
         environments: '환경',
         create: '환경 생성',
         environmentDetail: '환경 상세',
@@ -681,6 +689,10 @@ const COPY: Record<Locale, CopyShape> = {
         dashboard: {
           summary: '승인 대기, 장애, 최근 변경을 가장 먼저 확인하는 시작 화면입니다.',
           items: ['승인 대기 패널에서 막힌 변경을 엽니다.', '장애 패널에서 실패한 환경으로 이동합니다.', '최근 이력 표에서 상세 화면으로 진입합니다.'],
+        },
+        guidedStart: {
+          summary: '한 사이클을 하나의 진입점에서 낮은 복잡도로 시작할 때 사용하는 화면입니다.',
+          items: ['Create, Review, Approval, Result를 순서대로 봅니다.', '가능하면 라이브 개요를 사용합니다.', '실행이 필요할 때만 연결된 화면으로 이동합니다.'],
         },
         environments: {
           summary: '생명주기 상태를 좁히고 적절한 상세, 검토, 승인 화면으로 이동합니다.',
