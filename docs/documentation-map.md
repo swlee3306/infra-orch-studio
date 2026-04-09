@@ -21,6 +21,7 @@
 - `docs/ui-revalidation-log.md`
 - `docs/concurrency-smoke-checklist.md`
 - `docs/openclaw-concurrency-prompt.md`
+- `docs/openclaw-responsive-revalidation-prompt.md`
 - `hack/summarize-openclaw-report.sh`
 - `hack/extract-openclaw-ui-todos.sh`
 - `docs/documentation-map.md`
