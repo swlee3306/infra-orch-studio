@@ -25,13 +25,23 @@ type CloudConnection struct {
 }
 
 type Catalog struct {
-	Provider  string    `json:"provider"`
-	FetchedAt time.Time `json:"fetched_at"`
-	Images    []string  `json:"images"`
-	Flavors   []string  `json:"flavors"`
-	Networks  []string  `json:"networks"`
-	Instances []string  `json:"instances"`
-	Errors    []string  `json:"errors,omitempty"`
+	Provider       string           `json:"provider"`
+	FetchedAt      time.Time        `json:"fetched_at"`
+	Images         []string         `json:"images"`
+	Flavors        []string         `json:"flavors"`
+	Networks       []string         `json:"networks"`
+	Instances      []string         `json:"instances"`
+	ImageDetails   []ResourceDetail `json:"image_details,omitempty"`
+	FlavorDetails  []ResourceDetail `json:"flavor_details,omitempty"`
+	NetworkDetails []ResourceDetail `json:"network_details,omitempty"`
+	InstanceDetails []ResourceDetail `json:"instance_details,omitempty"`
+	Errors         []string         `json:"errors,omitempty"`
+}
+
+type ResourceDetail struct {
+	ID         string            `json:"id"`
+	Name       string            `json:"name"`
+	Attributes map[string]string `json:"attributes,omitempty"`
 }
 
 type Service struct {
@@ -87,25 +97,29 @@ func (s *Service) FetchCatalog(cloudName string) (Catalog, error) {
 		c.Errors = append(c.Errors, err.Error())
 	}
 
-	if items, err := fetchImageNames(token, cloud, endpoints); err != nil {
+	if items, err := fetchImageDetails(token, cloud, endpoints); err != nil {
 		addErr(fmt.Errorf("images: %w", err))
 	} else {
-		c.Images = items
+		c.ImageDetails = items
+		c.Images = namesFromDetails(items)
 	}
-	if items, err := fetchFlavorNames(token, cloud, endpoints); err != nil {
+	if items, err := fetchFlavorDetails(token, cloud, endpoints); err != nil {
 		addErr(fmt.Errorf("flavors: %w", err))
 	} else {
-		c.Flavors = items
+		c.FlavorDetails = items
+		c.Flavors = namesFromDetails(items)
 	}
-	if items, err := fetchNetworkNames(token, cloud, endpoints); err != nil {
+	if items, err := fetchNetworkDetails(token, cloud, endpoints); err != nil {
 		addErr(fmt.Errorf("networks: %w", err))
 	} else {
-		c.Networks = items
+		c.NetworkDetails = items
+		c.Networks = namesFromDetails(items)
 	}
-	if items, err := fetchInstanceNames(token, cloud, endpoints); err != nil {
+	if items, err := fetchInstanceDetails(token, cloud, endpoints); err != nil {
 		addErr(fmt.Errorf("instances: %w", err))
 	} else {
-		c.Instances = items
+		c.InstanceDetails = items
+		c.Instances = namesFromDetails(items)
 	}
 	return c, nil
 }
@@ -240,7 +254,7 @@ func authenticate(cloud cloudEntry) (string, endpointMap, error) {
 	return token, endpoints, nil
 }
 
-func fetchImageNames(token string, cloud cloudEntry, endpoints endpointMap) ([]string, error) {
+func fetchImageDetails(token string, cloud cloudEntry, endpoints endpointMap) ([]ResourceDetail, error) {
 	base := chooseEndpoint(cloud, endpoints, "image")
 	if base == "" {
 		return nil, fmt.Errorf("image endpoint not found")
@@ -251,25 +265,39 @@ func fetchImageNames(token string, cloud cloudEntry, endpoints endpointMap) ([]s
 		return nil, err
 	}
 	var parsed struct {
-		Images []struct {
-			Name string `json:"name"`
-		} `json:"images"`
+		Images []map[string]any `json:"images"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return nil, err
 	}
-	return uniqueSorted(func() []string {
-		out := make([]string, 0, len(parsed.Images))
-		for _, i := range parsed.Images {
-			if strings.TrimSpace(i.Name) != "" {
-				out = append(out, i.Name)
-			}
+	out := make([]ResourceDetail, 0, len(parsed.Images))
+	for _, item := range parsed.Images {
+		name := getString(item, "name")
+		id := getString(item, "id")
+		if name == "" && id == "" {
+			continue
 		}
-		return out
-	}()), nil
+		out = append(out, ResourceDetail{
+			ID:   id,
+			Name: nameOrFallback(name, id),
+			Attributes: compactAttributes(map[string]string{
+				"status":          getString(item, "status"),
+				"visibility":      getString(item, "visibility"),
+				"disk_format":     getString(item, "disk_format"),
+				"container_format": getString(item, "container_format"),
+				"size":            stringify(item["size"]),
+				"min_disk":        stringify(item["min_disk"]),
+				"min_ram":         stringify(item["min_ram"]),
+				"owner":           getString(item, "owner"),
+				"created_at":      getString(item, "created_at"),
+				"updated_at":      getString(item, "updated_at"),
+			}),
+		})
+	}
+	return sortDetails(out), nil
 }
 
-func fetchFlavorNames(token string, cloud cloudEntry, endpoints endpointMap) ([]string, error) {
+func fetchFlavorDetails(token string, cloud cloudEntry, endpoints endpointMap) ([]ResourceDetail, error) {
 	base := chooseEndpoint(cloud, endpoints, "compute")
 	if base == "" {
 		return nil, fmt.Errorf("compute endpoint not found")
@@ -280,25 +308,35 @@ func fetchFlavorNames(token string, cloud cloudEntry, endpoints endpointMap) ([]
 		return nil, err
 	}
 	var parsed struct {
-		Flavors []struct {
-			Name string `json:"name"`
-		} `json:"flavors"`
+		Flavors []map[string]any `json:"flavors"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return nil, err
 	}
-	return uniqueSorted(func() []string {
-		out := make([]string, 0, len(parsed.Flavors))
-		for _, i := range parsed.Flavors {
-			if strings.TrimSpace(i.Name) != "" {
-				out = append(out, i.Name)
-			}
+	out := make([]ResourceDetail, 0, len(parsed.Flavors))
+	for _, item := range parsed.Flavors {
+		name := getString(item, "name")
+		id := getString(item, "id")
+		if name == "" && id == "" {
+			continue
 		}
-		return out
-	}()), nil
+		out = append(out, ResourceDetail{
+			ID:   id,
+			Name: nameOrFallback(name, id),
+			Attributes: compactAttributes(map[string]string{
+				"vcpus":    stringify(item["vcpus"]),
+				"ram_mb":   stringify(item["ram"]),
+				"disk_gb":  stringify(item["disk"]),
+				"swap_mb":  stringify(item["swap"]),
+				"is_public": stringify(item["os-flavor-access:is_public"]),
+				"disabled": stringify(item["OS-FLV-DISABLED:disabled"]),
+			}),
+		})
+	}
+	return sortDetails(out), nil
 }
 
-func fetchNetworkNames(token string, cloud cloudEntry, endpoints endpointMap) ([]string, error) {
+func fetchNetworkDetails(token string, cloud cloudEntry, endpoints endpointMap) ([]ResourceDetail, error) {
 	base := chooseEndpoint(cloud, endpoints, "network")
 	if base == "" {
 		return nil, fmt.Errorf("network endpoint not found")
@@ -309,25 +347,35 @@ func fetchNetworkNames(token string, cloud cloudEntry, endpoints endpointMap) ([
 		return nil, err
 	}
 	var parsed struct {
-		Networks []struct {
-			Name string `json:"name"`
-		} `json:"networks"`
+		Networks []map[string]any `json:"networks"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return nil, err
 	}
-	return uniqueSorted(func() []string {
-		out := make([]string, 0, len(parsed.Networks))
-		for _, i := range parsed.Networks {
-			if strings.TrimSpace(i.Name) != "" {
-				out = append(out, i.Name)
-			}
+	out := make([]ResourceDetail, 0, len(parsed.Networks))
+	for _, item := range parsed.Networks {
+		name := getString(item, "name")
+		id := getString(item, "id")
+		if name == "" && id == "" {
+			continue
 		}
-		return out
-	}()), nil
+		out = append(out, ResourceDetail{
+			ID:   id,
+			Name: nameOrFallback(name, id),
+			Attributes: compactAttributes(map[string]string{
+				"status":         getString(item, "status"),
+				"admin_state_up": stringify(item["admin_state_up"]),
+				"shared":         stringify(item["shared"]),
+				"external":       stringify(item["router:external"]),
+				"mtu":            stringify(item["mtu"]),
+				"subnets":        stringifyLen(item["subnets"]),
+			}),
+		})
+	}
+	return sortDetails(out), nil
 }
 
-func fetchInstanceNames(token string, cloud cloudEntry, endpoints endpointMap) ([]string, error) {
+func fetchInstanceDetails(token string, cloud cloudEntry, endpoints endpointMap) ([]ResourceDetail, error) {
 	base := chooseEndpoint(cloud, endpoints, "compute")
 	if base == "" {
 		return nil, fmt.Errorf("compute endpoint not found")
@@ -338,22 +386,34 @@ func fetchInstanceNames(token string, cloud cloudEntry, endpoints endpointMap) (
 		return nil, err
 	}
 	var parsed struct {
-		Servers []struct {
-			Name string `json:"name"`
-		} `json:"servers"`
+		Servers []map[string]any `json:"servers"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return nil, err
 	}
-	return uniqueSorted(func() []string {
-		out := make([]string, 0, len(parsed.Servers))
-		for _, i := range parsed.Servers {
-			if strings.TrimSpace(i.Name) != "" {
-				out = append(out, i.Name)
-			}
+	out := make([]ResourceDetail, 0, len(parsed.Servers))
+	for _, item := range parsed.Servers {
+		name := getString(item, "name")
+		id := getString(item, "id")
+		if name == "" && id == "" {
+			continue
 		}
-		return out
-	}()), nil
+		out = append(out, ResourceDetail{
+			ID:   id,
+			Name: nameOrFallback(name, id),
+			Attributes: compactAttributes(map[string]string{
+				"status":      getString(item, "status"),
+				"power_state": stringify(item["OS-EXT-STS:power_state"]),
+				"task_state":  stringify(item["OS-EXT-STS:task_state"]),
+				"vm_state":    stringify(item["OS-EXT-STS:vm_state"]),
+				"flavor":      nestedName(item["flavor"]),
+				"image":       nestedName(item["image"]),
+				"created":     getString(item, "created"),
+				"updated":     getString(item, "updated"),
+			}),
+		})
+	}
+	return sortDetails(out), nil
 }
 
 func doGet(token, target string) ([]byte, error) {
@@ -419,6 +479,103 @@ func uniqueSorted(items []string) []string {
 		out = append(out, item)
 	}
 	sort.Strings(out)
+	return out
+}
+
+func namesFromDetails(items []ResourceDetail) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		name := strings.TrimSpace(item.Name)
+		if name == "" {
+			name = strings.TrimSpace(item.ID)
+		}
+		if name == "" {
+			continue
+		}
+		out = append(out, name)
+	}
+	return uniqueSorted(out)
+}
+
+func sortDetails(items []ResourceDetail) []ResourceDetail {
+	sort.Slice(items, func(i, j int) bool {
+		left := strings.ToLower(strings.TrimSpace(items[i].Name))
+		right := strings.ToLower(strings.TrimSpace(items[j].Name))
+		if left == right {
+			return strings.ToLower(items[i].ID) < strings.ToLower(items[j].ID)
+		}
+		return left < right
+	})
+	return items
+}
+
+func getString(item map[string]any, key string) string {
+	value, ok := item[key]
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(stringify(value))
+}
+
+func stringify(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case float64, float32, int, int64, int32, bool:
+		return fmt.Sprintf("%v", v)
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return ""
+		}
+		return string(b)
+	}
+}
+
+func stringifyLen(value any) string {
+	switch v := value.(type) {
+	case []any:
+		return fmt.Sprintf("%d", len(v))
+	case []string:
+		return fmt.Sprintf("%d", len(v))
+	default:
+		return stringify(v)
+	}
+}
+
+func nestedName(value any) string {
+	item, ok := value.(map[string]any)
+	if !ok {
+		return stringify(value)
+	}
+	if name := strings.TrimSpace(stringify(item["name"])); name != "" {
+		return name
+	}
+	if id := strings.TrimSpace(stringify(item["id"])); id != "" {
+		return id
+	}
+	return stringify(item)
+}
+
+func nameOrFallback(name, id string) string {
+	name = strings.TrimSpace(name)
+	if name != "" {
+		return name
+	}
+	return strings.TrimSpace(id)
+}
+
+func compactAttributes(attrs map[string]string) map[string]string {
+	out := make(map[string]string)
+	for key, value := range attrs {
+		value = strings.TrimSpace(value)
+		if value == "" || value == "null" {
+			continue
+		}
+		out[key] = value
+	}
 	return out
 }
 

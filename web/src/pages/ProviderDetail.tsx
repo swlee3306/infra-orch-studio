@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { auth, ProviderCatalog, ProviderConnection, providers } from '../api'
+import { auth, ProviderCatalog, ProviderConnection, ProviderResourceDetail, providers } from '../api'
 import { useI18n } from '../i18n'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
@@ -49,10 +49,10 @@ export default function ProviderDetailPage() {
 
   const rows = useMemo(() => {
     if (!catalog) return []
-    if (tab === 'images') return catalog.images
-    if (tab === 'flavors') return catalog.flavors
-    if (tab === 'networks') return catalog.networks
-    return catalog.instances
+    if (tab === 'images') return catalog.image_details || []
+    if (tab === 'flavors') return catalog.flavor_details || []
+    if (tab === 'networks') return catalog.network_details || []
+    return catalog.instance_details || []
   }, [catalog, tab])
 
   const tabItems: Array<{ key: TabKey; labelEn: string; labelKo: string; count: number }> = [
@@ -170,10 +170,19 @@ export default function ProviderDetailPage() {
                 {ko ? '이 메뉴에서 표시할 자원이 없습니다.' : 'No resources were returned for this menu.'}
               </div>
             ) : (
-              rows.map((item) => (
-                <div className="stack-row" key={item}>
+              rows.map((item: ProviderResourceDetail) => (
+                <div className="stack-row" key={`${item.id || item.name}`}>
                   <div>
-                    <strong>{item}</strong>
+                    <strong>{item.name || item.id}</strong>
+                    {item.id ? <div className="row-meta">{item.id}</div> : null}
+                  </div>
+                  <div className="detail-actions">
+                    <Link
+                      className="ghost action-link action-link-button"
+                      to={`/providers/${encodeURIComponent(providerName)}/${tab}/${encodeURIComponent(item.id || item.name)}`}
+                    >
+                      {ko ? '상세 보기' : 'Details'}
+                    </Link>
                   </div>
                 </div>
               ))

@@ -14,6 +14,7 @@ import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
 import PlanReviewPage from './pages/PlanReview'
 import ProviderDetailPage from './pages/ProviderDetail'
+import ProviderResourceDetailPage from './pages/ProviderResourceDetail'
 import ProvidersPage from './pages/Providers'
 import TemplatesPage from './pages/Templates'
 import UsersPage from './pages/Users'
@@ -146,6 +147,7 @@ export default function App() {
                 <Route path="/templates" element={<TemplatesPage />} />
                 <Route path="/providers" element={<ProvidersPage />} />
                 <Route path="/providers/:name" element={<ProviderDetailPage />} />
+                <Route path="/providers/:name/:resourceType/:resourceId" element={<ProviderResourceDetailPage />} />
                 <Route path="/audit" element={<AuditPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="*" element={<DashboardPage />} />
