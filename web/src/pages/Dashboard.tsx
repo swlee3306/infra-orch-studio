@@ -51,19 +51,15 @@ export default function DashboardPage() {
     const base = {
       total: items.length,
       active: 0,
-      pending: 0,
+      reviewReady: 0,
+      approvedWaitingApply: 0,
       failed: 0,
-      planning: 0,
-      applying: 0,
-      approved: 0,
     }
     for (const item of items) {
       if (item.status === 'active') base.active += 1
-      if (item.status === 'pending_approval') base.pending += 1
+      if (item.status === 'pending_approval') base.reviewReady += 1
+      if (item.status === 'approved' && item.approval_status === 'approved') base.approvedWaitingApply += 1
       if (item.status === 'failed') base.failed += 1
-      if (item.status === 'planning') base.planning += 1
-      if (item.status === 'applying') base.applying += 1
-      if (item.approval_status === 'approved') base.approved += 1
     }
     return base
   }, [items])
@@ -87,6 +83,9 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="hero-actions">
+          <Link to="/create-environment" className="action-link action-link-button">
+            {ko ? '환경 만들기' : 'Create environment'}
+          </Link>
           <button className="ghost" onClick={load}>{copy.dashboard.refresh}</button>
         </div>
       </section>
@@ -95,24 +94,19 @@ export default function DashboardPage() {
 
       <section className="stats-grid">
         <article className="metric-card metric-card-primary">
-          <span>{ko ? '활성 환경' : 'Active environments'}</span>
-          <strong>{summary.active}</strong>
-          <p>{ko ? '적용이 성공적으로 끝나 현재 운영 중인 환경입니다.' : 'Environments currently running after a successful apply.'}</p>
+          <span>{ko ? '검토 대기' : 'Review queue'}</span>
+          <strong>{summary.reviewReady}</strong>
+          <p>{ko ? '플랜 검토가 필요한 환경 수입니다.' : 'Environments waiting for plan review and approval.'}</p>
         </article>
         <article className="metric-card">
-          <span>{ko ? '승인 대기' : 'Pending approvals'}</span>
-          <strong>{summary.pending}</strong>
-          <p>{ko ? '적용 전에 승인이 필요해 멈춰 있는 플랜 수입니다.' : 'Plans blocked at approval before apply can be queued.'}</p>
+          <span>{ko ? '승인 완료 / 적용 대기' : 'Approved waiting apply'}</span>
+          <strong>{summary.approvedWaitingApply}</strong>
+          <p>{ko ? '승인 게이트는 통과했지만 적용 큐잉이 남은 환경입니다.' : 'Approved environments that still need apply to be queued.'}</p>
         </article>
         <article className="metric-card">
           <span>{ko ? '실패 실행' : 'Failed executions'}</span>
           <strong>{summary.failed}</strong>
           <p>{ko ? '플랜 또는 적용 단계 실패로 멈춘 환경 수입니다.' : 'Environments paused on a failed plan or apply step.'}</p>
-        </article>
-        <article className="metric-card">
-          <span>{ko ? '진행 중' : 'In flight'}</span>
-          <strong>{summary.planning + summary.applying}</strong>
-          <p>{ko ? '현재 러너에서 처리 중인 플랜과 적용 작업입니다.' : 'Plans and applies currently moving through the runner.'}</p>
         </article>
       </section>
 
@@ -172,90 +166,47 @@ export default function DashboardPage() {
         </article>
       </section>
 
-      <section className="dashboard-grid">
-        <article className="console-card">
-          <div className="section-head">
-            <div>
-              <div className="section-kicker">{ko ? '환경 목록' : 'Environment list'}</div>
-              <h2>{ko ? '최근 생명주기 이력' : 'Recent lifecycle records'}</h2>
-            </div>
-            <Link to="/environments" className="text-link">
-              {ko ? '환경 목록 열기' : 'Open environment list'}
-            </Link>
+      <section className="console-card">
+        <div className="section-head">
+          <div>
+            <div className="section-kicker">{ko ? '환경 목록' : 'Environment list'}</div>
+            <h2>{ko ? '최근 생명주기 이력' : 'Recent lifecycle records'}</h2>
           </div>
-          <div className="table-scroll">
-            <table className="ops-table">
-              <thead>
-                <tr>
-                  <th>{ko ? '환경' : 'Environment'}</th>
-                  <th>{ko ? '생명주기' : 'Lifecycle'}</th>
-                  <th>{ko ? '승인' : 'Approval'}</th>
-                  <th className="dashboard-col-mobile-optional">{ko ? '소유자' : 'Owner'}</th>
-                  <th className="dashboard-col-mobile-optional">{ko ? '수정 시각' : 'Updated'}</th>
+          <Link to="/environments" className="text-link">
+            {ko ? '환경 목록 열기' : 'Open environment list'}
+          </Link>
+        </div>
+        <div className="table-scroll">
+          <table className="ops-table">
+            <thead>
+              <tr>
+                <th>{ko ? '환경' : 'Environment'}</th>
+                <th>{ko ? '생명주기' : 'Lifecycle'}</th>
+                <th>{ko ? '승인' : 'Approval'}</th>
+                <th>{ko ? '수정 시각' : 'Updated'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recent.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <Link to={nextEnvironmentRoute(item)} className="text-link">
+                      {item.name}
+                    </Link>
+                    <div className="row-meta">{item.spec.tenant_name || '-'}</div>
+                  </td>
+                  <td>
+                    <StatusBadge status={item.status} />
+                  </td>
+                  <td>
+                    <StatusBadge status={item.approval_status} />
+                  </td>
+                  <td>{formatUpdated(item.updated_at)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {recent.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <Link to={nextEnvironmentRoute(item)} className="text-link">
-                        {item.name}
-                      </Link>
-                      <div className="row-meta">{item.spec.tenant_name || '-'}</div>
-                    </td>
-                    <td>
-                      <StatusBadge status={item.status} />
-                    </td>
-                    <td>
-                      <StatusBadge status={item.approval_status} />
-                    </td>
-                    <td className="dashboard-col-mobile-optional">{item.created_by_email || '-'}</td>
-                    <td className="dashboard-col-mobile-optional">{formatUpdated(item.updated_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
-        <article className="console-card">
-          <div className="section-head">
-            <div>
-              <div className="section-kicker">{ko ? '라이프사이클' : 'Lifecycle'}</div>
-              <h2>{ko ? '환경 생명주기 제어' : 'Environment lifecycle control'}</h2>
-            </div>
-          </div>
-          <div className="lifecycle-strip">
-            <div className="lifecycle-step">
-              <span>{ko ? '01 요청' : '01 Request'}</span>
-              <strong>{summary.total}</strong>
-            </div>
-            <div className="lifecycle-step">
-              <span>{ko ? '02 플랜' : '02 Plan'}</span>
-              <strong>{summary.planning}</strong>
-            </div>
-            <div className="lifecycle-step">
-              <span>{ko ? '03 승인' : '03 Approval'}</span>
-              <strong>{summary.pending}</strong>
-            </div>
-            <div className="lifecycle-step">
-              <span>{ko ? '04 적용' : '04 Apply'}</span>
-              <strong>{summary.applying}</strong>
-            </div>
-            <div className="lifecycle-step">
-              <span>{ko ? '05 결과' : '05 Result'}</span>
-              <strong>{summary.active}</strong>
-            </div>
-          </div>
-          <div className="note-card">
-            <strong>{ko ? '환경 중심 운영' : 'Environment-first posture'}</strong>
-            <p>
-              {ko
-                ? '작업 이력은 실행 기록으로 계속 보이지만, 운영자는 환경 객체에서 시작하고 필요할 때만 상세 실행으로 내려가야 합니다.'
-                : 'Jobs remain visible as execution records, but operators should start from the environment object and only drill down when a run needs inspection.'}
-            </p>
-          </div>
-        </article>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   )
