@@ -69,6 +69,7 @@ func main() {
 	srv := api.NewServer(api.Config{
 		JobStore:              jobStore,
 		AuthStore:             authStore,
+		ProviderStore:         store,
 		TemplatesRoot:         templatesRoot,
 		ModulesRoot:           modulesRoot,
 		AllowPublicSignup:     envBool("ALLOW_PUBLIC_SIGNUP", false),

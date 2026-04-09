@@ -55,11 +55,14 @@ export default function ProvidersPage() {
   const [items, setItems] = useState<ProviderConnection[]>([])
   const [defaultCloud, setDefaultCloud] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState<Draft>(INITIAL_DRAFT)
   const [copied, setCopied] = useState(false)
 
   async function load() {
     setError(null)
+    setNotice(null)
     try {
       await auth.me()
     } catch {
@@ -105,6 +108,32 @@ export default function ProvidersPage() {
     }
   }
 
+  async function saveProvider() {
+    setError(null)
+    setNotice(null)
+    setSaving(true)
+    try {
+      await providers.upsert({
+        name: draft.name.trim(),
+        auth_url: draft.auth_url.trim(),
+        region_name: draft.region_name.trim(),
+        interface: draft.interface.trim(),
+        identity_interface: draft.identity_interface.trim(),
+        username: draft.username.trim(),
+        password: draft.password,
+        project_name: draft.project_name.trim(),
+        user_domain_name: draft.user_domain_name.trim(),
+        project_domain_name: draft.project_domain_name.trim(),
+      })
+      setNotice(ko ? `공급자 ${draft.name} 저장 완료` : `Saved provider ${draft.name}`)
+      await load()
+    } catch (err: any) {
+      setError(err?.message || 'failed to save provider')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="page-stack">
       <section className="hero-panel">
@@ -125,6 +154,7 @@ export default function ProvidersPage() {
       </section>
 
       {error ? <section className="error-box">{summarizeOperatorError(error)}</section> : null}
+      {notice ? <section className="success-box">{notice}</section> : null}
 
       <section className="stats-grid template-stats-grid">
         <article className="metric-card metric-card-primary">
@@ -218,6 +248,9 @@ export default function ProvidersPage() {
               </label>
             </div>
             <div className="detail-actions">
+              <button type="button" onClick={saveProvider} disabled={saving || !draft.name || !draft.auth_url || !draft.username || !draft.password || !draft.project_name}>
+                {saving ? (ko ? '저장 중...' : 'Saving...') : ko ? '공급자 저장' : 'Save provider'}
+              </button>
               <button type="button" className="ghost" onClick={() => copySnippet(snippet)}>
                 {copied ? (ko ? 'clouds.yaml 복사됨' : 'clouds.yaml copied') : ko ? 'clouds.yaml 복사' : 'Copy clouds.yaml'}
               </button>

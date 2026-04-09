@@ -164,6 +164,20 @@ export type ProviderListResponse = {
   default_cloud?: string
 }
 
+export type ProviderUpsertRequest = {
+  name: string
+  auth_url: string
+  region_name?: string
+  interface?: string
+  identity_interface?: string
+  username: string
+  password: string
+  project_name: string
+  user_domain_name?: string
+  project_domain_name?: string
+  endpoint_override?: Record<string, string>
+}
+
 export type ProviderCatalog = {
   provider: string
   fetched_at: string
@@ -368,6 +382,11 @@ export const templates = {
 
 export const providers = {
   list: () => req<ProviderListResponse>('/providers'),
+  upsert: (payload: ProviderUpsertRequest) =>
+    req<ProviderConnection>('/providers', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   resources: (name: string) => req<ProviderCatalog>(`/providers/${encodeURIComponent(name)}/resources`),
 }
 

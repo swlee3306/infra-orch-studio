@@ -172,6 +172,25 @@ CREATE TABLE IF NOT EXISTS audit_events (
 	INDEX idx_audit_resource_created_at (resource_type, resource_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS provider_connections (
+	name VARCHAR(128) PRIMARY KEY,
+	auth_url TEXT NOT NULL,
+	region_name VARCHAR(128) NOT NULL DEFAULT '',
+	interface VARCHAR(32) NOT NULL DEFAULT '',
+	identity_interface VARCHAR(32) NOT NULL DEFAULT '',
+	username VARCHAR(255) NOT NULL,
+	password TEXT NOT NULL,
+	project_name VARCHAR(255) NOT NULL,
+	user_domain_name VARCHAR(255) NOT NULL DEFAULT 'Default',
+	project_domain_name VARCHAR(255) NOT NULL DEFAULT 'Default',
+	endpoint_override_json LONGTEXT NOT NULL,
+	created_by_user_id VARCHAR(64) NOT NULL DEFAULT '',
+	created_by_email VARCHAR(255) NOT NULL DEFAULT '',
+	created_at DATETIME(6) NOT NULL,
+	updated_at DATETIME(6) NOT NULL,
+	INDEX idx_provider_connections_updated_at (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 DELETE FROM sessions WHERE expires_at <= UTC_TIMESTAMP(6);
 `
 	if _, err := s.exec(ctx, true, ddl); err != nil {
@@ -747,6 +766,87 @@ func (s *Store) ListAuditEvents(ctx context.Context, resourceType, resourceID st
 	return items, nil
 }
 
+func (s *Store) ListProviderConnections(ctx context.Context) ([]domain.ProviderConnection, error) {
+	query := fmt.Sprintf(`SELECT %s FROM provider_connections ORDER BY updated_at DESC;`, providerConnectionSelectColumns())
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
+		return nil, err
+	}
+	lines := outputLines(out)
+	items := make([]domain.ProviderConnection, 0, len(lines))
+	for _, line := range lines {
+		item, err := parseProviderConnectionLine(line)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (s *Store) GetProviderConnection(ctx context.Context, name string) (domain.ProviderConnection, error) {
+	query := fmt.Sprintf(
+		`SELECT %s FROM provider_connections WHERE name = %s LIMIT 1;`,
+		providerConnectionSelectColumns(),
+		quoteString(strings.TrimSpace(name)),
+	)
+	out, err := s.exec(ctx, true, query)
+	if err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	lines := outputLines(out)
+	if len(lines) == 0 {
+		return domain.ProviderConnection{}, storage.ErrNotFound
+	}
+	return parseProviderConnectionLine(lines[0])
+}
+
+func (s *Store) UpsertProviderConnection(ctx context.Context, conn domain.ProviderConnection) (domain.ProviderConnection, error) {
+	endpointJSON, err := json.Marshal(conn.EndpointOverride)
+	if err != nil {
+		return domain.ProviderConnection{}, fmt.Errorf("marshal endpoint_override: %w", err)
+	}
+	query := fmt.Sprintf(
+		`INSERT INTO provider_connections (
+			name, auth_url, region_name, interface, identity_interface, username, password, project_name, user_domain_name, project_domain_name, endpoint_override_json, created_by_user_id, created_by_email, created_at, updated_at
+		) VALUES (
+			%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+		) ON DUPLICATE KEY UPDATE
+			auth_url = VALUES(auth_url),
+			region_name = VALUES(region_name),
+			interface = VALUES(interface),
+			identity_interface = VALUES(identity_interface),
+			username = VALUES(username),
+			password = VALUES(password),
+			project_name = VALUES(project_name),
+			user_domain_name = VALUES(user_domain_name),
+			project_domain_name = VALUES(project_domain_name),
+			endpoint_override_json = VALUES(endpoint_override_json),
+			created_by_user_id = VALUES(created_by_user_id),
+			created_by_email = VALUES(created_by_email),
+			updated_at = VALUES(updated_at);`,
+		quoteString(strings.TrimSpace(conn.Name)),
+		quoteString(strings.TrimSpace(conn.AuthURL)),
+		quoteString(strings.TrimSpace(conn.RegionName)),
+		quoteString(strings.TrimSpace(conn.Interface)),
+		quoteString(strings.TrimSpace(conn.IdentityInterface)),
+		quoteString(strings.TrimSpace(conn.Username)),
+		quoteString(conn.Password),
+		quoteString(strings.TrimSpace(conn.ProjectName)),
+		quoteString(strings.TrimSpace(conn.UserDomainName)),
+		quoteString(strings.TrimSpace(conn.ProjectDomainName)),
+		quoteString(string(endpointJSON)),
+		quoteString(strings.TrimSpace(conn.CreatedByUserID)),
+		quoteString(strings.TrimSpace(conn.CreatedByEmail)),
+		quoteTime(conn.CreatedAt),
+		quoteTime(conn.UpdatedAt),
+	)
+	if _, err := s.exec(ctx, true, query); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	return s.GetProviderConnection(ctx, conn.Name)
+}
+
 func (s *Store) exec(ctx context.Context, withDatabase bool, query string) (string, error) {
 	args := []string{
 		"--protocol=TCP",
@@ -1092,6 +1192,26 @@ func sessionSelectColumns(alias string) string {
 	}, ", ")
 }
 
+func providerConnectionSelectColumns() string {
+	return strings.Join([]string{
+		base64ColumnExpr("name"),
+		base64ColumnExpr("auth_url"),
+		base64ColumnExpr("region_name"),
+		base64ColumnExpr("interface"),
+		base64ColumnExpr("identity_interface"),
+		base64ColumnExpr("username"),
+		base64ColumnExpr("password"),
+		base64ColumnExpr("project_name"),
+		base64ColumnExpr("user_domain_name"),
+		base64ColumnExpr("project_domain_name"),
+		base64ColumnExpr("endpoint_override_json"),
+		base64ColumnExpr("created_by_user_id"),
+		base64ColumnExpr("created_by_email"),
+		fmt.Sprintf("DATE_FORMAT(created_at, '%s')", sqlTimeFormat),
+		fmt.Sprintf("DATE_FORMAT(updated_at, '%s')", sqlTimeFormat),
+	}, ", ")
+}
+
 func base64ColumnExpr(expr string) string {
 	return fmt.Sprintf("REPLACE(REPLACE(TO_BASE64(%s), CHAR(10), ''), CHAR(13), '')", expr)
 }
@@ -1357,6 +1477,67 @@ func parseSessionUserLine(line string) (domain.Session, domain.User, error) {
 	return session, user, nil
 }
 
+func parseProviderConnectionLine(line string) (domain.ProviderConnection, error) {
+	fields := strings.Split(line, "\t")
+	if len(fields) != 15 {
+		return domain.ProviderConnection{}, fmt.Errorf("unexpected provider connection field count: %d", len(fields))
+	}
+	var out domain.ProviderConnection
+	var err error
+	if out.Name, err = decodeBase64Field(fields[0]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.AuthURL, err = decodeBase64Field(fields[1]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.RegionName, err = decodeBase64Field(fields[2]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.Interface, err = decodeBase64Field(fields[3]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.IdentityInterface, err = decodeBase64Field(fields[4]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.Username, err = decodeBase64Field(fields[5]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.Password, err = decodeBase64Field(fields[6]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.ProjectName, err = decodeBase64Field(fields[7]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.UserDomainName, err = decodeBase64Field(fields[8]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.ProjectDomainName, err = decodeBase64Field(fields[9]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	rawOverride, err := decodeBase64Field(fields[10])
+	if err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if strings.TrimSpace(rawOverride) != "" {
+		if err := json.Unmarshal([]byte(rawOverride), &out.EndpointOverride); err != nil {
+			return domain.ProviderConnection{}, fmt.Errorf("unmarshal provider endpoint override: %w", err)
+		}
+	}
+	if out.CreatedByUserID, err = decodeBase64Field(fields[11]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.CreatedByEmail, err = decodeBase64Field(fields[12]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	if out.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[13]); err != nil {
+		return domain.ProviderConnection{}, fmt.Errorf("parse provider created_at: %w", err)
+	}
+	if out.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[14]); err != nil {
+		return domain.ProviderConnection{}, fmt.Errorf("parse provider updated_at: %w", err)
+	}
+	return out, nil
+}
+
 func decodeBase64Field(s string) (string, error) {
 	if s == "" || s == "NULL" {
 		return "", nil
@@ -1432,6 +1613,7 @@ func quoteIdentifier(v string) string {
 }
 
 var (
-	_ storage.Store     = (*Store)(nil)
-	_ storage.AuthStore = (*Store)(nil)
+	_ storage.Store         = (*Store)(nil)
+	_ storage.AuthStore     = (*Store)(nil)
+	_ storage.ProviderStore = (*Store)(nil)
 )
