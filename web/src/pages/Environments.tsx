@@ -129,6 +129,14 @@ export default function EnvironmentsPage() {
     })
   }, [filter, items, search])
 
+  const immediateActions = useMemo(
+    () =>
+      items
+        .filter((item) => item.status === 'pending_approval' || item.approval_status === 'approved')
+        .slice(0, 3),
+    [items],
+  )
+
   return (
     <div className="page-stack">
       <section className="hero-panel">
@@ -171,6 +179,36 @@ export default function EnvironmentsPage() {
           <strong>{summary.failed}</strong>
           <p>{ko ? '플랜 또는 적용 실패로 조사/재시도가 필요한 환경입니다.' : 'Environments requiring investigation or retry after failure.'}</p>
         </article>
+      </section>
+
+      <section className="console-card">
+        <div className="section-head">
+          <div>
+            <div className="section-kicker">{ko ? '즉시 작업' : 'Immediate actions'}</div>
+            <h2>{ko ? '승인/적용이 필요한 환경' : 'Environments requiring approval/apply'}</h2>
+          </div>
+        </div>
+        <div className="stack-list">
+          {immediateActions.length === 0 ? (
+            <div className="empty-state">
+              {ko ? '지금 즉시 처리할 승인/적용 대기 환경이 없습니다.' : 'No environments currently waiting for immediate approval/apply action.'}
+            </div>
+          ) : (
+            immediateActions.map((env) => (
+              <Link key={env.id} to={primaryRoute(env)} className="stack-row stack-row-link">
+                <div>
+                  <strong>{env.name}</strong>
+                  <div className="row-meta">
+                    {env.status === 'pending_approval'
+                      ? ko ? '다음 단계: 계획 검토' : 'Next: review plan'
+                      : ko ? '다음 단계: 승인 제어에서 적용' : 'Next: queue apply from approval control'}
+                  </div>
+                </div>
+                <StatusBadge status={env.status === 'approved' ? env.approval_status : env.status} />
+              </Link>
+            ))
+          )}
+        </div>
       </section>
 
       <section className="dashboard-grid">
