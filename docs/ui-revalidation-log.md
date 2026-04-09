@@ -32,3 +32,18 @@
 - Next cadence:
   - 기능 변경 배포마다 동일 포맷으로 short revalidation 1회 수행
   - artifact + tested commit + blocker 상태를 본 문서에 추가
+
+## 2026-04-09 (Responsive simplification rerun)
+
+- Artifact: `/home/sulee/infra-orch-studio-E2E-snapshot/2026-04-09T14-32-17-482Z__responsive-revalidation-simplification`
+- Tested commits:
+  - `main`: `5f9314965d03816d2f41483e8f2f535b277ca27e`
+  - `ui`: `de062a3`
+- Result:
+  - total: `60`
+  - pass/fail: `60 / 0`
+  - viewports: `390x844`, `768x1024`, `1024x768`
+  - locales: `KR`, `EN`
+  - zooms: `100%`, `90%`, `110%`
+- Blocker: `none`
+- Verdict: `Pass`
