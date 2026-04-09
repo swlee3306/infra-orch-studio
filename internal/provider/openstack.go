@@ -44,17 +44,17 @@ type CloudAuth struct {
 }
 
 type Catalog struct {
-	Provider       string           `json:"provider"`
-	FetchedAt      time.Time        `json:"fetched_at"`
-	Images         []string         `json:"images"`
-	Flavors        []string         `json:"flavors"`
-	Networks       []string         `json:"networks"`
-	Instances      []string         `json:"instances"`
-	ImageDetails   []ResourceDetail `json:"image_details,omitempty"`
-	FlavorDetails  []ResourceDetail `json:"flavor_details,omitempty"`
-	NetworkDetails []ResourceDetail `json:"network_details,omitempty"`
+	Provider        string           `json:"provider"`
+	FetchedAt       time.Time        `json:"fetched_at"`
+	Images          []string         `json:"images"`
+	Flavors         []string         `json:"flavors"`
+	Networks        []string         `json:"networks"`
+	Instances       []string         `json:"instances"`
+	ImageDetails    []ResourceDetail `json:"image_details,omitempty"`
+	FlavorDetails   []ResourceDetail `json:"flavor_details,omitempty"`
+	NetworkDetails  []ResourceDetail `json:"network_details,omitempty"`
 	InstanceDetails []ResourceDetail `json:"instance_details,omitempty"`
-	Errors         []string         `json:"errors,omitempty"`
+	Errors          []string         `json:"errors,omitempty"`
 }
 
 type ResourceDetail struct {
@@ -339,16 +339,16 @@ func fetchImageDetails(token string, cloud cloudEntry, endpoints endpointMap) ([
 			ID:   id,
 			Name: nameOrFallback(name, id),
 			Attributes: compactAttributes(map[string]string{
-				"status":          getString(item, "status"),
-				"visibility":      getString(item, "visibility"),
-				"disk_format":     getString(item, "disk_format"),
+				"status":           getString(item, "status"),
+				"visibility":       getString(item, "visibility"),
+				"disk_format":      getString(item, "disk_format"),
 				"container_format": getString(item, "container_format"),
-				"size":            stringify(item["size"]),
-				"min_disk":        stringify(item["min_disk"]),
-				"min_ram":         stringify(item["min_ram"]),
-				"owner":           getString(item, "owner"),
-				"created_at":      getString(item, "created_at"),
-				"updated_at":      getString(item, "updated_at"),
+				"size":             stringify(item["size"]),
+				"min_disk":         stringify(item["min_disk"]),
+				"min_ram":          stringify(item["min_ram"]),
+				"owner":            getString(item, "owner"),
+				"created_at":       getString(item, "created_at"),
+				"updated_at":       getString(item, "updated_at"),
 			}),
 		})
 	}
@@ -382,12 +382,12 @@ func fetchFlavorDetails(token string, cloud cloudEntry, endpoints endpointMap) (
 			ID:   id,
 			Name: nameOrFallback(name, id),
 			Attributes: compactAttributes(map[string]string{
-				"vcpus":    stringify(item["vcpus"]),
-				"ram_mb":   stringify(item["ram"]),
-				"disk_gb":  stringify(item["disk"]),
-				"swap_mb":  stringify(item["swap"]),
+				"vcpus":     stringify(item["vcpus"]),
+				"ram_mb":    stringify(item["ram"]),
+				"disk_gb":   stringify(item["disk"]),
+				"swap_mb":   stringify(item["swap"]),
 				"is_public": stringify(item["os-flavor-access:is_public"]),
-				"disabled": stringify(item["OS-FLV-DISABLED:disabled"]),
+				"disabled":  stringify(item["OS-FLV-DISABLED:disabled"]),
 			}),
 		})
 	}
