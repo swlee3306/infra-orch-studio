@@ -113,6 +113,8 @@ type CopyShape = {
     queueDestroy: string
     queueingDestroy: string
     destroyDisabled: string
+    showAuditTimeline: string
+    hideAuditTimeline: string
   }
   detail: {
     kicker: string
@@ -335,6 +337,8 @@ const COPY: Record<Locale, CopyShape> = {
       queueDestroy: 'Queue destroy plan',
       queueingDestroy: 'Queueing destroy...',
       destroyDisabled: 'Destroy disabled',
+      showAuditTimeline: 'Show audit timeline',
+      hideAuditTimeline: 'Hide audit timeline',
     },
     detail: {
       kicker: 'Detail',
@@ -607,6 +611,8 @@ const COPY: Record<Locale, CopyShape> = {
       queueDestroy: '삭제 플랜 큐잉',
       queueingDestroy: '삭제 큐잉 중...',
       destroyDisabled: '삭제 비활성',
+      showAuditTimeline: '감사 타임라인 열기',
+      hideAuditTimeline: '감사 타임라인 닫기',
     },
     detail: {
       kicker: '상세',
