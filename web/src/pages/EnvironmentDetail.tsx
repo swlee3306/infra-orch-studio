@@ -172,6 +172,8 @@ export default function EnvironmentDetailPage() {
   const [retryLabel, setRetryLabel] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [showQuickActions, setShowQuickActions] = useState(false)
+  const [showArtifacts, setShowArtifacts] = useState(false)
+  const [showAuditTimeline, setShowAuditTimeline] = useState(false)
   const retryRef = useRef<null | (() => Promise<void>)>(null)
 
   const environmentId = useMemo(() => id || '', [id])
@@ -234,6 +236,8 @@ export default function EnvironmentDetailPage() {
 
   useEffect(() => {
     setShowQuickActions(false)
+    setShowArtifacts(false)
+    setShowAuditTimeline(false)
   }, [environmentId])
 
   async function runAction(
@@ -539,31 +543,42 @@ export default function EnvironmentDetailPage() {
               <div className="section-kicker">{ko ? '출력' : 'Outputs'}</div>
               <h2>{ko ? '산출물 및 결과 경로' : 'Artifacts and result pointers'}</h2>
             </div>
+            <button type="button" className="ghost" onClick={() => setShowArtifacts((prev) => !prev)}>
+              {showArtifacts ? (ko ? '출력 접기' : 'Hide outputs') : (ko ? '출력 보기' : 'Show outputs')}
+            </button>
           </div>
-          <div className="stack-list">
-            <div className="stack-row">
-              <div>
-                <strong>{ko ? '작업 디렉터리' : 'Workdir'}</strong>
-                <div className="row-meta">{artifacts?.workdir || environment?.workdir || '-'}</div>
+          {showArtifacts ? (
+            <>
+              <div className="stack-list">
+                <div className="stack-row">
+                  <div>
+                    <strong>{ko ? '작업 디렉터리' : 'Workdir'}</strong>
+                    <div className="row-meta">{artifacts?.workdir || environment?.workdir || '-'}</div>
+                  </div>
+                </div>
+                <div className="stack-row">
+                  <div>
+                    <strong>{ko ? '계획 경로' : 'Plan path'}</strong>
+                    <div className="row-meta">{artifacts?.plan_path || environment?.plan_path || '-'}</div>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="stack-row">
-              <div>
-                <strong>{ko ? '계획 경로' : 'Plan path'}</strong>
-                <div className="row-meta">{artifacts?.plan_path || environment?.plan_path || '-'}</div>
-              </div>
-            </div>
-          </div>
-          {outputs ? (
-            <details className="console-details">
-              <summary>{ko ? '구조화된 출력 보기' : 'Show structured outputs'}</summary>
-              <pre className="json-block" style={{ marginTop: 14 }}>
-                {JSON.stringify(outputs, null, 2)}
-              </pre>
-            </details>
+              {outputs ? (
+                <details className="console-details">
+                  <summary>{ko ? '구조화된 출력 보기' : 'Show structured outputs'}</summary>
+                  <pre className="json-block" style={{ marginTop: 14 }}>
+                    {JSON.stringify(outputs, null, 2)}
+                  </pre>
+                </details>
+              ) : (
+                <div className="empty-state" style={{ marginTop: 14 }}>
+                  {ko ? '아직 기록된 출력이 없습니다.' : 'No outputs recorded yet.'}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="empty-state" style={{ marginTop: 14 }}>
-              {ko ? '아직 기록된 출력이 없습니다.' : 'No outputs recorded yet.'}
+            <div className="empty-state">
+              {ko ? '기본 화면 단순화를 위해 산출물 경로와 출력은 접혀 있습니다.' : 'Artifact paths and outputs stay collapsed by default for a cleaner summary view.'}
             </div>
           )}
         </article>
@@ -574,35 +589,46 @@ export default function EnvironmentDetailPage() {
               <div className="section-kicker">{ko ? '감사' : 'Audit'}</div>
               <h2>{ko ? '승인 / 감사 타임라인' : 'Approval / audit timeline'}</h2>
             </div>
-            <span className="badge badge-muted">{ko ? '최신 5건' : 'Latest 5'}</span>
+            <div className="detail-actions">
+              <span className="badge badge-muted">{ko ? '최신 5건' : 'Latest 5'}</span>
+              <button type="button" className="ghost" onClick={() => setShowAuditTimeline((prev) => !prev)}>
+                {showAuditTimeline ? (ko ? '감사 접기' : 'Hide audit') : (ko ? '감사 보기' : 'Show audit')}
+              </button>
+            </div>
           </div>
-          <div className="audit-list">
-            {recentAuditItems.length === 0 ? (
-              <div className="empty-state">{ko ? '아직 감사 이벤트가 없습니다.' : 'No audit events yet.'}</div>
-            ) : (
-              recentAuditItems.map((item) => {
-                const metadata = parseJson(item.metadata_json)
-                return (
-                  <div className="audit-item" key={item.id}>
-                    <div className="detail-top" style={{ alignItems: 'center' }}>
-                      <strong>{displayAuditAction(item.action, ko)}</strong>
-                      <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
+          {showAuditTimeline ? (
+            <div className="audit-list">
+              {recentAuditItems.length === 0 ? (
+                <div className="empty-state">{ko ? '아직 감사 이벤트가 없습니다.' : 'No audit events yet.'}</div>
+              ) : (
+                recentAuditItems.map((item) => {
+                  const metadata = parseJson(item.metadata_json)
+                  return (
+                    <div className="audit-item" key={item.id}>
+                      <div className="detail-top" style={{ alignItems: 'center' }}>
+                        <strong>{displayAuditAction(item.action, ko)}</strong>
+                        <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
+                      </div>
+                      <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>
+                      {item.message ? <div style={{ marginTop: 6 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
+                      {metadata ? (
+                        <details className="console-details console-details-inline">
+                          <summary>{ko ? '메타데이터 보기' : 'Show metadata'}</summary>
+                          <pre className="json-block" style={{ marginTop: 10 }}>
+                            {JSON.stringify(metadata, null, 2)}
+                          </pre>
+                        </details>
+                      ) : null}
                     </div>
-                    <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>
-                    {item.message ? <div style={{ marginTop: 6 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
-                    {metadata ? (
-                      <details className="console-details console-details-inline">
-                        <summary>{ko ? '메타데이터 보기' : 'Show metadata'}</summary>
-                        <pre className="json-block" style={{ marginTop: 10 }}>
-                          {JSON.stringify(metadata, null, 2)}
-                        </pre>
-                      </details>
-                    ) : null}
-                  </div>
-                )
-              })
-            )}
-          </div>
+                  )
+                })
+              )}
+            </div>
+          ) : (
+            <div className="empty-state">
+              {ko ? '모바일/소형 화면 가독성을 위해 감사 타임라인은 기본 접힘 상태입니다.' : 'Audit timeline stays collapsed by default for better readability on compact screens.'}
+            </div>
+          )}
           <div className="detail-actions" style={{ marginTop: 12 }}>
             <Link to="/audit" className="ghost action-link action-link-button">
               {ko ? '전체 감사 로그 열기' : 'Open full audit log'}
