@@ -171,7 +171,17 @@ export type ProviderCatalog = {
   flavors: string[]
   networks: string[]
   instances: string[]
+  image_details?: ProviderResourceDetail[]
+  flavor_details?: ProviderResourceDetail[]
+  network_details?: ProviderResourceDetail[]
+  instance_details?: ProviderResourceDetail[]
   errors?: string[]
+}
+
+export type ProviderResourceDetail = {
+  id: string
+  name: string
+  attributes?: Record<string, string>
 }
 
 export type TemplateValidation = {
