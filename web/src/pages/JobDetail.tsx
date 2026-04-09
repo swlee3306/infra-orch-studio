@@ -135,7 +135,14 @@ export default function JobDetailPage() {
     }
   }, [jobId])
 
-  const canApply = Boolean(viewer?.is_admin && job?.type === 'tofu.plan' && job.status === 'done' && job.plan_path && job.workdir)
+  const canApply = Boolean(
+    viewer?.is_admin &&
+      job?.type === 'tofu.plan' &&
+      job.status === 'done' &&
+      job.plan_path &&
+      job.workdir &&
+      !job.environment_id,
+  )
   const canOpenControl = Boolean(job?.environment_id && (job.status === 'done' || job.status === 'failed'))
 
   return (

@@ -925,6 +925,67 @@ button:hover:not(:disabled) {
   color: var(--muted);
 }
 
+.guided-start-hero {
+  align-items: stretch;
+}
+
+.guided-start-note {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.guided-stage-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.guided-stage-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.guided-stage-card .guided-stage-summary {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.guided-stage-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.guided-stage-actions {
+  margin-top: auto;
+  display: flex;
+}
+
+.guided-stage-actions .action-link-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.guided-stage-card-primary {
+  border-color: rgba(250, 204, 21, 0.3);
+  background: linear-gradient(180deg, rgba(250, 204, 21, 0.08), rgba(22, 32, 51, 0.86));
+}
+
+.guided-stage-card-info {
+  border-color: rgba(56, 189, 248, 0.26);
+}
+
+.guided-stage-card-warning {
+  border-color: rgba(245, 158, 11, 0.26);
+}
+
+.guided-stage-card-success {
+  border-color: rgba(34, 197, 94, 0.26);
+}
+
 .segmented button {
   background: transparent;
   border: 0;
@@ -1043,6 +1104,7 @@ button:hover:not(:disabled) {
   .dashboard-grid,
   .stats-grid,
   .guide-grid,
+  .guided-stage-grid,
   .split,
   .grid-four,
   .grid-three,
@@ -1055,6 +1117,10 @@ button:hover:not(:disabled) {
 
 @media (max-width: 1440px) {
   .wizard-review-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .guided-stage-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1079,6 +1145,10 @@ button:hover:not(:disabled) {
 
   .hero-panel {
     padding: 20px;
+    grid-template-columns: 1fr;
+  }
+
+  .guided-stage-grid {
     grid-template-columns: 1fr;
   }
 
