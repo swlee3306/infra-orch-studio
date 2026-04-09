@@ -83,6 +83,7 @@ func NewServer(cfg Config) *Server {
 	mux.Handle("/api/admin/users", s.withAuth(s.handleAdminUsers))
 	mux.Handle("/api/admin/users/", s.withAuth(s.handleAdminUserRoute))
 	mux.Handle("/api/audit", s.withAuth(s.handleAuditFeed))
+	mux.Handle("/api/overview", s.withAuth(s.handleOverview))
 	mux.Handle("/api/request-drafts", s.withAuth(s.handleRequestDrafts))
 	mux.Handle("/api/environments/plan-review-preview", s.withAuth(s.handlePlanReviewPreview))
 	mux.Handle("/api/environments", s.withAuth(s.handleEnvironments))
