@@ -98,6 +98,9 @@ export function summarizeOperatorError(message?: string | null): string {
   if (normalized.includes('failed to load review preview')) {
     return ko ? '검토 미리보기를 불러오지 못했습니다.' : 'The review preview could not be loaded.'
   }
+  if (normalized.includes('failed to load provider resources')) {
+    return ko ? '공급자 자원 정보를 불러오지 못했습니다.' : 'Provider resources could not be loaded.'
+  }
   if (normalized.includes('failed to save local draft')) {
     return ko ? '로컬 초안을 저장하지 못했습니다.' : 'The local draft could not be saved.'
   }

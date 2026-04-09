@@ -67,11 +67,13 @@ func main() {
 	}
 
 	srv := api.NewServer(api.Config{
-		JobStore:          jobStore,
-		AuthStore:         authStore,
-		TemplatesRoot:     templatesRoot,
-		ModulesRoot:       modulesRoot,
-		AllowPublicSignup: envBool("ALLOW_PUBLIC_SIGNUP", false),
+		JobStore:              jobStore,
+		AuthStore:             authStore,
+		TemplatesRoot:         templatesRoot,
+		ModulesRoot:           modulesRoot,
+		AllowPublicSignup:     envBool("ALLOW_PUBLIC_SIGNUP", false),
+		OpenStackConfigPath:   runtimecheck.ResolvePath(env("OPENSTACK_CONFIG_PATH", "/etc/openstack/clouds.yaml")),
+		OpenStackDefaultCloud: env("OPENSTACK_CLOUD", ""),
 	})
 	log.Printf("template roots: environments=%s modules=%s", templatesRoot, modulesRoot)
 	if err := srv.ListenAndServe(addr); err != nil {

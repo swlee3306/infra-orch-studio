@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { auth, environments, EnvironmentPlanReviewResponse, EnvironmentSpec, requestDrafts, RequestDraftResponse, TemplateDescriptor, templates } from '../api'
+import { auth, environments, EnvironmentPlanReviewResponse, EnvironmentSpec, ProviderCatalog, ProviderConnection, providers, requestDrafts, RequestDraftResponse, TemplateDescriptor, templates } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { useI18n } from '../i18n'
 import { emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
@@ -26,6 +26,11 @@ export default function CreateEnvironmentPage() {
   const [spec, setSpec] = useState<EnvironmentSpec>(emptyEnvironmentSpec)
   const [templateMode, setTemplateMode] = useState<'template' | 'custom'>('template')
   const [templateItems, setTemplateItems] = useState<TemplateDescriptor[]>([])
+  const [providerItems, setProviderItems] = useState<ProviderConnection[]>([])
+  const [providerName, setProviderName] = useState('')
+  const [providerCatalog, setProviderCatalog] = useState<ProviderCatalog | null>(null)
+  const [providerBusy, setProviderBusy] = useState(false)
+  const [providerError, setProviderError] = useState<string | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState('basic')
   const [error, setError] = useState<string | null>(null)
   const [savingDraft, setSavingDraft] = useState(false)
@@ -63,6 +68,37 @@ export default function CreateEnvironmentPage() {
         setSelectedTemplate('basic')
       })
   }, [viewerReady])
+
+  useEffect(() => {
+    if (!viewerReady) return
+    providers
+      .list()
+      .then((res) => {
+        setProviderItems(res.items)
+        const preferred = res.default_cloud && res.items.some((item) => item.name === res.default_cloud) ? res.default_cloud : res.items[0]?.name || ''
+        setProviderName(preferred)
+      })
+      .catch(() => {
+        setProviderItems([])
+        setProviderName('')
+      })
+  }, [viewerReady])
+
+  useEffect(() => {
+    if (!viewerReady || !providerName) return
+    setProviderBusy(true)
+    setProviderError(null)
+    providers
+      .resources(providerName)
+      .then((catalog) => {
+        setProviderCatalog(catalog)
+      })
+      .catch((err: any) => {
+        setProviderCatalog(null)
+        setProviderError(err?.message || 'failed to load provider resources')
+      })
+      .finally(() => setProviderBusy(false))
+  }, [viewerReady, providerName])
 
   useEffect(() => {
     const raw = window.localStorage.getItem(STORAGE_KEY)
@@ -378,6 +414,27 @@ export default function CreateEnvironmentPage() {
                 </button>
               </div>
               <div className="stack-list">
+                <div className="note-card">
+                  <strong>{ko ? '공급자 연결' : 'Provider connection'}</strong>
+                  <div className="row-meta" style={{ marginTop: 8 }}>
+                    {ko ? '연결된 OpenStack 공급자를 선택하면 이미지/플레이버/네트워크 후보를 자동으로 불러옵니다.' : 'Select an OpenStack provider to auto-load image, flavor, and network options.'}
+                  </div>
+                  <label className="field" style={{ marginTop: 10 }}>
+                    <span>{ko ? '공급자' : 'Provider'}</span>
+                    <select value={providerName} onChange={(e) => setProviderName(e.target.value)}>
+                      {providerItems.length === 0 ? <option value="">{ko ? '사용 가능한 공급자 없음' : 'No providers available'}</option> : null}
+                      {providerItems.map((item) => (
+                        <option key={item.name} value={item.name}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="row-meta" style={{ marginTop: 8 }}>
+                    {providerBusy ? (ko ? '공급자 자원을 불러오는 중...' : 'Loading provider resources...') : providerCatalog ? `${providerCatalog.images.length} images · ${providerCatalog.flavors.length} flavors · ${providerCatalog.networks.length} networks` : '-'}
+                  </div>
+                  {providerError ? <div className="error-box" style={{ marginTop: 10 }}>{summarizeOperatorError(providerError)}</div> : null}
+                </div>
                 {templateItems.length === 0 ? (
                   <div className="callout callout-warning">
                     <strong>{ko ? '템플릿 카탈로그가 비어 있습니다' : 'Template catalog is empty'}</strong>
@@ -420,7 +477,13 @@ export default function CreateEnvironmentPage() {
           ) : null}
 
           {step >= 3 && step <= 5 ? (
-            <EnvironmentSpecForm value={spec} onChange={setSpec} sections={stepSections[step]} errors={validation.fieldErrors} />
+            <EnvironmentSpecForm
+              value={spec}
+              onChange={setSpec}
+              sections={stepSections[step]}
+              errors={validation.fieldErrors}
+              resourceHints={providerCatalog ? { images: providerCatalog.images, flavors: providerCatalog.flavors, networks: providerCatalog.networks, instances: providerCatalog.instances } : undefined}
+            />
           ) : null}
 
           {step === 6 ? (

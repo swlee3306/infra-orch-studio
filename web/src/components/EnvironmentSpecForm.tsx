@@ -7,6 +7,12 @@ type Props = {
   onChange: (next: EnvironmentSpec) => void
   sections?: Array<'environment' | 'tenant' | 'network' | 'instances' | 'security'>
   errors?: Record<string, string>
+  resourceHints?: {
+    images?: string[]
+    flavors?: string[]
+    networks?: string[]
+    instances?: string[]
+  }
 }
 
 function updateInstance(items: Instance[], index: number, patch: Partial<Instance>): Instance[] {
@@ -24,7 +30,7 @@ function splitSecurityGroups(raw: string): string[] {
     .filter(Boolean)
 }
 
-export default function EnvironmentSpecForm({ value, onChange, sections, errors = {} }: Props) {
+export default function EnvironmentSpecForm({ value, onChange, sections, errors = {}, resourceHints }: Props) {
   const { locale } = useI18n()
   const ko = locale === 'ko'
   const setField = (patch: Partial<EnvironmentSpec>) => onChange({ ...value, ...patch })
@@ -58,6 +64,9 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
   }
 
   const fieldClass = (key: string) => `field ${errors[key] ? 'field-invalid' : ''}`
+  const imageOptions = resourceHints?.images || []
+  const flavorOptions = resourceHints?.flavors || []
+  const networkOptions = resourceHints?.networks || []
 
   return (
     <div className="form-grid">
@@ -86,7 +95,7 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
             <div className="grid-two">
               <label className={fieldClass('network.name')}>
                 <span>{ko ? '이름' : 'Name'}</span>
-                <input value={value.network.name} onChange={(e) => setNetwork({ name: e.target.value })} />
+                <input list={networkOptions.length ? 'network-name-options' : undefined} value={value.network.name} onChange={(e) => setNetwork({ name: e.target.value })} />
                 {errors['network.name'] ? <small className="field-error">{localizeError(errors['network.name'])}</small> : null}
               </label>
               <label className={fieldClass('network.cidr')}>
@@ -154,12 +163,32 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
                   </label>
                   <label className={fieldClass(`instances[${index}].image`)}>
                     <span>{ko ? '이미지' : 'Image'}</span>
-                    <input value={item.image} onChange={(e) => setInstance(index, { image: e.target.value })} />
+                    {imageOptions.length ? (
+                      <select value={item.image} onChange={(e) => setInstance(index, { image: e.target.value })}>
+                        {imageOptions.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input value={item.image} onChange={(e) => setInstance(index, { image: e.target.value })} />
+                    )}
                     {errors[`instances[${index}].image`] ? <small className="field-error">{localizeError(errors[`instances[${index}].image`])}</small> : null}
                   </label>
                   <label className={fieldClass(`instances[${index}].flavor`)}>
                     <span>{ko ? '플레이버' : 'Flavor'}</span>
-                    <input value={item.flavor} onChange={(e) => setInstance(index, { flavor: e.target.value })} />
+                    {flavorOptions.length ? (
+                      <select value={item.flavor} onChange={(e) => setInstance(index, { flavor: e.target.value })}>
+                        {flavorOptions.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input value={item.flavor} onChange={(e) => setInstance(index, { flavor: e.target.value })} />
+                    )}
                     {errors[`instances[${index}].flavor`] ? <small className="field-error">{localizeError(errors[`instances[${index}].flavor`])}</small> : null}
                   </label>
                 </div>
@@ -222,6 +251,13 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
             {errors.security_groups ? <small className="field-error">{localizeError(errors.security_groups)}</small> : null}
           </label>
         </div>
+      ) : null}
+      {networkOptions.length ? (
+        <datalist id="network-name-options">
+          {networkOptions.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
       ) : null}
     </div>
   )

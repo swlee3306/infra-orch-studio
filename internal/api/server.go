@@ -10,26 +10,30 @@ import (
 )
 
 type Config struct {
-	JobStore          storage.Store
-	AuthStore         storage.AuthStore
-	CookieName        string
-	SessionTTL        time.Duration
-	AllowedOrigins    []string
-	TemplatesRoot     string
-	ModulesRoot       string
-	AllowPublicSignup bool
+	JobStore              storage.Store
+	AuthStore             storage.AuthStore
+	CookieName            string
+	SessionTTL            time.Duration
+	AllowedOrigins        []string
+	TemplatesRoot         string
+	ModulesRoot           string
+	AllowPublicSignup     bool
+	OpenStackConfigPath   string
+	OpenStackDefaultCloud string
 }
 
 type Server struct {
-	mux               *http.ServeMux
-	jobs              storage.Store
-	auth              storage.AuthStore
-	cookieName        string
-	sessionTTL        time.Duration
-	allowedOrigins    map[string]struct{}
-	templatesRoot     string
-	modulesRoot       string
-	allowPublicSignup bool
+	mux                   *http.ServeMux
+	jobs                  storage.Store
+	auth                  storage.AuthStore
+	cookieName            string
+	sessionTTL            time.Duration
+	allowedOrigins        map[string]struct{}
+	templatesRoot         string
+	modulesRoot           string
+	allowPublicSignup     bool
+	openstackConfigPath   string
+	openstackDefaultCloud string
 }
 
 func NewServer(cfg Config) *Server {
@@ -47,14 +51,16 @@ func NewServer(cfg Config) *Server {
 	}
 
 	s := &Server{
-		jobs:              cfg.JobStore,
-		auth:              cfg.AuthStore,
-		cookieName:        cookieName,
-		sessionTTL:        sessionTTL,
-		allowedOrigins:    make(map[string]struct{}, len(origins)),
-		templatesRoot:     cfg.TemplatesRoot,
-		modulesRoot:       cfg.ModulesRoot,
-		allowPublicSignup: cfg.AllowPublicSignup,
+		jobs:                  cfg.JobStore,
+		auth:                  cfg.AuthStore,
+		cookieName:            cookieName,
+		sessionTTL:            sessionTTL,
+		allowedOrigins:        make(map[string]struct{}, len(origins)),
+		templatesRoot:         cfg.TemplatesRoot,
+		modulesRoot:           cfg.ModulesRoot,
+		allowPublicSignup:     cfg.AllowPublicSignup,
+		openstackConfigPath:   cfg.OpenStackConfigPath,
+		openstackDefaultCloud: cfg.OpenStackDefaultCloud,
 	}
 	for _, origin := range origins {
 		origin = strings.TrimSpace(origin)
@@ -80,6 +86,8 @@ func NewServer(cfg Config) *Server {
 	mux.Handle("/api/environments/", s.withAuth(s.handleEnvironmentRoute))
 	mux.Handle("/api/templates", s.withAuth(s.handleTemplates))
 	mux.Handle("/api/templates/", s.withAuth(s.handleTemplateRoute))
+	mux.Handle("/api/providers", s.withAuth(s.handleProviders))
+	mux.Handle("/api/providers/", s.withAuth(s.handleProviderRoute))
 	mux.Handle("/api/jobs", s.withAuth(s.handleJobs))
 	mux.Handle("/api/jobs/", s.withAuth(s.handleJobRoute))
 	mux.Handle("/ws", s.withAuth(s.handleWS))
