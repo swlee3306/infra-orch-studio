@@ -150,6 +150,30 @@ export type TemplateCatalogResponse = {
   modules: TemplateDescriptor[]
 }
 
+export type ProviderConnection = {
+  name: string
+  region?: string
+  auth_url: string
+  interface?: string
+  identity_interface?: string
+  endpoint_override?: Record<string, string>
+}
+
+export type ProviderListResponse = {
+  items: ProviderConnection[]
+  default_cloud?: string
+}
+
+export type ProviderCatalog = {
+  provider: string
+  fetched_at: string
+  images: string[]
+  flavors: string[]
+  networks: string[]
+  instances: string[]
+  errors?: string[]
+}
+
 export type TemplateValidation = {
   kind: 'environment' | 'module'
   name: string
@@ -330,6 +354,11 @@ export const templates = {
   list: () => req<TemplateCatalogResponse>('/templates'),
   get: (kind: 'environment' | 'module', name: string) => req<TemplateDetailResponse>(`/templates/${kind}/${name}`),
   validate: (kind: 'environment' | 'module', name: string) => req<TemplateValidation>(`/templates/${kind}/${name}/validate`, { method: 'POST' }),
+}
+
+export const providers = {
+  list: () => req<ProviderListResponse>('/providers'),
+  resources: (name: string) => req<ProviderCatalog>(`/providers/${encodeURIComponent(name)}/resources`),
 }
 
 export const audit = {
