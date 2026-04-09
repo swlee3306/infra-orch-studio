@@ -13,6 +13,8 @@ import JobDetailPage from './pages/JobDetail'
 import JobsPage from './pages/Jobs'
 import LoginPage from './pages/Login'
 import PlanReviewPage from './pages/PlanReview'
+import ProviderDetailPage from './pages/ProviderDetail'
+import ProvidersPage from './pages/Providers'
 import TemplatesPage from './pages/Templates'
 import UsersPage from './pages/Users'
 
@@ -20,9 +22,11 @@ export default function App() {
   const nav = useNavigate()
   const location = useLocation()
   const { locale, setLocale, copy } = useI18n()
+  const ko = locale === 'ko'
   const isAuthRoute = location.pathname === '/login'
   const routeKey = (() => {
     if (location.pathname.startsWith('/create-environment')) return 'create'
+    if (location.pathname.startsWith('/providers')) return 'templates'
     if (location.pathname.startsWith('/audit')) return 'audit'
     if (location.pathname.startsWith('/templates')) return 'templates'
     if (location.pathname.startsWith('/users')) return 'users'
@@ -35,7 +39,11 @@ export default function App() {
     return 'dashboard'
   })()
   const deferGuidePanel = routeKey === 'environmentDetail'
-  const title = copy.shell.routeTitles[routeKey as RouteGuideKey]
+  const title = location.pathname.startsWith('/providers')
+    ? ko
+      ? '공급자 연결'
+      : 'Provider connections'
+    : copy.shell.routeTitles[routeKey as RouteGuideKey]
 
   return (
     <>
@@ -71,12 +79,16 @@ export default function App() {
                   <span className="nav-index">05</span>
                   <span>{copy.shell.nav.templates}</span>
                 </Link>
-                <Link to="/audit" className={`nav-item nav-item-compact ${location.pathname.startsWith('/audit') ? 'nav-item-active' : ''}`}>
+                <Link to="/providers" className={`nav-item nav-item-compact ${location.pathname.startsWith('/providers') ? 'nav-item-active' : ''}`}>
                   <span className="nav-index">06</span>
+                  <span>{ko ? '공급자' : 'Providers'}</span>
+                </Link>
+                <Link to="/audit" className={`nav-item nav-item-compact ${location.pathname.startsWith('/audit') ? 'nav-item-active' : ''}`}>
+                  <span className="nav-index">07</span>
                   <span>{copy.shell.nav.audit}</span>
                 </Link>
                 <Link to="/users" className={`nav-item nav-item-compact ${location.pathname.startsWith('/users') ? 'nav-item-active' : ''}`}>
-                  <span className="nav-index">07</span>
+                  <span className="nav-index">08</span>
                   <span>{copy.shell.nav.users}</span>
                 </Link>
               </nav>
@@ -132,6 +144,8 @@ export default function App() {
                 <Route path="/jobs" element={<JobsPage />} />
                 <Route path="/jobs/:id" element={<JobDetailPage />} />
                 <Route path="/templates" element={<TemplatesPage />} />
+                <Route path="/providers" element={<ProvidersPage />} />
+                <Route path="/providers/:name" element={<ProviderDetailPage />} />
                 <Route path="/audit" element={<AuditPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="*" element={<DashboardPage />} />
