@@ -29,6 +29,10 @@ spec:
                 name: infra-orch-mysql
             - secretRef:
                 name: infra-orch-admin
+          volumeMounts:
+            - name: clouds
+              mountPath: /etc/openstack
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /healthz
@@ -48,6 +52,10 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      volumes:
+        - name: clouds
+          secret:
+            secretName: openstack-clouds
 ---
 apiVersion: apps/v1
 kind: Deployment
