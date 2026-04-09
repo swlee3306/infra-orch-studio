@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job, ImpactSummary, ReviewSignal } from '../api'
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { latestApprovalEvent } from '../utils/environmentView'
-import { isRevisionConflictError, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
 
 function displayReviewSignal(signal: ReviewSignal, ko: boolean): ReviewSignal {
   if (!ko) return signal
@@ -42,27 +41,19 @@ export default function PlanReviewPage() {
   const { locale, copy } = useI18n()
   const ko = locale === 'ko'
   const { id } = useParams()
-  const [viewer, setViewer] = useState<{ email: string; is_admin?: boolean } | null>(null)
   const [environment, setEnvironment] = useState<Environment | null>(null)
   const [auditItems, setAuditItems] = useState<AuditEvent[]>([])
   const [planJob, setPlanJob] = useState<Job | null>(null)
   const [reviewSignals, setReviewSignals] = useState<ReviewSignal[]>([])
   const [impact, setImpact] = useState<ImpactSummary | null>(null)
-  const [ack, setAck] = useState(false)
-  const [approvalComment, setApprovalComment] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [conflictHint, setConflictHint] = useState<string | null>(null)
-  const [retryLabel, setRetryLabel] = useState<string | null>(null)
-  const [busy, setBusy] = useState<string | null>(null)
-  const retryRef = useRef<null | (() => Promise<void>)>(null)
 
   const environmentId = id || ''
 
   async function load(): Promise<Environment | null> {
     setError(null)
     try {
-      const me = await auth.me()
-      setViewer(me)
+      await auth.me()
     } catch {
       nav('/login')
       return null
@@ -104,30 +95,6 @@ export default function PlanReviewPage() {
 
   const approvalEvent = useMemo(() => latestApprovalEvent(auditItems), [auditItems])
 
-  async function run(action: string, execute: (env: Environment | null) => Promise<any>) {
-    setBusy(action)
-    setError(null)
-    setConflictHint(null)
-    setRetryLabel(null)
-    retryRef.current = null
-    try {
-      await execute(environment)
-      await load()
-    } catch (err: any) {
-      const message = err?.message || 'failed'
-      if (isRevisionConflictError(message)) {
-        const previous = environment
-        const refreshed = await load()
-        setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
-      }
-      setError(summarizeOperatorError(message))
-      retryRef.current = async () => run(action, execute)
-      setRetryLabel(action)
-    } finally {
-      setBusy(null)
-    }
-  }
-
   return (
     <div className="page-stack">
       <section className="hero-panel">
@@ -142,7 +109,7 @@ export default function PlanReviewPage() {
           <p className="page-copy">{copy.review.copy}</p>
         </div>
         <div className="hero-actions">
-          <button className="ghost" onClick={() => { setConflictHint(null); void load() }}>
+          <button className="ghost" onClick={() => void load()}>
             {copy.review.refresh}
           </button>
           {environment ? (
@@ -161,21 +128,6 @@ export default function PlanReviewPage() {
       {error ? (
         <section className="error-box">
           <div>{error}</div>
-          {retryRef.current ? (
-            <div style={{ marginTop: 10 }}>
-              <button className="ghost" onClick={() => void retryRef.current?.()} disabled={busy !== null}>
-                {ko ? `마지막 작업 재시도${retryLabel ? ` (${retryLabel})` : ''}` : `Retry last action${retryLabel ? ` (${retryLabel})` : ''}`}
-              </button>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-      {conflictHint ? (
-        <section className="console-card">
-          <div className="callout callout-warning">
-            <strong>{ko ? '동시 변경 감지' : 'Concurrent change detected'}</strong>
-            <p style={{ margin: '6px 0 0' }}>{conflictHint}</p>
-          </div>
         </section>
       ) : null}
 
@@ -256,35 +208,16 @@ export default function PlanReviewPage() {
               <strong>{planJob?.plan_path || environment?.plan_path || '-'}</strong>
             </div>
           </div>
-          <label className="checkbox" style={{ marginTop: 14 }}>
-            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
-            <span>{copy.review.ack}</span>
-          </label>
-          <label className="field" style={{ marginTop: 14 }}>
-            <span>{copy.review.approvalComment}</span>
-            <textarea
-              value={approvalComment}
-              onChange={(e) => setApprovalComment(e.target.value)}
-              placeholder={copy.review.approvalPlaceholder}
-              rows={3}
-            />
-          </label>
           <div className="detail-actions" style={{ marginTop: 14 }}>
-            {viewer?.is_admin && environment?.status === 'pending_approval' ? (
-              <button onClick={() => run('approve', (env) => environments.approve(environmentId, { comment: approvalComment.trim(), expected_revision: env?.revision }))} disabled={!ack || busy !== null}>
-                {busy === 'approve' ? copy.review.approving : copy.review.approve}
-              </button>
-            ) : null}
-            {viewer?.is_admin && environment?.approval_status === 'approved' ? (
-              <button onClick={() => run('apply', (env) => environments.apply(environmentId, env?.revision))} disabled={!ack || busy !== null}>
-                {busy === 'apply' ? copy.review.applying : copy.review.apply}
-              </button>
-            ) : null}
-            {environment?.approval_status === 'approved' ? (
+            {environment?.status === 'pending_approval' || environment?.approval_status === 'approved' || environment?.status === 'approved' ? (
               <Link to={`/environments/${environment.id}/approval`} className="ghost action-link action-link-button">
                 {copy.review.openGuardedControl}
               </Link>
-            ) : null}
+            ) : (
+              <button className="ghost" disabled>
+                {ko ? '승인 제어는 플랜 준비 후 열립니다' : 'Approval control unlocks once the plan is ready'}
+              </button>
+            )}
           </div>
         </article>
       </section>

@@ -200,13 +200,21 @@ export default function ApprovalControlPage() {
               <button onClick={() => run('approve', (env) => environments.approve(environmentId, { comment: approvalComment.trim(), expected_revision: env?.revision }))} disabled={busy !== null}>
                 {busy === 'approve' ? copy.approval.approving : copy.approval.approveRequest}
               </button>
+            ) : environment?.status === 'pending_approval' ? (
+              <button className="ghost" disabled title={copy.approval.adminApproveOnly}>
+                {copy.approval.approveRequest}
+              </button>
             ) : null}
             {canApply ? (
               <button
                 onClick={() => run('apply', (env) => environments.apply(environmentId, env?.revision), { confirm: ko ? '승인된 계획에서 apply를 큐잉할까요?' : 'Queue apply from the approved plan?' })}
                 disabled={busy !== null}
               >
-                {busy === 'apply' ? copy.approval.applying : copy.approval.queueUpdate}
+                {busy === 'apply' ? copy.approval.applying : copy.approval.applyApproved}
+              </button>
+            ) : environment?.approval_status === 'approved' ? (
+              <button className="ghost" disabled title={copy.approval.adminApplyOnly}>
+                {copy.approval.applyApproved}
               </button>
             ) : null}
           </div>

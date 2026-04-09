@@ -103,7 +103,10 @@ type CopyShape = {
     approveRequest: string
     approving: string
     queueUpdate: string
+    applyApproved: string
     applying: string
+    adminApproveOnly: string
+    adminApplyOnly: string
     typedConfirmation: string
     destroyComment: string
     destroyPlaceholder: string
@@ -322,7 +325,10 @@ const COPY: Record<Locale, CopyShape> = {
       approveRequest: 'Approve request',
       approving: 'Approving...',
       queueUpdate: 'Queue guarded update',
+      applyApproved: 'Apply approved plan',
       applying: 'Applying...',
+      adminApproveOnly: 'Admin approval is required to clear this gate.',
+      adminApplyOnly: 'Only admins can queue apply after approval.',
       typedConfirmation: 'Typed confirmation',
       destroyComment: 'Destroy comment',
       destroyPlaceholder: 'Reason for destroy, incident, or change request reference',
@@ -591,7 +597,10 @@ const COPY: Record<Locale, CopyShape> = {
       approveRequest: '요청 승인',
       approving: '승인 중...',
       queueUpdate: '보호된 업데이트 큐잉',
+      applyApproved: '승인된 플랜 적용',
       applying: '적용 중...',
+      adminApproveOnly: '이 승인 게이트를 해제하려면 관리자 권한이 필요합니다.',
+      adminApplyOnly: '승인 이후 apply 큐잉은 관리자만 실행할 수 있습니다.',
       typedConfirmation: '이름 확인 입력',
       destroyComment: '삭제 코멘트',
       destroyPlaceholder: '삭제 사유, 장애 번호, 변경 요청 번호',
