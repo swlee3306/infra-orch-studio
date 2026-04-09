@@ -19,6 +19,7 @@ export default function ApprovalControlPage() {
   const [approvalComment, setApprovalComment] = useState('')
   const [typedConfirmation, setTypedConfirmation] = useState('')
   const [destroyComment, setDestroyComment] = useState('')
+  const [showAudit, setShowAudit] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conflictHint, setConflictHint] = useState<string | null>(null)
   const [retryLabel, setRetryLabel] = useState<string | null>(null)
@@ -297,19 +298,26 @@ export default function ApprovalControlPage() {
             <div className="section-kicker">{ko ? '감사 추적' : 'Audit trail'}</div>
             <h2>{ko ? '변조 불가 승인 이력' : 'Immutable approval timeline'}</h2>
           </div>
+          <button className="ghost" onClick={() => setShowAudit((current) => !current)}>
+            {showAudit ? copy.approval.hideAuditTimeline : copy.approval.showAuditTimeline}
+          </button>
         </div>
-        <div className="audit-list">
-          {auditItems.map((item) => (
-            <div className="audit-item" key={item.id}>
-              <div className="detail-top" style={{ alignItems: 'center' }}>
-                <strong>{displayAuditAction(item.action, ko)}</strong>
-                <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
+        {showAudit ? (
+          <div className="audit-list">
+            {auditItems.map((item) => (
+              <div className="audit-item" key={item.id}>
+                <div className="detail-top" style={{ alignItems: 'center' }}>
+                  <strong>{displayAuditAction(item.action, ko)}</strong>
+                  <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
+                </div>
+                <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>
+                {item.message ? <div style={{ marginTop: 6 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
               </div>
-              <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>
-              {item.message ? <div style={{ marginTop: 6 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">{ko ? '승인/적용 이력이 길 경우 성능과 가독성을 위해 기본 접힘 상태로 표시됩니다.' : 'Timeline stays collapsed by default to reduce visual noise on long histories.'}</div>
+        )}
       </section>
     </div>
   )
