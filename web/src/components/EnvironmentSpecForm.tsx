@@ -11,6 +11,8 @@ type Props = {
     images?: string[]
     flavors?: string[]
     networks?: string[]
+    securityGroups?: string[]
+    keyPairs?: string[]
     instances?: string[]
   }
 }
@@ -28,6 +30,15 @@ function splitSecurityGroups(raw: string): string[] {
     .split(/[\n,]/)
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function toggleSecurityGroup(current: string[] | undefined, group: string, checked: boolean): string[] {
+  const items = (current || []).filter(Boolean)
+  if (checked) {
+    if (items.includes(group)) return items
+    return items.concat(group)
+  }
+  return items.filter((item) => item !== group)
 }
 
 export default function EnvironmentSpecForm({ value, onChange, sections, errors = {}, resourceHints }: Props) {
@@ -67,6 +78,8 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
   const imageOptions = resourceHints?.images || []
   const flavorOptions = resourceHints?.flavors || []
   const networkOptions = resourceHints?.networks || []
+  const securityGroupOptions = resourceHints?.securityGroups || []
+  const keyPairOptions = resourceHints?.keyPairs || []
 
   return (
     <div className="form-grid">
@@ -195,10 +208,21 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
                 <div className="grid-two">
                   <label className="field">
                     <span>{ko ? 'SSH 키 이름' : 'SSH key name'}</span>
-                    <input
-                      value={item.ssh_key_name || ''}
-                      onChange={(e) => setInstance(index, { ssh_key_name: e.target.value })}
-                    />
+                    {keyPairOptions.length ? (
+                      <select value={item.ssh_key_name || ''} onChange={(e) => setInstance(index, { ssh_key_name: e.target.value || undefined })}>
+                        <option value="">{ko ? '없음' : 'None'}</option>
+                        {keyPairOptions.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={item.ssh_key_name || ''}
+                        onChange={(e) => setInstance(index, { ssh_key_name: e.target.value })}
+                      />
+                    )}
                   </label>
                   <label className={fieldClass(`instances[${index}].count`)}>
                     <span>{ko ? '수량' : 'Count'}</span>
@@ -240,16 +264,42 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
       {enabled.has('security') ? (
         <div className="field-group">
           <div className="field-title">{ko ? '보안 참조' : 'Security references'}</div>
-          <label className={fieldClass('security_groups')}>
-            <span>{ko ? '보안 그룹' : 'Security groups'}</span>
-            <textarea
-              rows={4}
-              value={joinSecurityGroups(value.security_groups)}
-              onChange={(e) => setField({ security_groups: splitSecurityGroups(e.target.value) })}
-              placeholder={ko ? 'sg-web, sg-data' : 'sg-web, sg-data'}
-            />
-            {errors.security_groups ? <small className="field-error">{localizeError(errors.security_groups)}</small> : null}
-          </label>
+          {securityGroupOptions.length ? (
+            <div className={fieldClass('security_groups')}>
+              <span>{ko ? '보안 그룹 (공급자 목록)' : 'Security groups (provider list)'}</span>
+              <div className="stack-list" style={{ marginTop: 10 }}>
+                {securityGroupOptions.map((name) => {
+                  const checked = (value.security_groups || []).includes(name)
+                  return (
+                    <label key={name} className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setField({
+                            security_groups: toggleSecurityGroup(value.security_groups, name, e.target.checked),
+                          })
+                        }
+                      />
+                      <span>{name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              {errors.security_groups ? <small className="field-error">{localizeError(errors.security_groups)}</small> : null}
+            </div>
+          ) : (
+            <label className={fieldClass('security_groups')}>
+              <span>{ko ? '보안 그룹' : 'Security groups'}</span>
+              <textarea
+                rows={4}
+                value={joinSecurityGroups(value.security_groups)}
+                onChange={(e) => setField({ security_groups: splitSecurityGroups(e.target.value) })}
+                placeholder={ko ? 'sg-web, sg-data' : 'sg-web, sg-data'}
+              />
+              {errors.security_groups ? <small className="field-error">{localizeError(errors.security_groups)}</small> : null}
+            </label>
+          )}
         </div>
       ) : null}
       {networkOptions.length ? (
