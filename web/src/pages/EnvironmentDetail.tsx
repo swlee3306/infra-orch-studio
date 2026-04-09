@@ -268,8 +268,6 @@ export default function EnvironmentDetailPage() {
   }
 
   const canPlanUpdate = Boolean(environment && editingSpec && busyAction === null && updateErrorCount === 0)
-  const canApprove = Boolean(viewer?.is_admin && environment?.status === 'pending_approval')
-  const canApply = Boolean(viewer?.is_admin && environment?.approval_status === 'approved')
   const canRetry = Boolean(environment?.status === 'failed' && (environment.retry_count || 0) < (environment?.max_retries || 0))
   const canDestroy = Boolean(
     environment && !['destroyed', 'destroying', 'planning', 'applying'].includes(environment.status),
@@ -315,23 +313,6 @@ export default function EnvironmentDetailPage() {
           >
             {busyAction === 'update-plan' ? copy.detail.queueing : copy.detail.queueUpdate}
           </button>
-          {canApprove ? (
-            <button onClick={() => runAction('approve', (env) => environments.approve(environmentId, { expected_revision: env?.revision }))} disabled={busyAction !== null}>
-              {busyAction === 'approve' ? copy.detail.approving : copy.detail.approve}
-            </button>
-          ) : null}
-          {canApply ? (
-            <button
-              onClick={() =>
-                runAction('apply', (env) => environments.apply(environmentId, env?.revision), {
-                  confirmMessage: ko ? '현재 승인된 계획으로 apply를 큐잉할까요?' : 'Queue apply for the currently approved plan?',
-                })
-              }
-              disabled={busyAction !== null}
-            >
-              {busyAction === 'apply' ? copy.detail.applying : copy.detail.applyApproved}
-            </button>
-          ) : null}
         </div>
       </section>
 
