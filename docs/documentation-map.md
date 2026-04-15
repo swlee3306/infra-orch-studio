@@ -39,6 +39,7 @@
 - `docs/product-gap-analysis.md`
 - `docs/quality-agent-audit.md`
 - `docs/quality-audit.md`
+- `docs/unit-test-plan.md`
 - `docs/roadmap.md`
 - `docs/service-roadmap.md`
 - `docs/test-strategy.md`
