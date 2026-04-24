@@ -32,12 +32,13 @@ func main() {
 		log.Fatalf("invalid MYSQL_PORT: %v", err)
 	}
 	store, err := storemysql.Open(storemysql.Config{
-		Host:     host,
-		Port:     port,
-		Database: env("MYSQL_DB", "infra_orch"),
-		User:     env("MYSQL_USER", "infra_orch"),
-		Password: os.Getenv("MYSQL_PASSWORD"),
-		MySQLBin: env("MYSQL_BIN", "mysql"),
+		Host:              host,
+		Port:              port,
+		Database:          env("MYSQL_DB", "infra_orch"),
+		User:              env("MYSQL_USER", "infra_orch"),
+		Password:          os.Getenv("MYSQL_PASSWORD"),
+		MySQLBin:          env("MYSQL_BIN", "mysql"),
+		ProviderSecretKey: os.Getenv("PROVIDER_SECRET_KEY"),
 	})
 	if err != nil {
 		log.Fatalf("open mysql store: %v", err)

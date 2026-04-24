@@ -25,7 +25,15 @@ func TestResolvePathUsesWorkingDirectory(t *testing.T) {
 	defer func() { _ = os.Chdir(prev) }()
 
 	got := runtimecheck.ResolvePath("./templates/opentofu/environments")
-	if got != target {
-		t.Fatalf("ResolvePath() = %q, want %q", got, target)
+	gotReal, err := filepath.EvalSymlinks(got)
+	if err != nil {
+		t.Fatalf("eval got path: %v", err)
+	}
+	targetReal, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatalf("eval target path: %v", err)
+	}
+	if gotReal != targetReal {
+		t.Fatalf("ResolvePath() = %q, want %q", gotReal, targetReal)
 	}
 }

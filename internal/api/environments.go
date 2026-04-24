@@ -14,6 +14,7 @@ import (
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
 	"github.com/swlee3306/infra-orch-studio/internal/storage"
+	"github.com/swlee3306/infra-orch-studio/internal/validation"
 )
 
 type createEnvironmentRequest struct {
@@ -197,7 +198,7 @@ func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user
 			writeError(w, http.StatusBadRequest, "invalid json")
 			return
 		}
-		if err := validateEnvironmentSpecStrict(req.Spec); err != nil {
+		if err := validateEnvironmentSpecForMutation(req.Spec); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -350,7 +351,7 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 	if req.Spec != nil {
 		env.Spec = *req.Spec
 	}
-	if err := validateEnvironmentSpecStrict(env.Spec); err != nil {
+	if err := validateEnvironmentSpecForMutation(env.Spec); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -896,6 +897,13 @@ func newEnvironmentPlanJob(env domain.Environment, templateName, requestedBy str
 		MaxRetries:    env.MaxRetries,
 		RequestedBy:   requestedBy,
 	}
+}
+
+func validateEnvironmentSpecForMutation(spec domain.EnvironmentSpec) error {
+	if err := validation.ValidateEnvironmentSpec(spec); err != nil {
+		return err
+	}
+	return validateEnvironmentSpecStrict(spec)
 }
 
 func environmentActionID(path, action string) (string, error) {
