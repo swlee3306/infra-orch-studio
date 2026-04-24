@@ -477,10 +477,12 @@ button:hover:not(:disabled) {
 }
 
 .ops-input,
+.toolbar-row > select,
 .field input,
 .field select,
 .field textarea {
   width: 100%;
+  min-height: 44px;
   border-radius: 12px;
   border: 1px solid var(--border-strong);
   background: rgba(9, 16, 31, 0.92);
