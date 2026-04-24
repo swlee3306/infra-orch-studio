@@ -250,11 +250,12 @@ export default function EnvironmentsPage() {
           <div className="toolbar-row">
             <input
               className="ops-input"
+              aria-label={ko ? '환경 검색' : 'Search environments'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={ko ? '환경, 테넌트, 소유자, 라이프사이클 검색' : 'Search environment, tenant, owner, or lifecycle'}
             />
-            <select value={filter} onChange={(e) => setFilter(e.target.value as FilterKey)}>
+            <select aria-label={ko ? '환경 상태 필터' : 'Environment status filter'} value={filter} onChange={(e) => setFilter(e.target.value as FilterKey)}>
               <option value="all">{ko ? '전체 상태' : 'All statuses'}</option>
               <option value="pending_approval">{ko ? '승인 대기' : 'Pending approval'}</option>
               <option value="active">{ko ? '활성' : 'Active'}</option>

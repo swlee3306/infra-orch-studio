@@ -164,6 +164,7 @@ export default function AuditPage() {
         <div className="toolbar-row">
           <input
             className="ops-input"
+            aria-label={ko ? '감사 이벤트 검색' : 'Search audit events'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={ko ? '액션, 환경, 행위자, 메시지 검색' : 'Search action, environment, actor, or message'}
