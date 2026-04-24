@@ -116,10 +116,11 @@ export MYSQL_HOST=127.0.0.1
 export MYSQL_PORT=3306
 export MYSQL_DB=infra_orch
 export MYSQL_USER=infra_orch
-export MYSQL_PASSWORD=pass
+export MYSQL_PASSWORD=$(openssl rand -base64 24)
 
 export ADMIN_EMAIL=admin@example.com
-export ADMIN_PASSWORD=change-me
+export ADMIN_PASSWORD=$(openssl rand -base64 24)
+export PROVIDER_SECRET_KEY=$(openssl rand -base64 32)
 
 make fmt
 make test
@@ -158,6 +159,8 @@ Manifests:
 
 Preferred overlay path:
 ```bash
+# apply real secrets separately first; see docs/secret-rotation-runbook.md
+hack/apply-runtime-secrets.sh
 kustomize build k8s/app/overlays/prod | kubectl apply -f -
 ```
 
@@ -166,6 +169,8 @@ Legacy example path:
 kubectl apply -f deployments/k8s/namespace.yaml
 # create mysql secret (example file is base64-encoded)
 kubectl apply -f deployments/k8s/secret-mysql.example.yaml
+kubectl apply -f deployments/k8s/secret-admin.example.yaml
+kubectl apply -f deployments/k8s/secret-openstack.example.yaml
 
 kubectl apply -f deployments/k8s/api-deployment.yaml -f deployments/k8s/api-service.yaml
 kubectl apply -f deployments/k8s/runner-deployment.yaml

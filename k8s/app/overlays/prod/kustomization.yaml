@@ -23,3 +23,12 @@ replicas:
     count: 1
   - name: infra-orch-web
     count: 2
+
+patches:
+- target:
+    kind: ConfigMap
+    name: infra-orch-runtime
+  patch: |-
+    - op: add
+      path: /data/SESSION_COOKIE_SECURE
+      value: "true"

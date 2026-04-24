@@ -74,7 +74,7 @@ func (s *Server) handlePlanReviewPreview(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if err := validateEnvironmentSpecStrict(req.Spec); err != nil {
+	if err := validateEnvironmentSpecForMutation(req.Spec); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
