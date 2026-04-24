@@ -6,6 +6,11 @@ metadata:
     argocd.argoproj.io/ignore-healthcheck: "true"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - infra-orch.example.com
+        - dusanserver.webhop.me
+      secretName: infra-orch-tls
   rules:
     - host: infra-orch.example.com
       http:

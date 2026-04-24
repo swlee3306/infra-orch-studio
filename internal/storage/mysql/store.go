@@ -24,12 +24,13 @@ const (
 )
 
 type Config struct {
-	Host     string
-	Port     string
-	Database string
-	User     string
-	Password string
-	MySQLBin string
+	Host              string
+	Port              string
+	Database          string
+	User              string
+	Password          string
+	MySQLBin          string
+	ProviderSecretKey string
 }
 
 type Store struct {
@@ -779,6 +780,10 @@ func (s *Store) ListProviderConnections(ctx context.Context) ([]domain.ProviderC
 		if err != nil {
 			return nil, err
 		}
+		item, err = s.decodeProviderConnection(item)
+		if err != nil {
+			return nil, err
+		}
 		items = append(items, item)
 	}
 	return items, nil
@@ -798,13 +803,21 @@ func (s *Store) GetProviderConnection(ctx context.Context, name string) (domain.
 	if len(lines) == 0 {
 		return domain.ProviderConnection{}, storage.ErrNotFound
 	}
-	return parseProviderConnectionLine(lines[0])
+	item, err := parseProviderConnectionLine(lines[0])
+	if err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	return s.decodeProviderConnection(item)
 }
 
 func (s *Store) UpsertProviderConnection(ctx context.Context, conn domain.ProviderConnection) (domain.ProviderConnection, error) {
 	endpointJSON, err := json.Marshal(conn.EndpointOverride)
 	if err != nil {
 		return domain.ProviderConnection{}, fmt.Errorf("marshal endpoint_override: %w", err)
+	}
+	storedPassword, err := s.encodeProviderPassword(conn.Password)
+	if err != nil {
+		return domain.ProviderConnection{}, err
 	}
 	query := fmt.Sprintf(
 		`INSERT INTO provider_connections (
@@ -831,7 +844,7 @@ func (s *Store) UpsertProviderConnection(ctx context.Context, conn domain.Provid
 		quoteString(strings.TrimSpace(conn.Interface)),
 		quoteString(strings.TrimSpace(conn.IdentityInterface)),
 		quoteString(strings.TrimSpace(conn.Username)),
-		quoteString(conn.Password),
+		quoteString(storedPassword),
 		quoteString(strings.TrimSpace(conn.ProjectName)),
 		quoteString(strings.TrimSpace(conn.UserDomainName)),
 		quoteString(strings.TrimSpace(conn.ProjectDomainName)),

@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Verify contracts
+  go-verify:
+    name: Go verify contracts
     runs-on: ubuntu-latest
 
     steps:
@@ -25,3 +25,26 @@ jobs:
 
       - name: Verify
         run: make verify
+
+  web-build:
+    name: Web build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build web
+        working-directory: web
+        run: npm run build

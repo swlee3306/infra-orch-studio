@@ -3,8 +3,6 @@ kind: Kustomization
 
 resources:
   - configmap.yaml
-  - secret-admin.example.yaml
-  - secret-openstack.example.yaml
   - workdirs-pvc.yaml
   - service.yaml
   - deployment.yaml

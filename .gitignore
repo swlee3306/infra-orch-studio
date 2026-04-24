@@ -8,6 +8,10 @@
 *.out
 /vendor/
 
+# web
+web/node_modules/
+web/dist/
+
 # ide
 .idea/
 .vscode/

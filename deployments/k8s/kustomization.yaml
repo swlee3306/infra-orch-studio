@@ -6,8 +6,6 @@ namespace: infra
 resources:
   - namespace.yaml
   - ../../k8s/mysql/base
-  - secret-admin.example.yaml
-  - secret-openstack.example.yaml
   - workdirs-pvc.yaml
   - api-service.yaml
   - api-deployment.yaml

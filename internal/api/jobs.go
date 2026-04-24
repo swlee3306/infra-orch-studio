@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
-	"github.com/swlee3306/infra-orch-studio/internal/validation"
 )
 
 type createJobRequest struct {
@@ -27,11 +26,7 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request, user domain.
 			writeError(w, http.StatusBadRequest, "invalid json")
 			return
 		}
-		if err := validation.ValidateEnvironmentSpec(req.Environment); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if err := validateEnvironmentSpecStrict(req.Environment); err != nil {
+		if err := validateEnvironmentSpecForMutation(req.Environment); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -151,7 +146,7 @@ func (s *Server) handlePlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "load source job failed")
 		return
 	}
-	if err := validateEnvironmentSpecStrict(src.Environment); err != nil {
+	if err := validateEnvironmentSpecForMutation(src.Environment); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -207,7 +202,7 @@ func (s *Server) handleApply(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "environment-managed plans must be applied via POST /api/environments/{id}/apply")
 		return
 	}
-	if err := validateEnvironmentSpecStrict(src.Environment); err != nil {
+	if err := validateEnvironmentSpecForMutation(src.Environment); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}

@@ -30,6 +30,7 @@ Access model:
 
 Before opening the system to users:
 
+- Apply runtime secrets with `hack/apply-runtime-secrets.sh`, or an equivalent external secret manager.
 - Confirm MySQL is running and the app can connect with the expected secret keys.
 - Confirm the runner pod has persistent workdir storage mounted.
 - Confirm the OpenStack secret is mounted at `/etc/openstack/clouds.yaml`.
@@ -42,7 +43,9 @@ Before opening the system to users:
 - Verify the image tag being promoted in the overlay.
 - Verify `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DB`, `MYSQL_USER`, and `MYSQL_PASSWORD` are present.
 - Verify admin seed credentials are set intentionally, or omitted for an existing admin account.
+- Verify `PROVIDER_SECRET_KEY` is set before saving provider connections.
 - Verify the OpenStack config secret matches the intended cloud name.
+- Verify the prod TLS secret `infra-orch-tls` exists before applying the prod ingress.
 - Verify the PVC for workdirs is bound before running jobs.
 - Verify old `/api/jobs/*` automation is not being used for environment-managed plan/apply operations.
 
@@ -84,6 +87,7 @@ If operators report repeated `409` or stale mutation errors:
 - Back up MySQL before any environment-wide upgrade.
 - Snapshot or back up the runner PVC if you need to preserve job artifacts.
 - Keep the OpenStack secret out of git and rotate it independently of the application release.
+- Follow `docs/secret-rotation-runbook.md` after any credential exposure or planned secret rotation.
 
 ## Verification Commands
 
