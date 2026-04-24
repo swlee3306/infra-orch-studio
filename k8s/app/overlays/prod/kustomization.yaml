@@ -11,7 +11,7 @@ resources:
 images:
 - name: 10.10.0.190:32000/infra-orch-studio
   newName: 10.10.0.190:32000/infra-orch-studio
-  newTag: "5c7c98b"
+  newTag: "6f796db"
 - name: 10.10.0.190:32000/infra-orch-web
   newName: 10.10.0.190:32000/infra-orch-web
   newTag: "5c7c98b"
