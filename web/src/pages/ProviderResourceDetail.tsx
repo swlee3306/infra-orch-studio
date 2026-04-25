@@ -4,12 +4,20 @@ import { auth, ProviderCatalog, ProviderResourceDetail, providers } from '../api
 import { useI18n } from '../i18n'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
-type ResourceType = 'images' | 'flavors' | 'networks' | 'instances'
+type ResourceType = 'images' | 'flavors' | 'networks' | 'security_groups' | 'key_pairs' | 'instances'
+
+const resourceTypes: ResourceType[] = ['images', 'flavors', 'networks', 'security_groups', 'key_pairs', 'instances']
+
+function normalizeResourceType(value: string | undefined): ResourceType {
+  return resourceTypes.includes(value as ResourceType) ? (value as ResourceType) : 'images'
+}
 
 function resourceLabel(kind: ResourceType, ko: boolean): string {
   if (kind === 'images') return ko ? '이미지' : 'Images'
   if (kind === 'flavors') return ko ? '플레이버' : 'Flavors'
   if (kind === 'networks') return ko ? '네트워크' : 'Networks'
+  if (kind === 'security_groups') return ko ? '보안 그룹' : 'Security groups'
+  if (kind === 'key_pairs') return ko ? '키 페어' : 'Key pairs'
   return ko ? '인스턴스' : 'Instances'
 }
 
@@ -18,6 +26,8 @@ function rowsForType(catalog: ProviderCatalog | null, kind: ResourceType): Provi
   if (kind === 'images') return catalog.image_details || []
   if (kind === 'flavors') return catalog.flavor_details || []
   if (kind === 'networks') return catalog.network_details || []
+  if (kind === 'security_groups') return catalog.security_group_details || []
+  if (kind === 'key_pairs') return catalog.key_pair_details || []
   return catalog.instance_details || []
 }
 
@@ -27,11 +37,11 @@ export default function ProviderResourceDetailPage() {
   const ko = locale === 'ko'
   const { name, resourceType, resourceId } = useParams<{
     name: string
-    resourceType: ResourceType
+    resourceType: string
     resourceId: string
   }>()
   const providerName = decodeURIComponent(name || '')
-  const kind = (resourceType || 'images') as ResourceType
+  const kind = normalizeResourceType(resourceType)
   const decodedResourceId = decodeURIComponent(resourceId || '')
   const [catalog, setCatalog] = useState<ProviderCatalog | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -88,7 +98,10 @@ export default function ProviderResourceDetailPage() {
           </p>
         </div>
         <div className="hero-actions">
-          <Link to={`/providers/${encodeURIComponent(providerName)}`} className="ghost action-link action-link-button">
+          <Link
+            to={`/providers/${encodeURIComponent(providerName)}?tab=${kind}`}
+            className="ghost action-link action-link-button"
+          >
             {ko ? '공급자 상세로' : 'Back to provider'}
           </Link>
           <button className="ghost" onClick={load} disabled={busy}>

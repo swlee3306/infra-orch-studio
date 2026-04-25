@@ -3,12 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { auth, environments, Environment, User } from '../api'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
+import { formatDateTime } from '../utils/format'
 import { summarizeOperatorError } from '../utils/uiCopy'
-
-function formatUpdated(value?: string): string {
-  if (!value) return '-'
-  return new Date(value).toLocaleString()
-}
 
 function nextEnvironmentRoute(item: Environment): string {
   if (item.status === 'pending_approval') return `/environments/${item.id}/review`
@@ -201,7 +197,7 @@ export default function DashboardPage() {
                   <td>
                     <StatusBadge status={item.approval_status} />
                   </td>
-                  <td>{formatUpdated(item.updated_at)}</td>
+                  <td>{formatDateTime(item.updated_at, locale)}</td>
                 </tr>
               ))}
             </tbody>

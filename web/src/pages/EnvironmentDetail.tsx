@@ -5,6 +5,7 @@ import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
+import { formatDateTime } from '../utils/format'
 import { displayAuditAction, errorLooksRaw, isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
 
 function parseJson(value?: string): any {
@@ -271,11 +272,7 @@ export default function EnvironmentDetailPage() {
   async function runAction(
     action: string,
     execute: (env: Environment | null) => Promise<any>,
-    options?: { confirmMessage?: string },
   ) {
-    if (options?.confirmMessage && !window.confirm(options.confirmMessage)) {
-      return
-    }
     setBusyAction(action)
     setError(null)
     setConflictHint(null)
@@ -292,7 +289,7 @@ export default function EnvironmentDetailPage() {
         setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(message)
-      retryRef.current = async () => runAction(action, execute, options)
+      retryRef.current = async () => runAction(action, execute)
       setRetryLabel(action)
     } finally {
       setBusyAction(null)
@@ -417,11 +414,11 @@ export default function EnvironmentDetailPage() {
             </div>
             <div className="meta-item">
               <span>{ko ? '생성 시각' : 'Created'}</span>
-              <strong>{environment?.created_at ? new Date(environment.created_at).toLocaleString() : '-'}</strong>
+              <strong>{formatDateTime(environment?.created_at, locale)}</strong>
             </div>
             <div className="meta-item">
               <span>{ko ? '업데이트 시각' : 'Updated'}</span>
-              <strong>{environment?.updated_at ? new Date(environment.updated_at).toLocaleString() : '-'}</strong>
+              <strong>{formatDateTime(environment?.updated_at, locale)}</strong>
             </div>
             <div className="meta-item">
               <span>{ko ? '재시도 예산' : 'Retry budget'}</span>
@@ -570,7 +567,7 @@ export default function EnvironmentDetailPage() {
                   <div>
                     <strong>{item.type}</strong>
                     <div className="row-meta">
-                      {item.id.slice(0, 8)} · {item.requested_by || '-'} · {item.updated_at ? new Date(item.updated_at).toLocaleString() : '-'}
+                      {item.id.slice(0, 8)} · {item.requested_by || '-'} · {formatDateTime(item.updated_at, locale)}
                     </div>
                   </div>
                   <StatusBadge status={item.status} />
@@ -664,7 +661,7 @@ export default function EnvironmentDetailPage() {
                     <div className="audit-item" key={item.id}>
                       <div className="detail-top" style={{ alignItems: 'center' }}>
                         <strong>{displayAuditAction(item.action, ko)}</strong>
-                        <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
+                        <span className="badge badge-muted">{formatDateTime(item.created_at, locale)}</span>
                       </div>
                       <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>
                       {item.message ? <div style={{ marginTop: 6 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}

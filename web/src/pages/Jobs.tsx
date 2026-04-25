@@ -4,6 +4,7 @@ import { auth, EnvironmentSpec, jobs, Job, User } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
+import { formatDateTime } from '../utils/format'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 function createDefaultSpec(): EnvironmentSpec {
@@ -220,7 +221,7 @@ export default function JobsPage() {
                     <strong>{j.environment?.environment_name || '-'}</strong>
                     <span className="muted">{j.environment?.tenant_name || '-'}</span>
                   </td>
-                  <td className="jobs-col-optional">{j.updated_at ? new Date(j.updated_at).toLocaleString() : '-'}</td>
+                  <td className="jobs-col-optional">{formatDateTime(j.updated_at, locale)}</td>
                   <td className="jobs-col-optional">
                     {j.error ? <span className="muted" style={{ color: 'var(--danger)' }}>{summarizeOperatorError(j.error)}</span> : <span className="muted">-</span>}
                   </td>

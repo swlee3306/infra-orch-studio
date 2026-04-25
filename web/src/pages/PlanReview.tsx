@@ -4,6 +4,7 @@ import { AuditEvent, auth, Environment, environments, Job, ImpactSummary, Review
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { latestApprovalEvent } from '../utils/environmentView'
+import { formatDateTime } from '../utils/format'
 
 function displayReviewSignal(signal: ReviewSignal, ko: boolean): ReviewSignal {
   if (!ko) return signal
@@ -240,7 +241,7 @@ export default function PlanReviewPage() {
           </div>
           <div className="meta-item">
             <span>{ko ? '최근 승인 이벤트' : 'Last approval event'}</span>
-            <strong>{approvalEvent ? new Date(approvalEvent.created_at).toLocaleString() : ko ? '아직 승인되지 않음' : 'Not yet approved'}</strong>
+            <strong>{approvalEvent ? formatDateTime(approvalEvent.created_at, locale) : ko ? '아직 승인되지 않음' : 'Not yet approved'}</strong>
           </div>
         </div>
       </section>

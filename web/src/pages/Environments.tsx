@@ -1,12 +1,34 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth, Environment, EnvironmentSpec, environments, ProviderCatalog, ProviderConnection, providers, TemplateDescriptor, templates, User } from '../api'
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { useI18n } from '../i18n'
 import StatusBadge from '../components/StatusBadge'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
-type FilterKey = 'all' | 'pending_approval' | 'active' | 'failed' | 'planning' | 'applying'
+const FILTER_KEYS = ['all', 'pending_approval', 'active', 'failed', 'planning', 'applying'] as const
+type FilterKey = (typeof FILTER_KEYS)[number]
+
+function parseFilterKey(value: string | null): FilterKey {
+  return value && (FILTER_KEYS as readonly string[]).includes(value) ? (value as FilterKey) : 'all'
+}
+
+function buildEnvironmentSearchParams(searchParams: URLSearchParams, query: string, filter: FilterKey): URLSearchParams {
+  const next = new URLSearchParams(searchParams)
+  if (query.trim()) {
+    next.set('q', query)
+  } else {
+    next.delete('q')
+  }
+
+  if (filter === 'all') {
+    next.delete('status')
+  } else {
+    next.set('status', filter)
+  }
+
+  return next
+}
 
 function createDefaultSpec(): EnvironmentSpec {
   return {
@@ -46,6 +68,7 @@ function lastExecutionResult(item: Environment, ko: boolean): string {
 
 export default function EnvironmentsPage() {
   const nav = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { locale, copy } = useI18n()
   const ko = locale === 'ko'
   const [items, setItems] = useState<Environment[]>([])
@@ -54,14 +77,14 @@ export default function EnvironmentsPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
-  const [filter, setFilter] = useState<FilterKey>('all')
-  const [search, setSearch] = useState('')
   const [spec, setSpec] = useState<EnvironmentSpec>(createDefaultSpec)
   const [templateItems, setTemplateItems] = useState<TemplateDescriptor[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState('basic')
   const [providerItems, setProviderItems] = useState<ProviderConnection[]>([])
   const [providerName, setProviderName] = useState('')
   const [providerCatalog, setProviderCatalog] = useState<ProviderCatalog | null>(null)
+  const search = searchParams.get('q') || ''
+  const filter = parseFilterKey(searchParams.get('status'))
 
   async function load() {
     setError(null)
@@ -85,6 +108,13 @@ export default function EnvironmentsPage() {
   useEffect(() => {
     load()
   }, [])
+
+  useEffect(() => {
+    const next = buildEnvironmentSearchParams(searchParams, search, filter)
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [filter, search, searchParams, setSearchParams])
 
   useEffect(() => {
     templates
@@ -252,10 +282,14 @@ export default function EnvironmentsPage() {
               className="ops-input"
               aria-label={ko ? '환경 검색' : 'Search environments'}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setSearchParams(buildEnvironmentSearchParams(searchParams, e.target.value, filter), { replace: true })}
               placeholder={ko ? '환경, 테넌트, 소유자, 라이프사이클 검색' : 'Search environment, tenant, owner, or lifecycle'}
             />
-            <select aria-label={ko ? '환경 상태 필터' : 'Environment status filter'} value={filter} onChange={(e) => setFilter(e.target.value as FilterKey)}>
+            <select
+              aria-label={ko ? '환경 상태 필터' : 'Environment status filter'}
+              value={filter}
+              onChange={(e) => setSearchParams(buildEnvironmentSearchParams(searchParams, search, parseFilterKey(e.target.value)), { replace: true })}
+            >
               <option value="all">{ko ? '전체 상태' : 'All statuses'}</option>
               <option value="pending_approval">{ko ? '승인 대기' : 'Pending approval'}</option>
               <option value="active">{ko ? '활성' : 'Active'}</option>

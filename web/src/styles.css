@@ -76,6 +76,15 @@ button:hover:not(:disabled) {
   filter: brightness(1.03);
 }
 
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid rgba(56, 189, 248, 0.78);
+  outline-offset: 3px;
+}
+
+:where(button, .action-link-button, .text-link, summary) {
+  touch-action: manipulation;
+}
+
 .ghost {
   background: transparent;
   border-color: var(--border-strong);
@@ -84,6 +93,11 @@ button:hover:not(:disabled) {
 
 .danger {
   color: var(--danger);
+}
+
+.danger-action {
+  background: var(--danger);
+  color: #21080d;
 }
 
 .field-invalid input,
@@ -546,6 +560,21 @@ button:hover:not(:disabled) {
 .stack-row-link:hover {
   border-color: rgba(250, 204, 21, 0.35);
   transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .stack-row-link:hover {
+    transform: none;
+  }
 }
 
 .wizard-mode-card {
@@ -1059,6 +1088,51 @@ button:hover:not(:disabled) {
   background: rgba(10, 53, 35, 0.36);
   color: #bbf7d0;
   padding: 0.85rem 0.95rem;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background: rgba(2, 6, 23, 0.72);
+  overscroll-behavior: contain;
+}
+
+.dialog-card {
+  width: min(620px, 100%);
+  max-height: min(760px, 100%);
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(17, 24, 43, 0.98), rgba(9, 16, 31, 0.98));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.46);
+  padding: 20px;
+}
+
+.dialog-card-danger {
+  border-color: rgba(248, 113, 113, 0.44);
+}
+
+.dialog-card-warning {
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+.dialog-description {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.dialog-details {
+  margin-top: 14px;
+}
+
+.dialog-actions {
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 
 .action-link {

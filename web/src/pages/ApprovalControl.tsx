@@ -1,10 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AuditEvent, auth, Environment, environments, Job } from '../api'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { buildApprovalCheckpoints, buildImpactSummary, findLatestPlanJob } from '../utils/environmentView'
+import { formatDateTime } from '../utils/format'
 import { displayAuditAction, isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
+
+type ConfirmRequest = {
+  title: string
+  description: string
+  confirmLabel: string
+  tone: 'warning' | 'danger'
+  details: Array<{ label: string; value: string }>
+  execute: () => Promise<void>
+}
 
 export default function ApprovalControlPage() {
   const nav = useNavigate()
@@ -24,6 +35,7 @@ export default function ApprovalControlPage() {
   const [conflictHint, setConflictHint] = useState<string | null>(null)
   const [retryLabel, setRetryLabel] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null)
   const retryRef = useRef<null | (() => Promise<void>)>(null)
 
   async function load(): Promise<Environment | null> {
@@ -71,8 +83,7 @@ export default function ApprovalControlPage() {
     [environment, ko],
   )
 
-  async function run(action: string, execute: (env: Environment | null) => Promise<any>, opts?: { confirm?: string }) {
-    if (opts?.confirm && !window.confirm(opts.confirm)) return
+  async function run(action: string, execute: (env: Environment | null) => Promise<any>) {
     setBusy(action)
     setError(null)
     setConflictHint(null)
@@ -89,11 +100,18 @@ export default function ApprovalControlPage() {
         setConflictHint(summarizeEnvironmentConflictDelta(previous, refreshed, ko))
       }
       setError(summarizeOperatorError(message))
-      retryRef.current = async () => run(action, execute, opts)
+      retryRef.current = async () => run(action, execute)
       setRetryLabel(action)
     } finally {
       setBusy(null)
     }
+  }
+
+  async function confirmPendingAction() {
+    const current = confirmRequest
+    if (!current) return
+    await current.execute()
+    setConfirmRequest(null)
   }
 
   const canApprove = Boolean(viewer?.is_admin && environment?.status === 'pending_approval')
@@ -208,7 +226,23 @@ export default function ApprovalControlPage() {
             ) : null}
             {canApply ? (
               <button
-                onClick={() => run('apply', (env) => environments.apply(environmentId, env?.revision), { confirm: ko ? '승인된 계획에서 apply를 큐잉할까요?' : 'Queue apply from the approved plan?' })}
+                onClick={() =>
+                  setConfirmRequest({
+                    tone: 'warning',
+                    title: ko ? '승인된 계획을 적용하시겠습니까?' : 'Queue Apply From Approved Plan?',
+                    description: ko
+                      ? 'apply는 승인된 계획 산출물을 기준으로 실제 OpenStack 변경을 큐잉합니다. 대상과 영향 범위를 다시 확인하세요.'
+                      : 'Apply queues real OpenStack changes from the approved plan artifact. Confirm the target and impact before continuing.',
+                    confirmLabel: busy === 'apply' ? copy.approval.applying : copy.approval.applyApproved,
+                    details: [
+                      { label: ko ? '환경' : 'Environment', value: environment?.name || environmentId },
+                      { label: ko ? '작업' : 'Operation', value: environment?.operation || '-' },
+                      { label: ko ? '계획 작업' : 'Plan job', value: planJob?.id?.slice(0, 8) || '-' },
+                      { label: ko ? '영향 범위' : 'Blast radius', value: impact.blastRadius },
+                    ],
+                    execute: async () => run('apply', (env) => environments.apply(environmentId, env?.revision)),
+                  })
+                }
                 disabled={busy !== null}
               >
                 {busy === 'apply' ? copy.approval.applying : copy.approval.applyApproved}
@@ -271,12 +305,27 @@ export default function ApprovalControlPage() {
               <button
                 className="ghost danger"
                 onClick={() =>
-                  run('destroy', (env) => environments.destroy(environmentId, {
-                    confirmation_name: environment?.name || '',
-                    comment: destroyComment.trim(),
-                    expected_revision: env?.revision,
-                  }), {
-                    confirm: ko ? `${environment?.name || environmentId} 환경에 대한 destroy 계획을 큐잉할까요?` : `Queue destroy plan for ${environment?.name || environmentId}?`,
+                  setConfirmRequest({
+                    tone: 'danger',
+                    title: ko ? 'Destroy 계획을 큐잉하시겠습니까?' : 'Queue Destroy Plan?',
+                    description: ko
+                      ? 'destroy는 파괴적 변경 경로입니다. 실제 삭제 apply 전에도 승인 게이트를 통과해야 하지만, 지금 큐잉되는 계획은 감사 이력에 남습니다.'
+                      : 'Destroy is a destructive change path. It still requires approval before apply, but this queued plan is recorded in the audit trail.',
+                    confirmLabel: busy === 'destroy' ? copy.approval.queueingDestroy : copy.approval.queueDestroy,
+                    details: [
+                      { label: ko ? '환경' : 'Environment', value: environment?.name || environmentId },
+                      { label: ko ? '입력 확인' : 'Typed confirmation', value: typedConfirmation },
+                      { label: ko ? '다운타임 위험' : 'Downtime risk', value: impact.downtime },
+                      { label: ko ? '감사 코멘트' : 'Audit comment', value: destroyComment.trim() || '-' },
+                    ],
+                    execute: async () =>
+                      run('destroy', (env) =>
+                        environments.destroy(environmentId, {
+                          confirmation_name: environment?.name || '',
+                          comment: destroyComment.trim(),
+                          expected_revision: env?.revision,
+                        }),
+                      ),
                   })
                 }
                 disabled={busy !== null}
@@ -308,7 +357,7 @@ export default function ApprovalControlPage() {
               <div className="audit-item" key={item.id}>
                 <div className="detail-top" style={{ alignItems: 'center' }}>
                   <strong>{displayAuditAction(item.action, ko)}</strong>
-                  <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
+                  <span className="badge badge-muted">{formatDateTime(item.created_at, locale)}</span>
                 </div>
                 <div className="row-meta">{item.actor_email || (ko ? '시스템' : 'system')}</div>
                 {item.message ? <div style={{ marginTop: 6 }}>{summarizeAuditMessage(item.message, ko)}</div> : null}
@@ -319,6 +368,18 @@ export default function ApprovalControlPage() {
           <div className="empty-state">{ko ? '승인/적용 이력이 길 경우 성능과 가독성을 위해 기본 접힘 상태로 표시됩니다.' : 'Timeline stays collapsed by default to reduce visual noise on long histories.'}</div>
         )}
       </section>
+      <ConfirmDialog
+        open={confirmRequest !== null}
+        title={confirmRequest?.title || ''}
+        description={confirmRequest?.description || ''}
+        confirmLabel={confirmRequest?.confirmLabel || ''}
+        cancelLabel={ko ? '취소' : 'Cancel'}
+        tone={confirmRequest?.tone}
+        details={confirmRequest?.details}
+        busy={busy !== null}
+        onCancel={() => setConfirmRequest(null)}
+        onConfirm={() => void confirmPendingAction()}
+      />
     </div>
   )
 }
