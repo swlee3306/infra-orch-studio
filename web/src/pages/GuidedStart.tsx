@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, overview, OverviewResponse } from '../api'
 import { useI18n } from '../i18n'
+import { formatDateTime } from '../utils/format'
 
 type StageKey = 'create' | 'review' | 'approval' | 'result'
 
@@ -23,7 +24,7 @@ function normalizeKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
-function formatValue(value: unknown): string | null {
+function formatValue(value: unknown, locale = 'en'): string | null {
   if (value === null || value === undefined) return null
   if (typeof value === 'string') return value.trim() || null
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
@@ -39,8 +40,7 @@ function formatValue(value: unknown): string | null {
     if (Array.isArray(value.items)) parts.push(`${value.items.length} item${value.items.length === 1 ? '' : 's'}`)
     const timestamp = value.updated_at || value.updatedAt || value.created_at || value.createdAt
     if (typeof timestamp === 'string' && timestamp.trim()) {
-      const parsed = new Date(timestamp)
-      if (!Number.isNaN(parsed.getTime())) parts.push(parsed.toLocaleString())
+      parts.push(formatDateTime(timestamp, locale))
     }
     if (parts.length > 0) return parts.join(' · ')
     const keys = Object.keys(value).filter((key) => !['id', 'name', 'key', 'slug'].includes(key)).slice(0, 3)
@@ -90,8 +90,8 @@ function matchStageValue(source: unknown, key: StageKey): unknown {
   return null
 }
 
-function stageDetail(source: unknown, key: StageKey, fallback: string): string {
-  return formatValue(matchStageValue(source, key)) || fallback
+function stageDetail(source: unknown, key: StageKey, fallback: string, locale = 'en'): string {
+  return formatValue(matchStageValue(source, key), locale) || fallback
 }
 
 export default function GuidedStartPage() {
@@ -147,7 +147,7 @@ export default function GuidedStartPage() {
       {
         key: 'create',
         title: ko ? 'Create' : 'Create',
-        summary: stageDetail(overviewData, 'create', fallback.create),
+        summary: stageDetail(overviewData, 'create', fallback.create, locale),
         detail: ko ? '새 환경 요청을 시작하는 입력 단계입니다.' : 'Start the environment request from here.',
         link: '/create-environment',
         action: ko ? '생성 흐름 열기' : 'Open create flow',
@@ -156,7 +156,7 @@ export default function GuidedStartPage() {
       {
         key: 'review',
         title: ko ? 'Review' : 'Review',
-        summary: stageDetail(overviewData, 'review', fallback.review),
+        summary: stageDetail(overviewData, 'review', fallback.review, locale),
         detail: ko ? '현재 플랜과 변경 영향을 비교합니다.' : 'Compare the current plan with its impact.',
         link: '/dashboard',
         action: ko ? '검토 대시보드 열기' : 'Open review dashboard',
@@ -165,7 +165,7 @@ export default function GuidedStartPage() {
       {
         key: 'approval',
         title: ko ? 'Approval' : 'Approval',
-        summary: stageDetail(overviewData, 'approval', fallback.approval),
+        summary: stageDetail(overviewData, 'approval', fallback.approval, locale),
         detail: ko ? '승인 가능한 변경만 다음 단계로 넘깁니다.' : 'Move only approved changes forward.',
         link: '/environments',
         action: ko ? '승인 대상 보기' : 'See approval targets',
@@ -174,7 +174,7 @@ export default function GuidedStartPage() {
       {
         key: 'result',
         title: ko ? 'Result' : 'Result',
-        summary: stageDetail(overviewData, 'result', fallback.result),
+        summary: stageDetail(overviewData, 'result', fallback.result, locale),
         detail: ko ? '실행 완료 후 결과와 이력을 확인합니다.' : 'Inspect outcomes after execution completes.',
         link: '/jobs',
         action: ko ? '결과 열기' : 'Open results',

@@ -1,20 +1,38 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { auth, ProviderCatalog, ProviderConnection, ProviderResourceDetail, providers } from '../api'
 import { useI18n } from '../i18n'
+import { formatDateTime } from '../utils/format'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
-type TabKey = 'images' | 'flavors' | 'networks' | 'instances'
+type TabKey = 'images' | 'flavors' | 'networks' | 'security_groups' | 'key_pairs' | 'instances'
+
+const tabKeys: TabKey[] = ['images', 'flavors', 'networks', 'security_groups', 'key_pairs', 'instances']
+
+function normalizeTabKey(value: string | null): TabKey {
+  return tabKeys.includes(value as TabKey) ? (value as TabKey) : 'images'
+}
+
+function rowsForTab(catalog: ProviderCatalog | null, tab: TabKey): ProviderResourceDetail[] {
+  if (!catalog) return []
+  if (tab === 'images') return catalog.image_details || []
+  if (tab === 'flavors') return catalog.flavor_details || []
+  if (tab === 'networks') return catalog.network_details || []
+  if (tab === 'security_groups') return catalog.security_group_details || []
+  if (tab === 'key_pairs') return catalog.key_pair_details || []
+  return catalog.instance_details || []
+}
 
 export default function ProviderDetailPage() {
   const nav = useNavigate()
   const { name } = useParams<{ name: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const providerName = decodeURIComponent(name || '')
   const { locale } = useI18n()
   const ko = locale === 'ko'
   const [providerInfo, setProviderInfo] = useState<ProviderConnection | null>(null)
   const [catalog, setCatalog] = useState<ProviderCatalog | null>(null)
-  const [tab, setTab] = useState<TabKey>('images')
+  const [tab, setTab] = useState<TabKey>(() => normalizeTabKey(searchParams.get('tab')))
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -47,20 +65,41 @@ export default function ProviderDetailPage() {
     load()
   }, [providerName])
 
+  useEffect(() => {
+    setTab(normalizeTabKey(searchParams.get('tab')))
+  }, [searchParams])
+
   const rows = useMemo(() => {
-    if (!catalog) return []
-    if (tab === 'images') return catalog.image_details || []
-    if (tab === 'flavors') return catalog.flavor_details || []
-    if (tab === 'networks') return catalog.network_details || []
-    return catalog.instance_details || []
+    return rowsForTab(catalog, tab)
   }, [catalog, tab])
 
   const tabItems: Array<{ key: TabKey; labelEn: string; labelKo: string; count: number }> = [
     { key: 'images', labelEn: 'Images', labelKo: '이미지', count: catalog?.images.length || 0 },
     { key: 'flavors', labelEn: 'Flavors', labelKo: '플레이버', count: catalog?.flavors.length || 0 },
     { key: 'networks', labelEn: 'Networks', labelKo: '네트워크', count: catalog?.networks.length || 0 },
+    {
+      key: 'security_groups',
+      labelEn: 'Security groups',
+      labelKo: '보안 그룹',
+      count: catalog?.security_groups?.length || catalog?.security_group_details?.length || 0,
+    },
+    {
+      key: 'key_pairs',
+      labelEn: 'Key pairs',
+      labelKo: '키 페어',
+      count: catalog?.key_pairs?.length || catalog?.key_pair_details?.length || 0,
+    },
     { key: 'instances', labelEn: 'Instances', labelKo: '인스턴스', count: catalog?.instances.length || 0 },
   ]
+
+  function selectTab(nextTab: TabKey) {
+    setTab(nextTab)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', nextTab)
+      return next
+    })
+  }
 
   return (
     <div className="page-stack">
@@ -103,6 +142,16 @@ export default function ProviderDetailPage() {
           <p>{ko ? '선택 가능한 네트워크 자원' : 'Available network resources.'}</p>
         </article>
         <article className="metric-card">
+          <span>{ko ? '보안 그룹' : 'Security groups'}</span>
+          <strong>{catalog?.security_groups?.length || catalog?.security_group_details?.length || 0}</strong>
+          <p>{ko ? '적용 가능한 보안 그룹' : 'Applicable security groups.'}</p>
+        </article>
+        <article className="metric-card">
+          <span>{ko ? '키 페어' : 'Key pairs'}</span>
+          <strong>{catalog?.key_pairs?.length || catalog?.key_pair_details?.length || 0}</strong>
+          <p>{ko ? '사용 가능한 SSH 키 페어' : 'Available SSH key pairs.'}</p>
+        </article>
+        <article className="metric-card">
           <span>{ko ? '인스턴스' : 'Instances'}</span>
           <strong>{catalog?.instances.length || 0}</strong>
           <p>{ko ? '현재 연결된 프로젝트 인스턴스' : 'Current instances in the project.'}</p>
@@ -138,7 +187,7 @@ export default function ProviderDetailPage() {
           {catalog?.fetched_at ? (
             <div className="note-card">
               <strong>{ko ? '마지막 조회 시각' : 'Last fetched at'}</strong>
-              <p>{new Date(catalog.fetched_at).toLocaleString()}</p>
+              <p>{formatDateTime(catalog.fetched_at, locale)}</p>
             </div>
           ) : null}
         </article>
@@ -157,7 +206,7 @@ export default function ProviderDetailPage() {
                 type="button"
                 key={item.key}
                 className={`filter-chip ${tab === item.key ? 'filter-chip-active' : ''}`}
-                onClick={() => setTab(item.key)}
+                onClick={() => selectTab(item.key)}
               >
                 {ko ? item.labelKo : item.labelEn} ({item.count})
               </button>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { AuditEvent, audit, auth, environments, Environment } from '../api'
 import { formatStatusLabel } from '../components/StatusBadge'
 import { useI18n } from '../i18n'
+import { formatDateTime } from '../utils/format'
 import { displayAuditAction, summarizeAuditMessage } from '../utils/uiCopy'
 
 type AuditRecord = AuditEvent & {
@@ -207,7 +208,7 @@ export default function AuditPage() {
                 <div className="audit-item" key={item.id}>
                   <div className="detail-top" style={{ alignItems: 'center' }}>
                     <strong>{displayAuditAction(item.action, ko)}</strong>
-                    <span className="badge badge-muted">{new Date(item.created_at).toLocaleString()}</span>
+                    <span className="badge badge-muted">{formatDateTime(item.created_at, locale)}</span>
                   </div>
                   <div className="info-grid info-grid-three" style={{ marginTop: 10 }}>
                     <div className="meta-item">

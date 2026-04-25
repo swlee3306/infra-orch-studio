@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { auth, jobs, Job, wsUrl } from '../api'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
+import { formatDateTime } from '../utils/format'
 
 type WsEvent =
   | { type: 'log'; jobId: string; file?: string; message: string }
@@ -263,11 +264,11 @@ export default function JobDetailPage() {
             </div>
             <div className="meta-item">
               <span>{ko ? '생성 시각' : 'Created'}</span>
-              <strong>{job?.created_at ? new Date(job.created_at).toLocaleString() : '-'}</strong>
+              <strong>{formatDateTime(job?.created_at, locale)}</strong>
             </div>
             <div className="meta-item">
               <span>{ko ? '업데이트 시각' : 'Updated'}</span>
-              <strong>{job?.updated_at ? new Date(job.updated_at).toLocaleString() : '-'}</strong>
+              <strong>{formatDateTime(job?.updated_at, locale)}</strong>
             </div>
             <div className="meta-item">
               <span>{ko ? '템플릿' : 'Template'}</span>

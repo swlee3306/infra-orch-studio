@@ -1,12 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { audit, auth, AuditEvent, User } from '../api'
 import { useI18n } from '../i18n'
+import { formatDateTime } from '../utils/format'
 import { summarizeOperatorError } from '../utils/uiCopy'
-
-function formatAuditTime(value?: string): string {
-  if (!value) return '-'
-  return new Date(value).toLocaleString()
-}
 
 function parseJson(value?: string): any {
   if (!value) return null
@@ -181,7 +177,7 @@ export default function UsersPage() {
                   <div>
                     <strong>{item.email}</strong>
                     <div className="row-meta">
-                      {copy.users.createdAt} · {formatAuditTime(item.created_at)}
+                      {copy.users.createdAt} · {formatDateTime(item.created_at, locale)}
                     </div>
                   </div>
                   <div className="detail-actions">
@@ -314,7 +310,7 @@ export default function UsersPage() {
                     <div>
                       <strong>{metadata?.email || item.resource_id}</strong>
                       <div className="row-meta">
-                        {(item.actor_email || (ko ? '시스템' : 'system'))} · {formatAuditTime(item.created_at)}
+                        {(item.actor_email || (ko ? '시스템' : 'system'))} · {formatDateTime(item.created_at, locale)}
                       </div>
                     </div>
                     <span className="badge badge-muted">{metadata?.is_admin ? copy.users.roleAdmin : copy.users.roleUser}</span>
