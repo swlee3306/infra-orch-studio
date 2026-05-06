@@ -2,6 +2,7 @@ package renderer
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
 )
@@ -31,22 +32,22 @@ type EnvironmentVars struct {
 		Flavor         string   `json:"flavor"`
 		Count          int      `json:"count"`
 		SSHKeyName     string   `json:"ssh_key_name,omitempty"`
-		SecurityGroups []string `json:"security_groups,omitempty"`
+		SecurityGroups []string `json:"security_groups"`
 	} `json:"instances"`
 }
 
 func RenderEnvironmentVars(spec domain.EnvironmentSpec) (EnvironmentVars, error) {
-	if spec.EnvironmentName == "" {
+	if strings.TrimSpace(spec.EnvironmentName) == "" {
 		return EnvironmentVars{}, fmt.Errorf("environment_name is required")
 	}
 
 	var v EnvironmentVars
-	v.EnvironmentName = spec.EnvironmentName
-	v.Network.Name = spec.Network.Name
-	v.Network.CIDR = spec.Network.CIDR
-	v.Subnet.Name = spec.Subnet.Name
-	v.Subnet.CIDR = spec.Subnet.CIDR
-	v.Subnet.GatewayIP = spec.Subnet.GatewayIP
+	v.EnvironmentName = strings.TrimSpace(spec.EnvironmentName)
+	v.Network.Name = strings.TrimSpace(spec.Network.Name)
+	v.Network.CIDR = strings.TrimSpace(spec.Network.CIDR)
+	v.Subnet.Name = strings.TrimSpace(spec.Subnet.Name)
+	v.Subnet.CIDR = strings.TrimSpace(spec.Subnet.CIDR)
+	v.Subnet.GatewayIP = strings.TrimSpace(spec.Subnet.GatewayIP)
 	v.Subnet.EnableDHCP = spec.Subnet.EnableDHCP
 
 	v.Instances = make([]struct {
@@ -55,9 +56,19 @@ func RenderEnvironmentVars(spec domain.EnvironmentSpec) (EnvironmentVars, error)
 		Flavor         string   `json:"flavor"`
 		Count          int      `json:"count"`
 		SSHKeyName     string   `json:"ssh_key_name,omitempty"`
-		SecurityGroups []string `json:"security_groups,omitempty"`
+		SecurityGroups []string `json:"security_groups"`
 	}, 0, len(spec.Instances))
 
+	securityGroups := spec.SecurityGroups
+	if securityGroups == nil {
+		securityGroups = []string{}
+	}
+	renderedSecurityGroups := make([]string, 0, len(securityGroups))
+	for _, group := range securityGroups {
+		if trimmed := strings.TrimSpace(group); trimmed != "" {
+			renderedSecurityGroups = append(renderedSecurityGroups, trimmed)
+		}
+	}
 	for _, inst := range spec.Instances {
 		v.Instances = append(v.Instances, struct {
 			Name           string   `json:"name"`
@@ -65,14 +76,14 @@ func RenderEnvironmentVars(spec domain.EnvironmentSpec) (EnvironmentVars, error)
 			Flavor         string   `json:"flavor"`
 			Count          int      `json:"count"`
 			SSHKeyName     string   `json:"ssh_key_name,omitempty"`
-			SecurityGroups []string `json:"security_groups,omitempty"`
+			SecurityGroups []string `json:"security_groups"`
 		}{
-			Name:           inst.Name,
-			Image:          inst.Image,
-			Flavor:         inst.Flavor,
+			Name:           strings.TrimSpace(inst.Name),
+			Image:          strings.TrimSpace(inst.Image),
+			Flavor:         strings.TrimSpace(inst.Flavor),
 			Count:          inst.Count,
-			SSHKeyName:     inst.SSHKeyName,
-			SecurityGroups: spec.SecurityGroups,
+			SSHKeyName:     strings.TrimSpace(inst.SSHKeyName),
+			SecurityGroups: append([]string{}, renderedSecurityGroups...),
 		})
 	}
 

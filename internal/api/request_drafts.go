@@ -102,6 +102,10 @@ func buildRequestDraft(prompt string) requestDraftResponse {
 	if match := instanceCountPattern.FindStringSubmatch(lower); len(match) > 1 {
 		if count, err := strconv.Atoi(match[1]); err == nil && count > 0 {
 			spec.Instances[0].Count = count
+			if count > 2 {
+				spec.Instances[0].Count = 2
+				warnings = append(warnings, fmt.Sprintf("%d instances were requested, but the MVP supports up to 2. The draft was capped at 2.", count))
+			}
 		}
 	}
 
@@ -154,7 +158,7 @@ func buildRequestDraft(prompt string) requestDraftResponse {
 	if strings.Contains(lower, "prod") || strings.Contains(lower, "production") {
 		warnings = append(warnings, "Production-like wording detected. Validate blast radius and approval context carefully.")
 	}
-	if spec.Instances[0].Count >= 4 {
+	if spec.Instances[0].Count >= 2 {
 		warnings = append(warnings, fmt.Sprintf("%d instances were inferred. Review capacity and blast radius before approval.", spec.Instances[0].Count))
 	}
 

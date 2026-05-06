@@ -4,6 +4,7 @@ import { auth, Environment, EnvironmentSpec, environments, ProviderCatalog, Prov
 import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { useI18n } from '../i18n'
 import StatusBadge from '../components/StatusBadge'
+import { providerFlavorOptions, providerImageOptions, providerKeyPairOptions, providerSecurityGroupOptions } from '../utils/providerCatalogOptions'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 const FILTER_KEYS = ['all', 'pending_approval', 'active', 'failed', 'planning', 'applying'] as const
@@ -409,11 +410,11 @@ export default function EnvironmentsPage() {
               resourceHints={
                 providerCatalog
                   ? {
-                      images: providerCatalog.images,
-                      flavors: providerCatalog.flavors,
+                      images: providerImageOptions(providerCatalog),
+                      flavors: providerFlavorOptions(providerCatalog),
                       networks: providerCatalog.networks,
-                      securityGroups: providerCatalog.security_groups || [],
-                      keyPairs: providerCatalog.key_pairs || [],
+                      securityGroups: providerSecurityGroupOptions(providerCatalog),
+                      keyPairs: providerKeyPairOptions(providerCatalog),
                     }
                   : undefined
               }

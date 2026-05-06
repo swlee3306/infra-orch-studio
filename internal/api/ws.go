@@ -19,15 +19,26 @@ type wsClientMessage struct {
 	JobID string `json:"jobId"`
 }
 
+type jsonWriter interface {
+	WriteJSON(any) error
+}
+
 type jobStream struct {
 	store interface {
 		GetJob(context.Context, string) (domain.Job, error)
 	}
-	conn       *wsConn
+	conn       jsonWriter
 	jobID      string
 	offsets    map[string]int64
 	lastStatus domain.JobStatus
 	lastError  string
+}
+
+type jobLogSnapshot struct {
+	File      string `json:"file"`
+	Message   string `json:"message"`
+	Offset    int64  `json:"offset"`
+	Truncated bool   `json:"truncated"`
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request, _ domain.User) {
@@ -133,15 +144,13 @@ func (s *jobStream) tick(ctx context.Context) error {
 		}
 	}
 
-	if job.Workdir == "" {
-		return nil
-	}
-
-	files, err := filepath.Glob(filepath.Join(job.Workdir, ".infra-orch", "logs", "*.log"))
+	files, err := jobLogFiles(job)
 	if err != nil {
 		return err
 	}
-	sort.Strings(files)
+	if len(files) == 0 {
+		return nil
+	}
 
 	for _, path := range files {
 		nextOffset, chunks, err := readLogChunks(path, s.offsets[path])
@@ -166,6 +175,53 @@ func (s *jobStream) tick(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func jobLogDir(job domain.Job) string {
+	if job.LogDir != "" {
+		return job.LogDir
+	}
+	if job.Workdir == "" {
+		return ""
+	}
+	return filepath.Join(job.Workdir, ".infra-orch", "logs")
+}
+
+func jobLogFiles(job domain.Job) ([]string, error) {
+	logDir := jobLogDir(job)
+	if logDir == "" {
+		return nil, nil
+	}
+	files, err := filepath.Glob(filepath.Join(logDir, "*.log"))
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
+func readJobLogSnapshots(job domain.Job, maxBytesPerFile int64) ([]jobLogSnapshot, error) {
+	files, err := jobLogFiles(job)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]jobLogSnapshot, 0, len(files))
+	for _, path := range files {
+		offset, payload, truncated, err := readLogTail(path, maxBytesPerFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		items = append(items, jobLogSnapshot{
+			File:      filepath.Base(path),
+			Message:   payload,
+			Offset:    offset,
+			Truncated: truncated,
+		})
+	}
+	return items, nil
 }
 
 func readLogChunks(path string, offset int64) (int64, []string, error) {
@@ -194,6 +250,36 @@ func readLogChunks(path string, offset int64) (int64, []string, error) {
 		return offset, nil, nil
 	}
 	return offset + int64(len(payload)), []string{string(payload)}, nil
+}
+
+func readLogTail(path string, maxBytes int64) (int64, string, bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, "", false, err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return 0, "", false, err
+	}
+	if maxBytes <= 0 {
+		maxBytes = 64 * 1024
+	}
+	offset := int64(0)
+	truncated := false
+	if info.Size() > maxBytes {
+		offset = info.Size() - maxBytes
+		truncated = true
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return 0, "", false, err
+	}
+	payload, err := io.ReadAll(f)
+	if err != nil {
+		return 0, "", false, err
+	}
+	return offset, string(payload), truncated, nil
 }
 
 func jsonUnmarshal(payload []byte, out any) error {

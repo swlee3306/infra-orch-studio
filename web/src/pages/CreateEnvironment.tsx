@@ -5,6 +5,7 @@ import EnvironmentSpecForm from '../components/EnvironmentSpecForm'
 import { useI18n } from '../i18n'
 import { emptyEnvironmentSpec, summarizeSpec } from '../utils/environmentView'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
+import { providerFlavorOptions, providerImageOptions, providerKeyPairOptions, providerSecurityGroupOptions } from '../utils/providerCatalogOptions'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 const STORAGE_KEY = 'infra-orch:create-draft'
@@ -131,6 +132,7 @@ export default function CreateEnvironmentPage() {
     return value
       .replace('Custom wording was detected, but the draft still maps to the current basic template contract.', '커스텀 표현이 감지되었지만 현재 basic 템플릿 계약으로 초안을 구성했습니다.')
       .replace('Production-like wording detected. Validate blast radius and approval context carefully.', '운영 환경에 가까운 표현이 감지되었습니다. 영향 범위와 승인 맥락을 신중히 검토하세요.')
+      .replace(/(\d+) instances were requested, but the MVP supports up to 2\. The draft was capped at 2\./, '$1개 인스턴스가 요청되었지만 MVP는 최대 2개까지 지원합니다. 초안은 2개로 제한되었습니다.')
       .replace(/(\d+) instances were inferred\. Review capacity and blast radius before approval\./, '$1개 인스턴스를 추론했습니다. 승인 전에 용량과 영향 범위를 검토하세요.')
   }
 
@@ -489,11 +491,11 @@ export default function CreateEnvironmentPage() {
               resourceHints={
                 providerCatalog
                   ? {
-                      images: providerCatalog.images,
-                      flavors: providerCatalog.flavors,
+                      images: providerImageOptions(providerCatalog),
+                      flavors: providerFlavorOptions(providerCatalog),
                       networks: providerCatalog.networks,
-                      securityGroups: providerCatalog.security_groups || [],
-                      keyPairs: providerCatalog.key_pairs || [],
+                      securityGroups: providerSecurityGroupOptions(providerCatalog),
+                      keyPairs: providerKeyPairOptions(providerCatalog),
                       instances: providerCatalog.instances,
                     }
                   : undefined

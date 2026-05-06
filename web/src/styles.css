@@ -368,6 +368,11 @@ button:hover:not(:disabled) {
   border-color: rgba(250, 204, 21, 0.3);
 }
 
+.metric-card-danger {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.18), rgba(22, 32, 51, 0.86));
+  border-color: rgba(248, 113, 113, 0.34);
+}
+
 .metric-card span {
   display: block;
   color: var(--muted);

@@ -35,6 +35,7 @@ func JobsCollection(store storage.Store) http.Handler {
 				writeError(w, http.StatusBadRequest, "invalid json")
 				return
 			}
+			req.Environment = validation.NormalizeEnvironmentSpec(req.Environment)
 			if err := validation.ValidateEnvironmentSpec(req.Environment); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return

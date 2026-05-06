@@ -44,7 +44,7 @@ export function buildReviewSignals(spec: EnvironmentSpec, operation: string): Re
       severity: 'high',
     })
   }
-  if (summary.instanceTotal >= 4) {
+  if (summary.instanceTotal >= 2) {
     items.push({
       label: 'Large instance footprint',
       detail: `${summary.instanceTotal} instances are requested, which increases rollout time and blast radius.`,
@@ -82,7 +82,7 @@ export function buildReviewSignals(spec: EnvironmentSpec, operation: string): Re
 
 export function buildImpactSummary(spec: EnvironmentSpec, operation: string, ko = false) {
   const summary = summarizeSpec(spec)
-  const downtime = operation === 'destroy' ? (ko ? '높음' : 'High') : summary.instanceTotal >= 4 ? (ko ? '중간' : 'Medium') : ko ? '낮음' : 'Low'
+  const downtime = operation === 'destroy' ? (ko ? '높음' : 'High') : summary.instanceTotal >= 2 ? (ko ? '중간' : 'Medium') : ko ? '낮음' : 'Low'
   const blastRadius = `${spec.tenant_name || '-'} / ${spec.network.name || '-'} / ${spec.subnet.name || '-'}`
   const costDelta =
     operation === 'destroy'

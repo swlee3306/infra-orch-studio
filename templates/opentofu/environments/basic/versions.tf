@@ -4,7 +4,7 @@ terraform {
   required_providers {
     openstack = {
       source  = "hashicorp/openstack"
-      version = ">= 1.54.0"
+      version = ">= 1.54.0, < 4.0.0"
     }
   }
 }

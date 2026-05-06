@@ -26,10 +26,12 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request, user domain.
 			writeError(w, http.StatusBadRequest, "invalid json")
 			return
 		}
-		if err := validateEnvironmentSpecForMutation(req.Environment); err != nil {
+		normalizedEnvironment, err := normalizeAndValidateEnvironmentSpecForMutation(req.Environment)
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		req.Environment = normalizedEnvironment
 
 		jobType := domain.JobTypeEnvironmentCreate
 		if req.Type != "" {
@@ -97,6 +99,8 @@ func (s *Server) handleJobRoute(w http.ResponseWriter, r *http.Request, user dom
 			return
 		}
 		s.handleApply(w, r)
+	case strings.HasSuffix(path, "/logs"):
+		s.handleJobLogs(w, r)
 	default:
 		s.handleJob(w, r)
 	}
@@ -125,6 +129,40 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, job)
 }
 
+func (s *Server) handleJobLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	id, err := jobActionID(r.URL.Path, "logs")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	job, err := s.jobs.GetJob(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "job not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "get job failed")
+		return
+	}
+
+	items, err := readJobLogSnapshots(job, 64*1024)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "read job logs failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"job_id":  job.ID,
+		"log_dir": jobLogDir(job),
+		"items":   items,
+	})
+}
+
 func (s *Server) handlePlan(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -146,10 +184,12 @@ func (s *Server) handlePlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "load source job failed")
 		return
 	}
-	if err := validateEnvironmentSpecForMutation(src.Environment); err != nil {
+	normalizedEnvironment, err := normalizeAndValidateEnvironmentSpecForMutation(src.Environment)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	src.Environment = normalizedEnvironment
 	if src.EnvironmentID != "" {
 		writeError(w, http.StatusBadRequest, "environment-managed plans must be queued via POST /api/environments/{id}/plan")
 		return
@@ -202,10 +242,12 @@ func (s *Server) handleApply(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "environment-managed plans must be applied via POST /api/environments/{id}/apply")
 		return
 	}
-	if err := validateEnvironmentSpecForMutation(src.Environment); err != nil {
+	normalizedEnvironment, err := normalizeAndValidateEnvironmentSpecForMutation(src.Environment)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	src.Environment = normalizedEnvironment
 
 	now := time.Now().UTC()
 	job := buildDerivedJob(src, domain.JobTypeApply, now)

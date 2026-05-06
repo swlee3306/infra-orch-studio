@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { auth, ProviderCatalog, ProviderConnection, ProviderResourceDetail, providers } from '../api'
 import { useI18n } from '../i18n'
 import { formatDateTime } from '../utils/format'
+import { isSafeProviderName } from '../utils/providerNames'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 type TabKey = 'images' | 'flavors' | 'networks' | 'security_groups' | 'key_pairs' | 'instances'
@@ -23,6 +24,12 @@ function rowsForTab(catalog: ProviderCatalog | null, tab: TabKey): ProviderResou
   return catalog.instance_details || []
 }
 
+function requiredCatalogErrors(catalog: ProviderCatalog | null): string[] {
+  return (catalog?.errors || []).filter((item) =>
+    /^(images|flavors|networks):/.test(item),
+  )
+}
+
 export default function ProviderDetailPage() {
   const nav = useNavigate()
   const { name } = useParams<{ name: string }>()
@@ -37,7 +44,7 @@ export default function ProviderDetailPage() {
   const [busy, setBusy] = useState(false)
 
   async function load() {
-    if (!providerName) {
+    if (!providerName || !isSafeProviderName(providerName)) {
       nav('/providers')
       return
     }
@@ -72,6 +79,7 @@ export default function ProviderDetailPage() {
   const rows = useMemo(() => {
     return rowsForTab(catalog, tab)
   }, [catalog, tab])
+  const blockingCatalogErrors = useMemo(() => requiredCatalogErrors(catalog), [catalog])
 
   const tabItems: Array<{ key: TabKey; labelEn: string; labelKo: string; count: number }> = [
     { key: 'images', labelEn: 'Images', labelKo: '이미지', count: catalog?.images.length || 0 },
@@ -124,8 +132,25 @@ export default function ProviderDetailPage() {
       </section>
 
       {error ? <section className="error-box">{summarizeOperatorError(error)}</section> : null}
+      {blockingCatalogErrors.length > 0 ? (
+        <section className="error-box">
+          <strong>{ko ? '필수 OpenStack catalog 조회 실패' : 'Required OpenStack catalog fetch failed'}</strong>
+          <div className="stack-list" style={{ marginTop: 10 }}>
+            {blockingCatalogErrors.map((item) => (
+              <div className="row-meta" key={item}>
+                {item}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="stats-grid template-stats-grid">
+        <article className={blockingCatalogErrors.length > 0 ? 'metric-card metric-card-danger' : 'metric-card'}>
+          <span>{ko ? 'Catalog 오류' : 'Catalog errors'}</span>
+          <strong>{blockingCatalogErrors.length}</strong>
+          <p>{ko ? 'plan/apply 전에 해결해야 하는 필수 자원 조회 오류입니다.' : 'Required resource fetch errors to fix before plan/apply.'}</p>
+        </article>
         <article className="metric-card metric-card-primary">
           <span>{ko ? '이미지' : 'Images'}</span>
           <strong>{catalog?.images.length || 0}</strong>

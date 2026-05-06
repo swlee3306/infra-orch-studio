@@ -61,6 +61,15 @@ type Catalog struct {
 	Errors               []string         `json:"errors,omitempty"`
 }
 
+type Preflight struct {
+	Provider          string            `json:"provider"`
+	Authenticated     bool              `json:"authenticated"`
+	Endpoints         map[string]string `json:"endpoints"`
+	MissingEndpoints  []string          `json:"missing_endpoints,omitempty"`
+	CheckedAt         time.Time         `json:"checked_at"`
+	ReadyForPlanApply bool              `json:"ready_for_plan_apply"`
+}
+
 type ResourceDetail struct {
 	ID         string            `json:"id"`
 	Name       string            `json:"name"`
@@ -77,6 +86,18 @@ func New(path string) *Service {
 }
 
 func NewWithClouds(configs []CloudConfig) *Service {
+	return &Service{clouds: cloudEntriesFromConfigs(configs)}
+}
+
+func ExportCloudsYAML(configs []CloudConfig) ([]byte, error) {
+	clouds := cloudEntriesFromConfigs(configs)
+	if len(clouds) == 0 {
+		return nil, fmt.Errorf("no cloud entries to export")
+	}
+	return yaml.Marshal(cloudsFile{Clouds: clouds})
+}
+
+func cloudEntriesFromConfigs(configs []CloudConfig) map[string]cloudEntry {
 	clouds := make(map[string]cloudEntry, len(configs))
 	for _, item := range configs {
 		name := strings.TrimSpace(item.Name)
@@ -100,7 +121,7 @@ func NewWithClouds(configs []CloudConfig) *Service {
 			},
 		}
 	}
-	return &Service{clouds: clouds}
+	return clouds
 }
 
 func (s *Service) ListClouds() ([]CloudConnection, error) {
@@ -187,6 +208,36 @@ func (s *Service) FetchCatalog(cloudName string) (Catalog, error) {
 	return c, nil
 }
 
+func (s *Service) CheckAuth(cloudName string) (Preflight, error) {
+	clouds, err := s.loadCloudMap()
+	if err != nil {
+		return Preflight{}, err
+	}
+	cloud, ok := clouds[cloudName]
+	if !ok {
+		return Preflight{}, fmt.Errorf("cloud %q not found in %s", cloudName, s.path)
+	}
+	_, endpoints, err := authenticate(cloud)
+	if err != nil {
+		return Preflight{}, err
+	}
+	required := []string{"compute", "image", "network"}
+	missing := make([]string, 0)
+	for _, key := range required {
+		if strings.TrimSpace(endpoints[key]) == "" {
+			missing = append(missing, key)
+		}
+	}
+	return Preflight{
+		Provider:          cloudName,
+		Authenticated:     true,
+		Endpoints:         map[string]string(endpoints),
+		MissingEndpoints:  missing,
+		CheckedAt:         time.Now().UTC(),
+		ReadyForPlanApply: len(missing) == 0,
+	}, nil
+}
+
 func (s *Service) loadCloudMap() (map[string]cloudEntry, error) {
 	if len(s.clouds) > 0 {
 		return s.clouds, nil
@@ -215,10 +266,10 @@ type cloudAuth struct {
 	AuthURL           string `yaml:"auth_url"`
 	Username          string `yaml:"username"`
 	Password          string `yaml:"password"`
-	ProjectName       string `yaml:"project_name"`
-	ProjectID         string `yaml:"project_id"`
+	ProjectName       string `yaml:"project_name,omitempty"`
+	ProjectID         string `yaml:"project_id,omitempty"`
 	UserDomainName    string `yaml:"user_domain_name"`
-	ProjectDomainName string `yaml:"project_domain_name"`
+	ProjectDomainName string `yaml:"project_domain_name,omitempty"`
 }
 
 func loadCloudsFile(path string) (cloudsFile, error) {
@@ -248,6 +299,15 @@ func authenticate(cloud cloudEntry) (string, endpointMap, error) {
 		authURL += "/v3"
 	}
 	target := authURL + "/auth/tokens"
+	projectScope := map[string]any{}
+	if strings.TrimSpace(cloud.Auth.ProjectID) != "" {
+		projectScope["id"] = strings.TrimSpace(cloud.Auth.ProjectID)
+	} else {
+		projectScope["name"] = strings.TrimSpace(cloud.Auth.ProjectName)
+		projectScope["domain"] = map[string]string{
+			"name": defaultIfEmpty(cloud.Auth.ProjectDomainName, "Default"),
+		}
+	}
 	body := map[string]any{
 		"auth": map[string]any{
 			"identity": map[string]any{
@@ -262,14 +322,7 @@ func authenticate(cloud cloudEntry) (string, endpointMap, error) {
 					},
 				},
 			},
-			"scope": map[string]any{
-				"project": map[string]any{
-					"name": defaultIfEmpty(cloud.Auth.ProjectName, cloud.Auth.ProjectID),
-					"domain": map[string]string{
-						"name": defaultIfEmpty(cloud.Auth.ProjectDomainName, "Default"),
-					},
-				},
-			},
+			"scope": map[string]any{"project": projectScope},
 		},
 	}
 	b, _ := json.Marshal(body)
@@ -333,7 +386,7 @@ func fetchImageDetails(token string, cloud cloudEntry, endpoints endpointMap) ([
 	if base == "" {
 		return nil, fmt.Errorf("image endpoint not found")
 	}
-	u := withPath(base, "/v2/images")
+	u := withPath(base, "/v2/images?limit=1000")
 	body, err := doGet(token, u)
 	if err != nil {
 		return nil, err
@@ -376,7 +429,7 @@ func fetchFlavorDetails(token string, cloud cloudEntry, endpoints endpointMap) (
 	if base == "" {
 		return nil, fmt.Errorf("compute endpoint not found")
 	}
-	u := withPath(base, "/v2.1/flavors/detail")
+	u := withPath(base, "/v2.1/flavors/detail?limit=1000")
 	body, err := doGet(token, u)
 	if err != nil {
 		return nil, err
@@ -415,7 +468,7 @@ func fetchNetworkDetails(token string, cloud cloudEntry, endpoints endpointMap) 
 	if base == "" {
 		return nil, fmt.Errorf("network endpoint not found")
 	}
-	u := withPath(base, "/v2.0/networks")
+	u := withPath(base, "/v2.0/networks?limit=1000")
 	body, err := doGet(token, u)
 	if err != nil {
 		return nil, err
@@ -495,7 +548,7 @@ func fetchSecurityGroupDetails(token string, cloud cloudEntry, endpoints endpoin
 	if base == "" {
 		return nil, fmt.Errorf("network endpoint not found")
 	}
-	u := withPath(base, "/v2.0/security-groups")
+	u := withPath(base, "/v2.0/security-groups?limit=1000")
 	body, err := doGet(token, u)
 	if err != nil {
 		return nil, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,9 +15,11 @@ import (
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
 	"github.com/swlee3306/infra-orch-studio/internal/executor"
+	"github.com/swlee3306/infra-orch-studio/internal/provider"
 	"github.com/swlee3306/infra-orch-studio/internal/renderer"
 	"github.com/swlee3306/infra-orch-studio/internal/runtimecheck"
 	storemysql "github.com/swlee3306/infra-orch-studio/internal/storage/mysql"
+	"github.com/swlee3306/infra-orch-studio/internal/validation"
 )
 
 type runnerEnvironmentStore interface {
@@ -24,6 +27,10 @@ type runnerEnvironmentStore interface {
 	GetEnvironment(context.Context, string) (domain.Environment, error)
 	UpdateEnvironment(context.Context, domain.Environment) (domain.Environment, error)
 	CreateAuditEvent(context.Context, domain.AuditEvent) (domain.AuditEvent, error)
+}
+
+type runnerProviderStore interface {
+	ListProviderConnections(context.Context) ([]domain.ProviderConnection, error)
 }
 
 func main() {
@@ -35,25 +42,18 @@ func main() {
 	templateName := env("TEMPLATE_NAME", "basic")
 	tofuBin := env("TOFU_BIN", "tofu")
 	mysqlCfg := storemysql.Config{
-		Host:     env("MYSQL_HOST", ""),
-		Port:     env("MYSQL_PORT", "3306"),
-		Database: env("MYSQL_DB", ""),
-		User:     env("MYSQL_USER", ""),
-		Password: env("MYSQL_PASSWORD", ""),
-		MySQLBin: env("MYSQL_BIN", "mysql"),
+		Host:              env("MYSQL_HOST", ""),
+		Port:              env("MYSQL_PORT", "3306"),
+		Database:          env("MYSQL_DB", ""),
+		User:              env("MYSQL_USER", ""),
+		Password:          env("MYSQL_PASSWORD", ""),
+		MySQLBin:          env("MYSQL_BIN", "mysql"),
+		ProviderSecretKey: os.Getenv("PROVIDER_SECRET_KEY"),
 	}
 
 	// OpenStack provider auth (clouds.yaml): forwarded to tofu via env vars.
 	osCloud := env("OPENSTACK_CLOUD", "")
 	osConfigPath := env("OPENSTACK_CONFIG_PATH", "")
-
-	// Also set process env for safety: some providers/tools read directly from OS_*.
-	if osCloud != "" {
-		_ = os.Setenv("OS_CLOUD", osCloud)
-	}
-	if osConfigPath != "" {
-		_ = os.Setenv("OS_CLIENT_CONFIG_FILE", osConfigPath)
-	}
 
 	if err := os.MkdirAll(workdirsRoot, 0o755); err != nil {
 		log.Fatalf("mkdir: %v", err)
@@ -74,18 +74,12 @@ func main() {
 	defer t.Stop()
 
 	exec := executor.CommandExecutor{TofuBin: tofuBin}
-	if osCloud != "" {
-		if exec.Env == nil {
-			exec.Env = map[string]string{}
-		}
-		exec.Env["OS_CLOUD"] = osCloud
+	checkCtx, cancelCheck := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := exec.CheckAvailable(checkCtx); err != nil {
+		cancelCheck()
+		log.Fatalf("check tofu executable: %v", err)
 	}
-	if osConfigPath != "" {
-		if exec.Env == nil {
-			exec.Env = map[string]string{}
-		}
-		exec.Env["OS_CLIENT_CONFIG_FILE"] = osConfigPath
-	}
+	cancelCheck()
 
 	for range t.C {
 		job, ok, err := store.ClaimNextQueuedJob(context.Background())
@@ -98,6 +92,13 @@ func main() {
 		}
 
 		log.Printf("claimed job id=%s type=%s", job.ID, job.Type)
+
+		resolvedCloud, resolvedConfigPath, err := resolveOpenStackProvider(context.Background(), store, workdirsRoot, osCloud, osConfigPath)
+		if err != nil {
+			failJob(store, job, "resolve openstack provider: "+err.Error())
+			continue
+		}
+		configureOpenStackEnv(&exec, resolvedCloud, resolvedConfigPath)
 
 		if job.Type == domain.JobTypeApply {
 			if job.SourceJobID == "" {
@@ -160,41 +161,62 @@ func main() {
 			continue
 		}
 
-		vars, err := renderer.RenderEnvironmentVars(job.Environment)
-		if err != nil {
-			failJob(store, job, err.Error())
-			continue
-		}
-
-		varsPayload := map[string]any{
-			"environment_name": vars.EnvironmentName,
-			"network":          vars.Network,
-			"subnet":           vars.Subnet,
-			"instances":        vars.Instances,
-		}
-
 		effectiveTemplateName := job.TemplateName
 		if effectiveTemplateName == "" {
 			effectiveTemplateName = templateName
 		}
-		wd, err := renderer.CreateWorkdir(renderer.WorkdirConfig{TemplatesRoot: templatesRoot, ModulesRoot: modulesRoot, WorkdirsRoot: workdirsRoot}, effectiveTemplateName, job.ID, varsPayload)
-		if err != nil {
-			failJob(store, job, err.Error())
-			continue
-		}
 		job.TemplateName = effectiveTemplateName
-		job.Workdir = wd.Dir
-		job.LogDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
-		job.Error = ""
-		job.UpdatedAt = time.Now().UTC()
-		if _, err := store.UpdateJob(context.Background(), job); err != nil {
-			log.Printf("persist workdir metadata failed: id=%s err=%v", job.ID, err)
-			continue
+
+		if job.Operation == domain.EnvironmentOperationDestroy {
+			job, err = prepareDestroyPlanJob(context.Background(), store, job)
+			if err != nil {
+				failJob(store, job, err.Error())
+				continue
+			}
+		} else {
+			job.Environment = validation.NormalizeEnvironmentSpec(job.Environment)
+			if err := validation.ValidateEnvironmentSpec(job.Environment); err != nil {
+				failJob(store, job, err.Error())
+				continue
+			}
+			vars, err := renderer.RenderEnvironmentVars(job.Environment)
+			if err != nil {
+				failJob(store, job, err.Error())
+				continue
+			}
+
+			varsPayload := map[string]any{
+				"environment_name": vars.EnvironmentName,
+				"network":          vars.Network,
+				"subnet":           vars.Subnet,
+				"instances":        vars.Instances,
+			}
+
+			wd, err := renderer.CreateWorkdir(renderer.WorkdirConfig{TemplatesRoot: templatesRoot, ModulesRoot: modulesRoot, WorkdirsRoot: workdirsRoot}, effectiveTemplateName, job.ID, varsPayload)
+			if err != nil {
+				failJob(store, job, err.Error())
+				continue
+			}
+			job.Workdir = wd.Dir
+			job.LogDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
+			job.Error = ""
+			job.UpdatedAt = time.Now().UTC()
+			if _, err := store.UpdateJob(context.Background(), job); err != nil {
+				log.Printf("persist workdir metadata failed: id=%s err=%v", job.ID, err)
+				continue
+			}
 		}
 
 		initRes, err := exec.Init(context.Background(), job.Workdir)
 		if err != nil {
 			log.Printf("init command failed: id=%s exit=%d stderr=%s", job.ID, initRes.ExitCode, strings.TrimSpace(string(initRes.Stderr)))
+			failJob(store, job, err.Error())
+			continue
+		}
+
+		validateRes, err := exec.Validate(context.Background(), job.Workdir)
+		if err != nil {
+			log.Printf("validate command failed: id=%s exit=%d stderr=%s", job.ID, validateRes.ExitCode, strings.TrimSpace(string(validateRes.Stderr)))
 			failJob(store, job, err.Error())
 			continue
 		}
@@ -234,6 +256,28 @@ func main() {
 	}
 }
 
+func prepareDestroyPlanJob(ctx context.Context, store runnerEnvironmentStore, job domain.Job) (domain.Job, error) {
+	if job.EnvironmentID == "" {
+		return job, fmt.Errorf("destroy plan job missing environment_id")
+	}
+	env, err := store.GetEnvironment(ctx, job.EnvironmentID)
+	if err != nil {
+		return job, fmt.Errorf("load environment for destroy plan: %w", err)
+	}
+	if strings.TrimSpace(env.Workdir) == "" {
+		return job, fmt.Errorf("destroy plan requires an existing applied workdir")
+	}
+	job.Workdir = env.Workdir
+	job.LogDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
+	job.Error = ""
+	job.UpdatedAt = time.Now().UTC()
+	updated, err := store.UpdateJob(ctx, job)
+	if err != nil {
+		return job, fmt.Errorf("persist destroy plan metadata: %w", err)
+	}
+	return updated, nil
+}
+
 func envDuration(key string, def time.Duration) time.Duration {
 	if v := os.Getenv(key); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
@@ -250,10 +294,99 @@ func env(key, def string) string {
 	return def
 }
 
+func resolveOpenStackProvider(ctx context.Context, store runnerProviderStore, workdirsRoot, cloudName, configPath string) (string, string, error) {
+	items, err := store.ListProviderConnections(ctx)
+	if err != nil {
+		return cloudName, configPath, err
+	}
+	selected, ok, err := selectProviderConnection(items, cloudName)
+	if err != nil {
+		return "", "", err
+	}
+	if ok {
+		return exportProviderConnection(workdirsRoot, selected)
+	}
+	if strings.TrimSpace(configPath) != "" {
+		if _, err := os.Stat(configPath); err == nil {
+			return cloudName, configPath, nil
+		}
+	}
+	return cloudName, configPath, nil
+}
+
+func selectProviderConnection(items []domain.ProviderConnection, cloudName string) (domain.ProviderConnection, bool, error) {
+	if len(items) == 0 {
+		return domain.ProviderConnection{}, false, nil
+	}
+	if strings.TrimSpace(cloudName) == "" {
+		return items[0], true, nil
+	}
+	for _, item := range items {
+		if item.Name == cloudName {
+			return item, true, nil
+		}
+	}
+	return domain.ProviderConnection{}, false, nil
+}
+
+func exportProviderConnection(workdirsRoot string, selected domain.ProviderConnection) (string, string, error) {
+	if strings.TrimSpace(selected.Name) == "" {
+		return "", "", fmt.Errorf("provider connection name is empty")
+	}
+	payload, err := provider.ExportCloudsYAML([]provider.CloudConfig{{
+		Name:              selected.Name,
+		RegionName:        selected.RegionName,
+		Interface:         selected.Interface,
+		IdentityInterface: selected.IdentityInterface,
+		EndpointOverride:  selected.EndpointOverride,
+		Auth: provider.CloudAuth{
+			AuthURL:           selected.AuthURL,
+			Username:          selected.Username,
+			Password:          selected.Password,
+			ProjectName:       selected.ProjectName,
+			ProjectID:         selected.ProjectID,
+			UserDomainName:    selected.UserDomainName,
+			ProjectDomainName: selected.ProjectDomainName,
+		},
+	}})
+	if err != nil {
+		return "", "", err
+	}
+	outPath := filepath.Join(workdirsRoot, ".infra-orch", "provider", "clouds.yaml")
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o700); err != nil {
+		return "", "", err
+	}
+	if err := os.WriteFile(outPath, payload, 0o600); err != nil {
+		return "", "", err
+	}
+	return selected.Name, outPath, nil
+}
+
+func configureOpenStackEnv(exec *executor.CommandExecutor, cloudName, configPath string) {
+	if exec.Env == nil {
+		exec.Env = map[string]string{}
+	}
+	if strings.TrimSpace(cloudName) != "" {
+		exec.Env["OS_CLOUD"] = cloudName
+		_ = os.Setenv("OS_CLOUD", cloudName)
+	} else {
+		delete(exec.Env, "OS_CLOUD")
+		_ = os.Unsetenv("OS_CLOUD")
+	}
+	if strings.TrimSpace(configPath) != "" {
+		exec.Env["OS_CLIENT_CONFIG_FILE"] = configPath
+		_ = os.Setenv("OS_CLIENT_CONFIG_FILE", configPath)
+	} else {
+		delete(exec.Env, "OS_CLIENT_CONFIG_FILE")
+		_ = os.Unsetenv("OS_CLIENT_CONFIG_FILE")
+	}
+}
+
 func failJob(store runnerEnvironmentStore, job domain.Job, message string) {
 	job.Status = domain.JobStatusFailed
 	job.Error = message
 	job.UpdatedAt = time.Now().UTC()
+	writeRunnerErrorLog(job, message, job.UpdatedAt)
 	_, _ = store.UpdateJob(context.Background(), job)
 	if job.EnvironmentID == "" {
 		return
@@ -293,6 +426,24 @@ func failJob(store runnerEnvironmentStore, job domain.Job, message string) {
 			metadata["current_last_job"] = current.LastJobID
 		}
 		recordSystemAudit(store, "environment", env.ID, "job.failed_conflict", "runner detected concurrent environment update while handling failed job", metadata)
+	}
+}
+
+func writeRunnerErrorLog(job domain.Job, message string, now time.Time) {
+	logDir := job.LogDir
+	if logDir == "" && job.Workdir != "" {
+		logDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
+	}
+	if logDir == "" {
+		return
+	}
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		log.Printf("create runner error log dir failed: job=%s err=%v", job.ID, err)
+		return
+	}
+	line := now.Format(time.RFC3339) + " runner error: " + message + "\n"
+	if err := os.WriteFile(filepath.Join(logDir, "runner.error.log"), []byte(line), 0o600); err != nil {
+		log.Printf("write runner error log failed: job=%s err=%v", job.ID, err)
 	}
 }
 

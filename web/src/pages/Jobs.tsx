@@ -71,6 +71,7 @@ export default function JobsPage() {
       ),
     [items],
   )
+  const runnerMayBeIdle = counts.queued > 0 && counts.running === 0
 
   useEffect(() => {
     load()
@@ -178,6 +179,17 @@ export default function JobsPage() {
       {error ? (
         <section className="panel error-box" style={{ marginTop: 18 }}>
           {summarizeOperatorError(error)}
+        </section>
+      ) : null}
+
+      {runnerMayBeIdle ? (
+        <section className="callout callout-warning" style={{ marginTop: 18 }}>
+          <strong>{ko ? '대기 중인 job이 runner를 기다리고 있습니다.' : 'Queued jobs are waiting for a runner.'}</strong>
+          <p style={{ margin: '6px 0 0' }}>
+            {ko
+              ? 'runner 프로세스 또는 Pod가 실행 중인지, MySQL 연결과 공유 workdir PVC가 정상인지 확인하세요.'
+              : 'Check that the runner process or pod is running, and that MySQL connectivity and the shared workdir PVC are healthy.'}
+          </p>
         </section>
       ) : null}
 

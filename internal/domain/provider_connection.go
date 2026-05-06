@@ -11,6 +11,7 @@ type ProviderConnection struct {
 	Username          string
 	Password          string
 	ProjectName       string
+	ProjectID         string
 	UserDomainName    string
 	ProjectDomainName string
 	EndpointOverride  map[string]string

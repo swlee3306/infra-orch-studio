@@ -24,6 +24,7 @@ type fakeStore struct {
 	sessions     map[string]domain.Session
 	jobs         map[string]domain.Job
 	environments map[string]domain.Environment
+	providers    map[string]domain.ProviderConnection
 	audits       []domain.AuditEvent
 
 	failAudit       bool
@@ -37,6 +38,7 @@ func newFakeStore() *fakeStore {
 		sessions:     map[string]domain.Session{},
 		jobs:         map[string]domain.Job{},
 		environments: map[string]domain.Environment{},
+		providers:    map[string]domain.ProviderConnection{},
 		audits:       []domain.AuditEvent{},
 	}
 }
@@ -409,6 +411,34 @@ func (f *fakeStore) DeleteSessionsByUserID(_ context.Context, userID string) err
 		}
 	}
 	return nil
+}
+
+func (f *fakeStore) ListProviderConnections(_ context.Context) ([]domain.ProviderConnection, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]domain.ProviderConnection, 0, len(f.providers))
+	for _, item := range f.providers {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+func (f *fakeStore) GetProviderConnection(_ context.Context, name string) (domain.ProviderConnection, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	item, ok := f.providers[name]
+	if !ok {
+		return domain.ProviderConnection{}, storage.ErrNotFound
+	}
+	return item, nil
+}
+
+func (f *fakeStore) UpsertProviderConnection(_ context.Context, conn domain.ProviderConnection) (domain.ProviderConnection, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.providers[conn.Name] = conn
+	return conn, nil
 }
 
 func mustHashPassword(t interface{ Fatalf(string, ...any) }, password string) string {

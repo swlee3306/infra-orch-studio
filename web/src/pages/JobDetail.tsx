@@ -76,9 +76,21 @@ export default function JobDetailPage() {
 
     if (!jobId) return
     try {
-      const nextJob = await jobs.get(jobId)
+      const [nextJob, logSnapshot] = await Promise.all([
+        jobs.get(jobId),
+        jobs.logs(jobId).catch(() => null),
+      ])
       setJob(nextJob)
       setStatus(nextJob.status)
+      if (logSnapshot) {
+        setLogs(
+          logSnapshot.items.map((item) => ({
+            id: `snapshot-${item.file}-${item.offset}`,
+            file: item.file,
+            message: item.truncated ? `... log truncated to latest content ...\n${item.message}` : item.message,
+          })),
+        )
+      }
     } catch (err: any) {
       setError(err?.message || 'failed')
     }

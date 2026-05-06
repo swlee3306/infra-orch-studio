@@ -63,14 +63,22 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
       .replace('Environment name is required.', '환경 이름은 필수입니다.')
       .replace('Network name is required.', '네트워크 이름은 필수입니다.')
       .replace('Network CIDR is required.', '네트워크 CIDR은 필수입니다.')
+      .replace('Network CIDR must be a valid IPv4 CIDR.', '네트워크 CIDR은 올바른 IPv4 CIDR이어야 합니다.')
       .replace('Subnet name is required.', '서브넷 이름은 필수입니다.')
       .replace('Subnet CIDR is required.', '서브넷 CIDR은 필수입니다.')
+      .replace('Subnet CIDR must be a valid IPv4 CIDR.', '서브넷 CIDR은 올바른 IPv4 CIDR이어야 합니다.')
+      .replace('Subnet CIDR must be within network CIDR.', '서브넷 CIDR은 네트워크 CIDR 범위 안에 있어야 합니다.')
+      .replace('Gateway IP must be a valid IPv4 address.', '게이트웨이 IP는 올바른 IPv4 주소여야 합니다.')
+      .replace('Gateway IP must be within subnet CIDR.', '게이트웨이 IP는 서브넷 CIDR 범위 안에 있어야 합니다.')
       .replace('At least one instance definition is required.', '인스턴스 정의가 최소 하나는 필요합니다.')
       .replace('The current product scope supports up to two instance groups.', '현재 제품 범위에서는 인스턴스 그룹을 최대 두 개까지 지원합니다.')
       .replace('Instance name is required.', '인스턴스 이름은 필수입니다.')
       .replace('Image is required.', '이미지는 필수입니다.')
       .replace('Flavor is required.', '플레이버는 필수입니다.')
       .replace('Count must be at least 1.', '수량은 최소 1 이상이어야 합니다.')
+      .replace('Count must be at most 2.', '수량은 최대 2까지 가능합니다.')
+      .replace('SSH key name must not be blank.', 'SSH 키 이름은 공백만 입력할 수 없습니다.')
+      .replace('The current product scope supports up to two total instances.', '현재 제품 범위에서는 전체 인스턴스를 최대 두 개까지 지원합니다.')
       .replace('Remove empty security group values before review.', '검토 전에 비어 있는 보안 그룹 값을 제거하세요.')
   }
 
@@ -135,6 +143,7 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
               <label className="field">
                 <span>{ko ? '게이트웨이 IP' : 'Gateway IP'}</span>
                 <input value={value.subnet.gateway_ip || ''} onChange={(e) => setSubnet({ gateway_ip: e.target.value })} />
+                {errors['subnet.gateway_ip'] ? <small className="field-error">{localizeError(errors['subnet.gateway_ip'])}</small> : null}
               </label>
             </div>
             <label className="checkbox">
@@ -206,7 +215,7 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
                   </label>
                 </div>
                 <div className="grid-two">
-                  <label className="field">
+                  <label className={fieldClass(`instances[${index}].ssh_key_name`)}>
                     <span>{ko ? 'SSH 키 이름' : 'SSH key name'}</span>
                     {keyPairOptions.length ? (
                       <select value={item.ssh_key_name || ''} onChange={(e) => setInstance(index, { ssh_key_name: e.target.value || undefined })}>
@@ -223,6 +232,7 @@ export default function EnvironmentSpecForm({ value, onChange, sections, errors 
                         onChange={(e) => setInstance(index, { ssh_key_name: e.target.value })}
                       />
                     )}
+                    {errors[`instances[${index}].ssh_key_name`] ? <small className="field-error">{localizeError(errors[`instances[${index}].ssh_key_name`])}</small> : null}
                   </label>
                   <label className={fieldClass(`instances[${index}].count`)}>
                     <span>{ko ? '수량' : 'Count'}</span>
