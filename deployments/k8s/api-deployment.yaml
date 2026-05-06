@@ -27,6 +27,12 @@ spec:
               value: ":8080"
             - name: MYSQL_BIN
               value: "mysql"
+            - name: WORKDIRS_ROOT
+              value: "/workdirs"
+          volumeMounts:
+            - name: workdirs
+              mountPath: /workdirs
+              readOnly: true
           ports:
             - containerPort: 8080
           readinessProbe:
@@ -48,3 +54,7 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      volumes:
+        - name: workdirs
+          persistentVolumeClaim:
+            claimName: infra-orch-workdirs

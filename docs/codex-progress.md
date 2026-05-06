@@ -603,6 +603,8 @@ Verification:
 - Pushed `efa313f` to `origin/main`; `api-ci` and `web-ci` reached image build but failed because the self-hosted runner user could not access `/var/run/docker.sock` without sudo.
 - Pushed `ae5440e` to `origin/main`; `CI`, `api-ci`, and `web-ci` completed successfully, and the prod overlay advanced API/runner/web images to tag `ae5440e`.
 - Confirmed Kubernetes deployments are ready on tag `ae5440e` for API, runner, and web.
+- Ran a real existing-provider OpenStack smoke against the deployed API. Provider preflight/resource discovery succeeded and a plan job completed, but `/api/jobs/{id}/logs` returned zero items because API pods did not mount the runner workdir PVC.
+- Mounted `infra-orch-workdirs` read-only into API deployments in both `k8s/app/base/deployment.yaml` and `deployments/k8s/api-deployment.yaml` so job logs and WebSocket log streaming can read runner-produced log files.
 
 Remaining TODO:
 - Run `make smoke-openstack-apply` or `make smoke-openstack-existing-provider` successfully against a valid OpenStack target.
