@@ -605,6 +605,14 @@ Verification:
 - Confirmed Kubernetes deployments are ready on tag `ae5440e` for API, runner, and web.
 - Ran a real existing-provider OpenStack smoke against the deployed API. Provider preflight/resource discovery succeeded and a plan job completed, but `/api/jobs/{id}/logs` returned zero items because API pods did not mount the runner workdir PVC.
 - Mounted `infra-orch-workdirs` read-only into API deployments in both `k8s/app/base/deployment.yaml` and `deployments/k8s/api-deployment.yaml` so job logs and WebSocket log streaming can read runner-produced log files.
+- Re-ran the existing-provider OpenStack smoke successfully through plan, admin approval, apply, destroy plan, destroy approval, destroy apply, and final log checks against the deployed API/runner.
+- Verified `/api/jobs/{id}/logs` reads runner-produced log files after the API workdir PVC mount rollout.
+- Verified WebSocket log streaming over an SSH tunnel using local `cmd/ws-smoke` against the deployed API.
+- Updated `cmd/ws-smoke` to reuse the login session cookie as an explicit WebSocket `Cookie` header when a secure cookie is not available from the local HTTP cookie jar, matching the internal service smoke path.
+- Split runner log output into per-job log directories under `.infra-orch/logs/{job_id}` so apply and destroy jobs sharing one workdir no longer overwrite or expose each other's `tofu-apply` log files.
+- `GOCACHE=/private/tmp/infra-orch-go-build go test ./cmd/runner ./internal/executor ./cmd/ws-smoke ./internal/api`
+- `GOCACHE=/private/tmp/infra-orch-go-build go test ./...`
+- `npm run build` in `web/`
 
 Remaining TODO:
-- Run `make smoke-openstack-apply` or `make smoke-openstack-existing-provider` successfully against a valid OpenStack target.
+- None.

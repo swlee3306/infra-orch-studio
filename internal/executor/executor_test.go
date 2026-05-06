@@ -140,3 +140,24 @@ esac
 		t.Fatalf("validate stdout log missing: %v", err)
 	}
 }
+
+func TestCommandExecutorUsesCustomLogDir(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "tofu")
+	if err := os.WriteFile(bin, []byte("#!/usr/bin/env bash\necho validate ok\n"), 0o755); err != nil {
+		t.Fatalf("write fake tofu: %v", err)
+	}
+	workdir := t.TempDir()
+	logDir := filepath.Join(t.TempDir(), "job-logs")
+	exec := CommandExecutor{TofuBin: bin, LogDir: logDir}
+
+	if _, err := exec.Validate(context.Background(), workdir); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(logDir, "tofu-validate.stdout.log")); err != nil {
+		t.Fatalf("validate stdout log missing from custom log dir: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workdir, ".infra-orch", "logs", "tofu-validate.stdout.log")); !os.IsNotExist(err) {
+		t.Fatalf("default log dir should not contain validate log, err=%v", err)
+	}
+}

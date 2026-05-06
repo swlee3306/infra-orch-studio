@@ -50,11 +50,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	client, err := login(ctx, normalizedAPIBase, emailValue, *password)
+	client, sessionCookieHeader, err := login(ctx, normalizedAPIBase, emailValue, *password)
 	if err != nil {
 		log.Fatalf("login: %v", err)
 	}
-	if err := subscribeOnce(ctx, client, normalizedAPIBase, jobIDValue, requiredEventValue); err != nil {
+	if err := subscribeOnce(ctx, client, sessionCookieHeader, normalizedAPIBase, jobIDValue, requiredEventValue); err != nil {
 		log.Fatalf("websocket smoke: %v", err)
 	}
 	log.Printf("websocket smoke ok job_id=%s required_event=%s", jobIDValue, requiredEventValue)
@@ -91,36 +91,47 @@ func normalizeRequiredEvent(value string) (string, error) {
 	return value, nil
 }
 
-func login(ctx context.Context, apiBase, email, password string) (*http.Client, error) {
+func login(ctx context.Context, apiBase, email, password string) (*http.Client, string, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	client := &http.Client{Jar: jar}
 	payload, _ := json.Marshal(map[string]string{"email": email, "password": password})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(apiBase, "/")+"/auth/login", bytes.NewReader(payload))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	req.Header.Set("content-type", "application/json")
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(res.Body, 4096))
-		return nil, fmt.Errorf("status=%d body=%s", res.StatusCode, strings.TrimSpace(string(body)))
+		return nil, "", fmt.Errorf("status=%d body=%s", res.StatusCode, strings.TrimSpace(string(body)))
 	}
-	return client, nil
+	return client, firstSessionCookieHeader(res.Header.Values("Set-Cookie")), nil
 }
 
-func subscribeOnce(ctx context.Context, client *http.Client, apiBase, jobID, requiredEvent string) error {
+func firstSessionCookieHeader(values []string) string {
+	for _, value := range values {
+		parts := strings.SplitN(value, ";", 2)
+		cookie := strings.TrimSpace(parts[0])
+		if cookie != "" {
+			return cookie
+		}
+	}
+	return ""
+}
+
+func subscribeOnce(ctx context.Context, client *http.Client, sessionCookieHeader, apiBase, jobID, requiredEvent string) error {
 	wsURL, err := websocketURL(apiBase)
 	if err != nil {
 		return err
 	}
-	conn, rw, err := dialWebSocket(ctx, client, wsURL)
+	conn, rw, err := dialWebSocket(ctx, client, sessionCookieHeader, wsURL)
 	if err != nil {
 		return err
 	}
@@ -170,7 +181,7 @@ func websocketURL(apiBase string) (*url.URL, error) {
 	return u, nil
 }
 
-func dialWebSocket(ctx context.Context, client *http.Client, wsURL *url.URL) (net.Conn, *bufio.ReadWriter, error) {
+func dialWebSocket(ctx context.Context, client *http.Client, sessionCookieHeader string, wsURL *url.URL) (net.Conn, *bufio.ReadWriter, error) {
 	host := wsURL.Host
 	address := host
 	if !strings.Contains(host, ":") {
@@ -202,6 +213,9 @@ func dialWebSocket(ctx context.Context, client *http.Client, wsURL *url.URL) (ne
 	}
 	key := base64.StdEncoding.EncodeToString(keyBytes)
 	cookieHeader := cookiesFor(client, wsURL)
+	if cookieHeader == "" {
+		cookieHeader = sessionCookieHeader
+	}
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	request := "GET /ws HTTP/1.1\r\n" +
