@@ -23,6 +23,9 @@ web/dist/
 configs/local.*
 *.env
 
+# CI may stage a transient OpenTofu binary before docker build.
+hack/tofu
+
 # runtime data
 workdirs/
 logs/

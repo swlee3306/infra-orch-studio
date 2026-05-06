@@ -29,15 +29,21 @@ RUN apt-get -o Acquire::ForceIPv4=true update \
   && rm -rf /var/lib/apt/lists/*
 
 # OpenTofu is required by the runner image path.
+COPY hack /tmp/hack
 RUN target_arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
   && case "${target_arch}" in \
     amd64|arm64) tofu_arch="${target_arch}" ;; \
     *) echo "unsupported TARGETARCH=${target_arch}" >&2; exit 1 ;; \
   esac \
-  && curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL -o /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_${tofu_arch}.zip" \
-  && unzip -q /tmp/tofu.zip -d /usr/local/bin tofu \
-  && chmod +x /usr/local/bin/tofu \
+  && if [ -x /tmp/hack/tofu ]; then \
+    install -m 0755 /tmp/hack/tofu /usr/local/bin/tofu; \
+  else \
+    curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL -o /tmp/tofu.zip "https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_${tofu_arch}.zip" \
+    && unzip -q /tmp/tofu.zip -d /usr/local/bin tofu \
+    && chmod +x /usr/local/bin/tofu; \
+  fi \
   && rm -f /tmp/tofu.zip \
+  && rm -rf /tmp/hack \
   && tofu version
 
 COPY --from=build /out/infra-orch-api /app/infra-orch-api

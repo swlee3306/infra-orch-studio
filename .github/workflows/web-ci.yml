@@ -34,12 +34,12 @@ jobs:
       - name: Build web image
         shell: bash
         run: |
-          docker build --build-arg VITE_API_URL=/api -t "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}" ./web
+          sudo -n docker build --build-arg VITE_API_URL=/api -t "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}" ./web
 
       - name: Push web image
         shell: bash
         run: |
-          docker push "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}"
+          sudo -n docker push "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}"
 
       - name: Update kustomize overlay tag
         shell: bash

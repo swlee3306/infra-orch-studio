@@ -59,12 +59,12 @@ jobs:
       - name: Build api/runner image
         shell: bash
         run: |
-          docker build -t "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}" .
+          sudo -n docker build -t "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}" .
 
       - name: Push api/runner image
         shell: bash
         run: |
-          docker push "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}"
+          sudo -n docker push "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}"
 
       - name: Update kustomize overlay tag
         shell: bash
