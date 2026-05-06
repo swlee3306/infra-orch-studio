@@ -14,7 +14,7 @@ images:
   newTag: "ae5440e"
 - name: 10.10.0.190:32000/infra-orch-web
   newName: 10.10.0.190:32000/infra-orch-web
-  newTag: "f3c4382"
+  newTag: "ae5440e"
 
 replicas:
   - name: infra-orch-api
