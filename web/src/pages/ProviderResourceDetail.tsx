@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { auth, ProviderCatalog, ProviderResourceDetail, providers } from '../api'
 import { useI18n } from '../i18n'
+import { isSafeProviderName } from '../utils/providerNames'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 type ResourceType = 'images' | 'flavors' | 'networks' | 'security_groups' | 'key_pairs' | 'instances'
@@ -48,7 +49,7 @@ export default function ProviderResourceDetailPage() {
   const [busy, setBusy] = useState(false)
 
   async function load() {
-    if (!providerName) {
+    if (!providerName || !isSafeProviderName(providerName)) {
       nav('/providers')
       return
     }

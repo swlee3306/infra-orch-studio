@@ -198,10 +198,12 @@ func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request, user
 			writeError(w, http.StatusBadRequest, "invalid json")
 			return
 		}
-		if err := validateEnvironmentSpecForMutation(req.Spec); err != nil {
+		normalizedSpec, err := normalizeAndValidateEnvironmentSpecForMutation(req.Spec)
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		req.Spec = normalizedSpec
 
 		now := time.Now().UTC()
 		env := domain.Environment{
@@ -351,10 +353,12 @@ func (s *Server) handleEnvironmentPlan(w http.ResponseWriter, r *http.Request, u
 	if req.Spec != nil {
 		env.Spec = *req.Spec
 	}
-	if err := validateEnvironmentSpecForMutation(env.Spec); err != nil {
+	normalizedSpec, err := normalizeAndValidateEnvironmentSpecForMutation(env.Spec)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	env.Spec = normalizedSpec
 	operation := req.Operation
 	if operation == "" {
 		operation = defaultEnvironmentPlanOperation(env)
@@ -532,6 +536,12 @@ func (s *Server) handleEnvironmentApply(w http.ResponseWriter, r *http.Request, 
 		writeError(w, code, msg)
 		return
 	}
+	normalizedSpec, err := normalizeAndValidateEnvironmentSpecForMutation(env.Spec)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	env.Spec = normalizedSpec
 	planJob, err := s.jobs.GetJob(r.Context(), env.LastPlanJobID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "load plan job failed")
@@ -650,6 +660,7 @@ func (s *Server) handleEnvironmentRetry(w http.ResponseWriter, r *http.Request, 
 	}
 	now := time.Now().UTC()
 	retryJob := lastJob
+	retryJob.Environment = validation.NormalizeEnvironmentSpec(retryJob.Environment)
 	retryJob.ID = uuid.NewString()
 	retryJob.Status = domain.JobStatusQueued
 	retryJob.CreatedAt = now
@@ -744,9 +755,12 @@ func (s *Server) handleEnvironmentDestroy(w http.ResponseWriter, r *http.Request
 		return
 	}
 	now := time.Now().UTC()
+	appliedWorkdir := env.Workdir
+	env.Spec = validation.NormalizeEnvironmentSpec(env.Spec)
 	env.Operation = domain.EnvironmentOperationDestroy
 	env.Status = domain.EnvironmentStatusPlanning
 	resetEnvironmentAttemptState(&env)
+	env.Workdir = appliedWorkdir
 	bumpEnvironmentRevision(&env)
 	env.UpdatedAt = now
 	job := newEnvironmentPlanJob(env, "", user.Email, now)
@@ -900,10 +914,16 @@ func newEnvironmentPlanJob(env domain.Environment, templateName, requestedBy str
 }
 
 func validateEnvironmentSpecForMutation(spec domain.EnvironmentSpec) error {
+	_, err := normalizeAndValidateEnvironmentSpecForMutation(spec)
+	return err
+}
+
+func normalizeAndValidateEnvironmentSpecForMutation(spec domain.EnvironmentSpec) (domain.EnvironmentSpec, error) {
+	spec = validation.NormalizeEnvironmentSpec(spec)
 	if err := validation.ValidateEnvironmentSpec(spec); err != nil {
-		return err
+		return domain.EnvironmentSpec{}, err
 	}
-	return validateEnvironmentSpecStrict(spec)
+	return spec, validateEnvironmentSpecStrict(spec)
 }
 
 func environmentActionID(path, action string) (string, error) {

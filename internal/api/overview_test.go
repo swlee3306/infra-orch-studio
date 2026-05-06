@@ -65,6 +65,22 @@ func TestOverviewAggregatesEnvironmentState(t *testing.T) {
 	addEnv("active-1", domain.EnvironmentStatusActive, 6*time.Hour, "")
 	addEnv("destroyed-1", domain.EnvironmentStatusDestroyed, 5*time.Hour, "")
 	addEnv("draft-1", domain.EnvironmentStatusDraft, 4*time.Hour, "")
+	addJob := func(id string, status domain.JobStatus) {
+		if _, err := store.CreateJob(nil, domain.Job{
+			ID:        id,
+			Type:      domain.JobTypePlan,
+			Status:    status,
+			CreatedAt: base,
+			UpdatedAt: base,
+		}); err != nil {
+			t.Fatalf("seed job %s: %v", id, err)
+		}
+	}
+	addJob("job-queued-1", domain.JobStatusQueued)
+	addJob("job-queued-2", domain.JobStatusQueued)
+	addJob("job-running-1", domain.JobStatusRunning)
+	addJob("job-done-1", domain.JobStatusDone)
+	addJob("job-failed-1", domain.JobStatusFailed)
 
 	failed := []domain.Environment{
 		addEnv("failed-1", domain.EnvironmentStatusFailed, 10*time.Minute, "latest failure"),
@@ -92,6 +108,11 @@ func TestOverviewAggregatesEnvironmentState(t *testing.T) {
 		Failed               int `json:"failed"`
 		Active               int `json:"active"`
 		Destroyed            int `json:"destroyed"`
+		JobsTotal            int `json:"jobs_total"`
+		JobsQueued           int `json:"jobs_queued"`
+		JobsRunning          int `json:"jobs_running"`
+		JobsDone             int `json:"jobs_done"`
+		JobsFailed           int `json:"jobs_failed"`
 		RecentFailures       []struct {
 			ID        string                   `json:"id"`
 			Name      string                   `json:"name"`
@@ -124,6 +145,21 @@ func TestOverviewAggregatesEnvironmentState(t *testing.T) {
 	}
 	if resp.Destroyed != 1 {
 		t.Fatalf("destroyed = %d, want 1", resp.Destroyed)
+	}
+	if resp.JobsTotal != 5 {
+		t.Fatalf("jobs_total = %d, want 5", resp.JobsTotal)
+	}
+	if resp.JobsQueued != 2 {
+		t.Fatalf("jobs_queued = %d, want 2", resp.JobsQueued)
+	}
+	if resp.JobsRunning != 1 {
+		t.Fatalf("jobs_running = %d, want 1", resp.JobsRunning)
+	}
+	if resp.JobsDone != 1 {
+		t.Fatalf("jobs_done = %d, want 1", resp.JobsDone)
+	}
+	if resp.JobsFailed != 1 {
+		t.Fatalf("jobs_failed = %d, want 1", resp.JobsFailed)
 	}
 	if len(resp.RecentFailures) != 5 {
 		t.Fatalf("recent_failures length = %d, want 5", len(resp.RecentFailures))

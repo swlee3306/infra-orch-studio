@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/swlee3306/infra-orch-studio/internal/domain"
+	"github.com/swlee3306/infra-orch-studio/internal/executor"
 )
 
 type fakeRunnerStore struct {
@@ -15,6 +18,14 @@ type fakeRunnerStore struct {
 	envs                  map[string]domain.Environment
 	audits                []domain.AuditEvent
 	failUpdateEnvironment bool
+}
+
+type fakeProviderStore struct {
+	items []domain.ProviderConnection
+}
+
+func (f fakeProviderStore) ListProviderConnections(context.Context) ([]domain.ProviderConnection, error) {
+	return f.items, nil
 }
 
 func newFakeRunnerStore() *fakeRunnerStore {
@@ -239,5 +250,192 @@ func TestFailJobRecordsConflictAudit(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected job.failed_conflict audit event")
+	}
+}
+
+func TestFailJobWritesRunnerErrorLog(t *testing.T) {
+	store := newFakeRunnerStore()
+	logDir := filepath.Join(t.TempDir(), "logs")
+	job := domain.Job{
+		ID:        "failed-plan",
+		Type:      domain.JobTypePlan,
+		Status:    domain.JobStatusRunning,
+		LogDir:    logDir,
+		UpdatedAt: time.Now().UTC(),
+	}
+
+	failJob(store, job, "tofu not found in PATH")
+
+	updated := store.jobs[job.ID]
+	if updated.Status != domain.JobStatusFailed {
+		t.Fatalf("status = %q, want failed", updated.Status)
+	}
+	payload, err := os.ReadFile(filepath.Join(logDir, "runner.error.log"))
+	if err != nil {
+		t.Fatalf("read runner error log: %v", err)
+	}
+	if !strings.Contains(string(payload), "tofu not found") {
+		t.Fatalf("unexpected runner error log: %s", string(payload))
+	}
+}
+
+func TestPrepareDestroyPlanJobReusesAppliedWorkdir(t *testing.T) {
+	store := newFakeRunnerStore()
+	store.envs["env-destroy"] = domain.Environment{
+		ID:      "env-destroy",
+		Workdir: "/tmp/applied-workdir",
+	}
+	job := domain.Job{
+		ID:            "destroy-plan",
+		Type:          domain.JobTypePlan,
+		Operation:     domain.EnvironmentOperationDestroy,
+		EnvironmentID: "env-destroy",
+	}
+
+	updated, err := prepareDestroyPlanJob(context.Background(), store, job)
+	if err != nil {
+		t.Fatalf("prepareDestroyPlanJob: %v", err)
+	}
+	if updated.Workdir != "/tmp/applied-workdir" {
+		t.Fatalf("workdir = %q, want applied workdir", updated.Workdir)
+	}
+	if updated.LogDir != filepath.Join("/tmp/applied-workdir", ".infra-orch", "logs") {
+		t.Fatalf("log_dir = %q", updated.LogDir)
+	}
+	if stored := store.jobs[job.ID]; stored.Workdir != "/tmp/applied-workdir" {
+		t.Fatalf("stored workdir = %q, want applied workdir", stored.Workdir)
+	}
+}
+
+func TestPrepareDestroyPlanJobRequiresAppliedWorkdir(t *testing.T) {
+	store := newFakeRunnerStore()
+	store.envs["env-destroy"] = domain.Environment{ID: "env-destroy"}
+	_, err := prepareDestroyPlanJob(context.Background(), store, domain.Job{
+		ID:            "destroy-plan",
+		Type:          domain.JobTypePlan,
+		Operation:     domain.EnvironmentOperationDestroy,
+		EnvironmentID: "env-destroy",
+	})
+	if err == nil {
+		t.Fatalf("expected missing workdir error")
+	}
+	if !strings.Contains(err.Error(), "existing applied workdir") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestResolveOpenStackProviderExportsCloudsFromProviderStore(t *testing.T) {
+	workdirsRoot := t.TempDir()
+	cloudName, configPath, err := resolveOpenStackProvider(context.Background(), fakeProviderStore{items: []domain.ProviderConnection{{
+		Name:              "demo",
+		AuthURL:           "https://openstack.example:5000/v3",
+		RegionName:        "RegionOne",
+		Interface:         "public",
+		IdentityInterface: "public",
+		Username:          "demo-user",
+		Password:          "demo-pass",
+		ProjectName:       "demo-project",
+		UserDomainName:    "Default",
+		ProjectDomainName: "Default",
+	}}}, workdirsRoot, "", "")
+	if err != nil {
+		t.Fatalf("resolveOpenStackProvider: %v", err)
+	}
+	if cloudName != "demo" {
+		t.Fatalf("cloudName = %q, want demo", cloudName)
+	}
+	payload, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read generated clouds.yaml: %v", err)
+	}
+	text := string(payload)
+	for _, want := range []string{"clouds:", "demo:", "auth_url: https://openstack.example:5000/v3", "username: demo-user", "password: demo-pass"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("generated clouds.yaml missing %q:\n%s", want, text)
+		}
+	}
+	info, err := os.Stat(configPath)
+	if err != nil {
+		t.Fatalf("stat generated clouds.yaml: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("clouds.yaml mode = %o, want 600", got)
+	}
+}
+
+func TestResolveOpenStackProviderKeepsExistingConfigPath(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "clouds.yaml")
+	if err := os.WriteFile(configPath, []byte("clouds: {}\n"), 0o600); err != nil {
+		t.Fatalf("write clouds.yaml: %v", err)
+	}
+	cloudName, gotPath, err := resolveOpenStackProvider(context.Background(), fakeProviderStore{}, t.TempDir(), "existing", configPath)
+	if err != nil {
+		t.Fatalf("resolveOpenStackProvider: %v", err)
+	}
+	if cloudName != "existing" || gotPath != configPath {
+		t.Fatalf("cloud/path = %q/%q, want existing/%q", cloudName, gotPath, configPath)
+	}
+}
+
+func TestResolveOpenStackProviderPrefersStoreOverExistingConfigPath(t *testing.T) {
+	workdirsRoot := t.TempDir()
+	configPath := filepath.Join(t.TempDir(), "clouds.yaml")
+	if err := os.WriteFile(configPath, []byte("clouds:\n  stale: {}\n"), 0o600); err != nil {
+		t.Fatalf("write clouds.yaml: %v", err)
+	}
+
+	cloudName, gotPath, err := resolveOpenStackProvider(context.Background(), fakeProviderStore{items: []domain.ProviderConnection{{
+		Name:              "demo",
+		AuthURL:           "https://openstack.example:5000/v3",
+		Username:          "demo-user",
+		Password:          "demo-pass",
+		ProjectName:       "demo-project",
+		UserDomainName:    "Default",
+		ProjectDomainName: "Default",
+	}}}, workdirsRoot, "demo", configPath)
+	if err != nil {
+		t.Fatalf("resolveOpenStackProvider: %v", err)
+	}
+	if cloudName != "demo" {
+		t.Fatalf("cloudName = %q, want demo", cloudName)
+	}
+	if gotPath == configPath {
+		t.Fatalf("got existing config path, want generated provider store clouds.yaml")
+	}
+	payload, err := os.ReadFile(gotPath)
+	if err != nil {
+		t.Fatalf("read generated clouds.yaml: %v", err)
+	}
+	if !strings.Contains(string(payload), "demo-user") {
+		t.Fatalf("generated clouds.yaml did not use provider store payload:\n%s", string(payload))
+	}
+}
+
+func TestConfigureOpenStackEnvRefreshesExecutorAndProcessEnv(t *testing.T) {
+	t.Setenv("OS_CLOUD", "stale")
+	t.Setenv("OS_CLIENT_CONFIG_FILE", "/tmp/stale-clouds.yaml")
+
+	exec := &executor.CommandExecutor{}
+	configureOpenStackEnv(exec, "demo", "/tmp/demo-clouds.yaml")
+
+	if got := exec.Env["OS_CLOUD"]; got != "demo" {
+		t.Fatalf("executor OS_CLOUD = %q, want demo", got)
+	}
+	if got := os.Getenv("OS_CLOUD"); got != "demo" {
+		t.Fatalf("process OS_CLOUD = %q, want demo", got)
+	}
+	if got := exec.Env["OS_CLIENT_CONFIG_FILE"]; got != "/tmp/demo-clouds.yaml" {
+		t.Fatalf("executor OS_CLIENT_CONFIG_FILE = %q", got)
+	}
+
+	configureOpenStackEnv(exec, "", "")
+	if _, ok := exec.Env["OS_CLOUD"]; ok {
+		t.Fatalf("executor OS_CLOUD should be unset")
+	}
+	if got := os.Getenv("OS_CLOUD"); got != "" {
+		t.Fatalf("process OS_CLOUD = %q, want empty", got)
+	}
+	if _, ok := exec.Env["OS_CLIENT_CONFIG_FILE"]; ok {
+		t.Fatalf("executor OS_CLIENT_CONFIG_FILE should be unset")
 	}
 }

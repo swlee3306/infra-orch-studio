@@ -62,6 +62,19 @@ export type JobListResponse = {
   viewer: User
 }
 
+export type JobLogItem = {
+  file: string
+  message: string
+  offset: number
+  truncated: boolean
+}
+
+export type JobLogsResponse = {
+  job_id: string
+  log_dir?: string
+  items: JobLogItem[]
+}
+
 export type Environment = {
   id: string
   name: string
@@ -172,7 +185,8 @@ export type ProviderUpsertRequest = {
   identity_interface?: string
   username: string
   password: string
-  project_name: string
+  project_name?: string
+  project_id?: string
   user_domain_name?: string
   project_domain_name?: string
   endpoint_override?: Record<string, string>
@@ -194,6 +208,15 @@ export type ProviderCatalog = {
   key_pair_details?: ProviderResourceDetail[]
   instance_details?: ProviderResourceDetail[]
   errors?: string[]
+}
+
+export type ProviderPreflight = {
+  provider: string
+  authenticated: boolean
+  endpoints: Record<string, string>
+  missing_endpoints?: string[]
+  checked_at: string
+  ready_for_plan_apply: boolean
 }
 
 export type ProviderResourceDetail = {
@@ -290,6 +313,11 @@ export type OverviewResponse = {
   failed: number
   active: number
   destroyed: number
+  jobs_total?: number
+  jobs_queued?: number
+  jobs_running?: number
+  jobs_done?: number
+  jobs_failed?: number
   recent_failures: OverviewFailure[]
 }
 
@@ -342,6 +370,7 @@ export const auth = {
 export const jobs = {
   list: (limit = 50) => req<JobListResponse>('/jobs?limit=' + limit),
   get: (id: string) => req<Job>('/jobs/' + id),
+  logs: (id: string) => req<JobLogsResponse>('/jobs/' + id + '/logs'),
   create: (environment: EnvironmentSpec, type?: string) =>
     req<Job>('/jobs', { method: 'POST', body: JSON.stringify({ type, environment }) }),
   plan: (environment: EnvironmentSpec) =>
@@ -411,6 +440,8 @@ export const providers = {
       body: JSON.stringify(payload),
     }),
   resources: (name: string) => req<ProviderCatalog>(`/providers/${encodeURIComponent(name)}/resources`),
+  preflight: (name: string) =>
+    req<ProviderPreflight>(`/providers/${encodeURIComponent(name)}/preflight`, { method: 'POST' }),
 }
 
 export const audit = {

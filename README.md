@@ -139,6 +139,21 @@ Health check:
 curl -s localhost:8080/healthz
 ```
 
+OpenStack smoke path:
+```bash
+# Copy one example env file outside tracked paths, fill real values, then run the safer gate first.
+SMOKE_ENV_FILE=/path/to/filled-openstack.env make smoke-openstack-preflight
+
+# Full Environment -> Job -> Plan -> Apply -> Log/WebSocket smoke.
+SMOKE_ENV_FILE=/path/to/filled-openstack.env make smoke-openstack-apply
+
+# If the provider already exists in the API database, use:
+SMOKE_ENV_FILE=/path/to/filled-existing-provider.env make smoke-openstack-existing-provider-preflight
+SMOKE_ENV_FILE=/path/to/filled-existing-provider.env make smoke-openstack-existing-provider
+```
+
+Templates for the private env files live in `hack/smoke-openstack.env.example` and `hack/smoke-openstack-existing-provider.env.example`.
+
 ### 2) Web UI
 
 ```bash
@@ -166,15 +181,13 @@ kustomize build k8s/app/overlays/prod | kubectl apply -f -
 
 Legacy example path:
 ```bash
-kubectl apply -f deployments/k8s/namespace.yaml
-# create mysql secret (example file is base64-encoded)
+# create runtime secrets first (example files contain placeholder values)
 kubectl apply -f deployments/k8s/secret-mysql.example.yaml
 kubectl apply -f deployments/k8s/secret-admin.example.yaml
 kubectl apply -f deployments/k8s/secret-openstack.example.yaml
 
-kubectl apply -f deployments/k8s/api-deployment.yaml -f deployments/k8s/api-service.yaml
-kubectl apply -f deployments/k8s/runner-deployment.yaml
-kubectl apply -f deployments/k8s/web-deployment.yaml -f deployments/k8s/web-service.yaml
+# apply namespace, MySQL, API, runner, web, and shared workdir PVC
+kubectl apply -k deployments/k8s
 ```
 
 Port-forward:

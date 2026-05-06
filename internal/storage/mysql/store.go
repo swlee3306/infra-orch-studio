@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
@@ -182,6 +183,7 @@ CREATE TABLE IF NOT EXISTS provider_connections (
 	username VARCHAR(255) NOT NULL,
 	password TEXT NOT NULL,
 	project_name VARCHAR(255) NOT NULL,
+	project_id VARCHAR(255) NOT NULL DEFAULT '',
 	user_domain_name VARCHAR(255) NOT NULL DEFAULT 'Default',
 	project_domain_name VARCHAR(255) NOT NULL DEFAULT 'Default',
 	endpoint_override_json LONGTEXT NOT NULL,
@@ -218,6 +220,9 @@ DELETE FROM sessions WHERE expires_at <= UTC_TIMESTAMP(6);
 	}
 	if err := s.addColumnIfMissing(ctx, "environments", "revision", "INT NOT NULL DEFAULT 0"); err != nil {
 		return fmt.Errorf("migrate alter environments: %w", err)
+	}
+	if err := s.addColumnIfMissing(ctx, "provider_connections", "project_id", "VARCHAR(255) NOT NULL DEFAULT ''"); err != nil {
+		return fmt.Errorf("migrate alter provider_connections: %w", err)
 	}
 	return nil
 }
@@ -821,9 +826,9 @@ func (s *Store) UpsertProviderConnection(ctx context.Context, conn domain.Provid
 	}
 	query := fmt.Sprintf(
 		`INSERT INTO provider_connections (
-			name, auth_url, region_name, interface, identity_interface, username, password, project_name, user_domain_name, project_domain_name, endpoint_override_json, created_by_user_id, created_by_email, created_at, updated_at
+			name, auth_url, region_name, interface, identity_interface, username, password, project_name, project_id, user_domain_name, project_domain_name, endpoint_override_json, created_by_user_id, created_by_email, created_at, updated_at
 		) VALUES (
-			%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+			%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
 		) ON DUPLICATE KEY UPDATE
 			auth_url = VALUES(auth_url),
 			region_name = VALUES(region_name),
@@ -832,6 +837,7 @@ func (s *Store) UpsertProviderConnection(ctx context.Context, conn domain.Provid
 			username = VALUES(username),
 			password = VALUES(password),
 			project_name = VALUES(project_name),
+			project_id = VALUES(project_id),
 			user_domain_name = VALUES(user_domain_name),
 			project_domain_name = VALUES(project_domain_name),
 			endpoint_override_json = VALUES(endpoint_override_json),
@@ -846,6 +852,7 @@ func (s *Store) UpsertProviderConnection(ctx context.Context, conn domain.Provid
 		quoteString(strings.TrimSpace(conn.Username)),
 		quoteString(storedPassword),
 		quoteString(strings.TrimSpace(conn.ProjectName)),
+		quoteString(strings.TrimSpace(conn.ProjectID)),
 		quoteString(strings.TrimSpace(conn.UserDomainName)),
 		quoteString(strings.TrimSpace(conn.ProjectDomainName)),
 		quoteString(string(endpointJSON)),
@@ -879,9 +886,17 @@ func (s *Store) exec(ctx context.Context, withDatabase bool, query string) (stri
 	cmd := exec.CommandContext(ctx, s.cfg.MySQLBin, args...)
 	cmd.Env = append(os.Environ(), "MYSQL_PWD="+s.cfg.Password)
 
-	out, err := cmd.CombinedOutput()
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	if err != nil {
-		errOut := strings.TrimSpace(string(out))
+		errOut := strings.TrimSpace(stderr.String())
+		if extra := strings.TrimSpace(string(out)); extra != "" {
+			if errOut != "" {
+				errOut += "\n"
+			}
+			errOut += extra
+		}
 		if strings.Contains(errOut, "Duplicate entry") {
 			return "", storage.ErrConflict
 		}
@@ -1215,6 +1230,7 @@ func providerConnectionSelectColumns() string {
 		base64ColumnExpr("username"),
 		base64ColumnExpr("password"),
 		base64ColumnExpr("project_name"),
+		base64ColumnExpr("project_id"),
 		base64ColumnExpr("user_domain_name"),
 		base64ColumnExpr("project_domain_name"),
 		base64ColumnExpr("endpoint_override_json"),
@@ -1492,7 +1508,7 @@ func parseSessionUserLine(line string) (domain.Session, domain.User, error) {
 
 func parseProviderConnectionLine(line string) (domain.ProviderConnection, error) {
 	fields := strings.Split(line, "\t")
-	if len(fields) != 15 {
+	if len(fields) != 16 {
 		return domain.ProviderConnection{}, fmt.Errorf("unexpected provider connection field count: %d", len(fields))
 	}
 	var out domain.ProviderConnection
@@ -1521,13 +1537,16 @@ func parseProviderConnectionLine(line string) (domain.ProviderConnection, error)
 	if out.ProjectName, err = decodeBase64Field(fields[7]); err != nil {
 		return domain.ProviderConnection{}, err
 	}
-	if out.UserDomainName, err = decodeBase64Field(fields[8]); err != nil {
+	if out.ProjectID, err = decodeBase64Field(fields[8]); err != nil {
 		return domain.ProviderConnection{}, err
 	}
-	if out.ProjectDomainName, err = decodeBase64Field(fields[9]); err != nil {
+	if out.UserDomainName, err = decodeBase64Field(fields[9]); err != nil {
 		return domain.ProviderConnection{}, err
 	}
-	rawOverride, err := decodeBase64Field(fields[10])
+	if out.ProjectDomainName, err = decodeBase64Field(fields[10]); err != nil {
+		return domain.ProviderConnection{}, err
+	}
+	rawOverride, err := decodeBase64Field(fields[11])
 	if err != nil {
 		return domain.ProviderConnection{}, err
 	}
@@ -1536,16 +1555,16 @@ func parseProviderConnectionLine(line string) (domain.ProviderConnection, error)
 			return domain.ProviderConnection{}, fmt.Errorf("unmarshal provider endpoint override: %w", err)
 		}
 	}
-	if out.CreatedByUserID, err = decodeBase64Field(fields[11]); err != nil {
+	if out.CreatedByUserID, err = decodeBase64Field(fields[12]); err != nil {
 		return domain.ProviderConnection{}, err
 	}
-	if out.CreatedByEmail, err = decodeBase64Field(fields[12]); err != nil {
+	if out.CreatedByEmail, err = decodeBase64Field(fields[13]); err != nil {
 		return domain.ProviderConnection{}, err
 	}
-	if out.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[13]); err != nil {
+	if out.CreatedAt, err = time.Parse(time.RFC3339Nano, fields[14]); err != nil {
 		return domain.ProviderConnection{}, fmt.Errorf("parse provider created_at: %w", err)
 	}
-	if out.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[14]); err != nil {
+	if out.UpdatedAt, err = time.Parse(time.RFC3339Nano, fields[15]); err != nil {
 		return domain.ProviderConnection{}, fmt.Errorf("parse provider updated_at: %w", err)
 	}
 	return out, nil

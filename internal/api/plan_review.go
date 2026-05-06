@@ -74,10 +74,12 @@ func (s *Server) handlePlanReviewPreview(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if err := validateEnvironmentSpecForMutation(req.Spec); err != nil {
+	normalizedSpec, err := normalizeAndValidateEnvironmentSpecForMutation(req.Spec)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	req.Spec = normalizedSpec
 	operation := req.Operation
 	if operation == "" {
 		operation = domain.EnvironmentOperationCreate
@@ -116,7 +118,7 @@ func buildReviewSignals(spec domain.EnvironmentSpec, operation string, planJob *
 			Severity: "high",
 		})
 	}
-	if instanceTotal >= 4 {
+	if instanceTotal >= 2 {
 		items = append(items, reviewSignal{
 			Label:    "Large instance footprint",
 			Detail:   fmt.Sprintf("%d instances are requested, which increases rollout time and blast radius.", instanceTotal),
@@ -162,7 +164,7 @@ func buildImpactSummary(spec domain.EnvironmentSpec, operation string) impactSum
 	downtime := "Low"
 	if operation == string(domain.EnvironmentOperationDestroy) {
 		downtime = "High"
-	} else if instanceTotal >= 4 {
+	} else if instanceTotal >= 2 {
 		downtime = "Medium"
 	}
 

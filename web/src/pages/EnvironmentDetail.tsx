@@ -6,6 +6,7 @@ import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { validateEnvironmentSpecForWizard } from '../utils/environmentValidation'
 import { formatDateTime } from '../utils/format'
+import { providerFlavorOptions, providerImageOptions, providerKeyPairOptions, providerSecurityGroupOptions } from '../utils/providerCatalogOptions'
 import { displayAuditAction, errorLooksRaw, isRevisionConflictError, summarizeAuditMessage, summarizeEnvironmentConflictDelta, summarizeOperatorError } from '../utils/uiCopy'
 
 function parseJson(value?: string): any {
@@ -537,11 +538,11 @@ export default function EnvironmentDetailPage() {
                   resourceHints={
                     providerCatalog
                       ? {
-                          images: providerCatalog.images,
-                          flavors: providerCatalog.flavors,
+                          images: providerImageOptions(providerCatalog),
+                          flavors: providerFlavorOptions(providerCatalog),
                           networks: providerCatalog.networks,
-                          securityGroups: providerCatalog.security_groups || [],
-                          keyPairs: providerCatalog.key_pairs || [],
+                          securityGroups: providerSecurityGroupOptions(providerCatalog),
+                          keyPairs: providerKeyPairOptions(providerCatalog),
                         }
                       : undefined
                   }

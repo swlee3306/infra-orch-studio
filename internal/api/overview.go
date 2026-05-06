@@ -24,6 +24,11 @@ type overviewResponse struct {
 	Failed               int               `json:"failed"`
 	Active               int               `json:"active"`
 	Destroyed            int               `json:"destroyed"`
+	JobsTotal            int               `json:"jobs_total"`
+	JobsQueued           int               `json:"jobs_queued"`
+	JobsRunning          int               `json:"jobs_running"`
+	JobsDone             int               `json:"jobs_done"`
+	JobsFailed           int               `json:"jobs_failed"`
 	RecentFailures       []overviewFailure `json:"recent_failures"`
 }
 
@@ -81,6 +86,25 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request, _ domain
 		recentFailures = recentFailures[:5]
 	}
 	overview.RecentFailures = recentFailures
+
+	jobs, err := s.jobs.ListJobs(r.Context(), maxInt())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list jobs failed")
+		return
+	}
+	overview.JobsTotal = len(jobs)
+	for _, job := range jobs {
+		switch job.Status {
+		case domain.JobStatusQueued:
+			overview.JobsQueued++
+		case domain.JobStatusRunning:
+			overview.JobsRunning++
+		case domain.JobStatusDone:
+			overview.JobsDone++
+		case domain.JobStatusFailed:
+			overview.JobsFailed++
+		}
+	}
 
 	writeJSON(w, http.StatusOK, overview)
 }

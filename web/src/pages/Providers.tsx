@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { auth, ProviderConnection, ProviderListResponse, providers } from '../api'
+import { auth, ProviderConnection, ProviderListResponse, ProviderPreflight, providers } from '../api'
 import { useI18n } from '../i18n'
+import { isSafeProviderName } from '../utils/providerNames'
 import { summarizeOperatorError } from '../utils/uiCopy'
 
 type Draft = {
@@ -10,11 +11,13 @@ type Draft = {
   username: string
   password: string
   project_name: string
+  project_id: string
   user_domain_name: string
   project_domain_name: string
   region_name: string
   interface: string
   identity_interface: string
+  endpoint_override_json: string
 }
 
 const INITIAL_DRAFT: Draft = {
@@ -23,27 +26,64 @@ const INITIAL_DRAFT: Draft = {
   username: '',
   password: '',
   project_name: '',
+  project_id: '',
   user_domain_name: 'Default',
   project_domain_name: 'Default',
   region_name: 'RegionOne',
   interface: 'internal',
   identity_interface: 'internal',
+  endpoint_override_json: '{}',
+}
+
+const OPENSTACK_INTERFACES = ['internal', 'public', 'admin']
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function parseEndpointOverride(raw: string): Record<string, string> | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return {}
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(trimmed)
+  } catch {
+    return null
+  }
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') return null
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(parsed)) {
+    const cleanKey = key.trim()
+    if (!cleanKey || typeof value !== 'string' || !isHttpUrl(value.trim())) return null
+    out[cleanKey] = value.trim()
+  }
+  return out
 }
 
 function buildCloudsSnippet(draft: Draft): string {
+  const userDomainName = draft.user_domain_name.trim() || 'Default'
+  const projectDomainName = draft.project_domain_name.trim() || 'Default'
+  const regionName = draft.region_name.trim() || 'RegionOne'
+  const interfaceName = draft.interface.trim() || 'internal'
+  const identityInterface = draft.identity_interface.trim() || 'internal'
   const lines = [
     'clouds:',
-    `  ${draft.name}:`,
+    `  ${draft.name.trim()}:`,
     '    auth:',
-    `      auth_url: ${draft.auth_url || '<keystone-url>/v3'}`,
-    `      username: ${draft.username || '<username>'}`,
+    `      auth_url: ${draft.auth_url.trim() || '<keystone-url>/v3'}`,
+    `      username: ${draft.username.trim() || '<username>'}`,
     `      password: ${draft.password || '<password>'}`,
-    `      project_name: ${draft.project_name || '<project>'}`,
-    `      user_domain_name: ${draft.user_domain_name || 'Default'}`,
-    `      project_domain_name: ${draft.project_domain_name || 'Default'}`,
-    `    region_name: ${draft.region_name || 'RegionOne'}`,
-    `    interface: ${draft.interface || 'internal'}`,
-    `    identity_interface: ${draft.identity_interface || 'internal'}`,
+    draft.project_id.trim() ? `      project_id: ${draft.project_id.trim()}` : `      project_name: ${draft.project_name.trim() || '<project>'}`,
+    `      user_domain_name: ${userDomainName}`,
+    `      project_domain_name: ${projectDomainName}`,
+    `    region_name: ${regionName}`,
+    `    interface: ${interfaceName}`,
+    `    identity_interface: ${identityInterface}`,
   ]
   return lines.join('\n')
 }
@@ -59,6 +99,9 @@ export default function ProvidersPage() {
   const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState<Draft>(INITIAL_DRAFT)
   const [copied, setCopied] = useState(false)
+  const [preflight, setPreflight] = useState<ProviderPreflight | null>(null)
+  const [preflightBusy, setPreflightBusy] = useState<string | null>(null)
+  const [preflightError, setPreflightError] = useState<string | null>(null)
 
   async function load() {
     setError(null)
@@ -87,6 +130,8 @@ export default function ProvidersPage() {
   }, [])
 
   const snippet = useMemo(() => buildCloudsSnippet(draft), [draft])
+  const trimmedProviderName = draft.name.trim()
+  const providerNameValid = !trimmedProviderName || isSafeProviderName(trimmedProviderName)
   const command = useMemo(
     () =>
       [
@@ -111,6 +156,23 @@ export default function ProvidersPage() {
   async function saveProvider() {
     setError(null)
     setNotice(null)
+    if (!isSafeProviderName(draft.name.trim())) {
+      setError(ko ? '공급자 이름은 영문, 숫자, 점, 밑줄, 하이픈만 사용할 수 있습니다.' : 'Provider name can contain only letters, numbers, dots, underscores, or dashes.')
+      return
+    }
+    if (!OPENSTACK_INTERFACES.includes(draft.interface.trim()) || !OPENSTACK_INTERFACES.includes(draft.identity_interface.trim())) {
+      setError(ko ? '인터페이스는 internal, public, admin 중 하나여야 합니다.' : 'Interface values must be one of internal, public, or admin.')
+      return
+    }
+    if (!isHttpUrl(draft.auth_url.trim())) {
+      setError(ko ? 'Keystone Auth URL은 http 또는 https URL이어야 합니다.' : 'Keystone Auth URL must be an http or https URL.')
+      return
+    }
+    const endpointOverride = parseEndpointOverride(draft.endpoint_override_json)
+    if (endpointOverride === null) {
+      setError(ko ? 'Endpoint override는 값이 http(s) URL인 JSON 객체여야 합니다.' : 'Endpoint override must be a JSON object whose values are http(s) URLs.')
+      return
+    }
     setSaving(true)
     try {
       await providers.upsert({
@@ -122,8 +184,10 @@ export default function ProvidersPage() {
         username: draft.username.trim(),
         password: draft.password,
         project_name: draft.project_name.trim(),
-        user_domain_name: draft.user_domain_name.trim(),
-        project_domain_name: draft.project_domain_name.trim(),
+        project_id: draft.project_id.trim(),
+        user_domain_name: draft.user_domain_name.trim() || 'Default',
+        project_domain_name: draft.project_domain_name.trim() || 'Default',
+        endpoint_override: endpointOverride,
       })
       setNotice(ko ? `공급자 ${draft.name} 저장 완료` : `Saved provider ${draft.name}`)
       await load()
@@ -131,6 +195,20 @@ export default function ProvidersPage() {
       setError(err?.message || 'failed to save provider')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function runPreflight(name: string) {
+    setPreflightBusy(name)
+    setPreflightError(null)
+    setPreflight(null)
+    try {
+      const result = await providers.preflight(name)
+      setPreflight(result)
+    } catch (err: any) {
+      setPreflightError(err?.message || 'provider preflight failed')
+    } finally {
+      setPreflightBusy(null)
     }
   }
 
@@ -193,6 +271,9 @@ export default function ProvidersPage() {
                     </div>
                   </div>
                   <div className="detail-actions">
+                    <button className="ghost" onClick={() => void runPreflight(item.name)} disabled={preflightBusy !== null}>
+                      {preflightBusy === item.name ? (ko ? '점검 중...' : 'Checking...') : ko ? '적용 전 점검' : 'Preflight'}
+                    </button>
                     <Link className="ghost action-link action-link-button" to={`/providers/${encodeURIComponent(item.name)}`}>
                       {ko ? '상세 보기' : 'View details'}
                     </Link>
@@ -201,6 +282,18 @@ export default function ProvidersPage() {
               ))
             )}
           </div>
+          {preflight ? (
+            <div className={`callout ${preflight.ready_for_plan_apply ? 'callout-success' : 'callout-warning'}`} style={{ marginTop: 14 }}>
+              <strong>
+                {preflight.provider}: {preflight.ready_for_plan_apply ? (ko ? 'Plan/Apply 준비됨' : 'Ready for plan/apply') : ko ? 'Endpoint 확인 필요' : 'Endpoint check needed'}
+              </strong>
+              <p style={{ margin: '6px 0 0' }}>
+                {Object.keys(preflight.endpoints || {}).sort().join(', ') || '-'}
+                {preflight.missing_endpoints?.length ? ` / missing: ${preflight.missing_endpoints.join(', ')}` : ''}
+              </p>
+            </div>
+          ) : null}
+          {preflightError ? <div className="error-box" style={{ marginTop: 14 }}>{summarizeOperatorError(preflightError)}</div> : null}
         </article>
 
         <article className="console-card">
@@ -214,6 +307,7 @@ export default function ProvidersPage() {
             <label className="field">
               <span>{ko ? '공급자 이름' : 'Provider name'}</span>
               <input value={draft.name} onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value.trim() }))} placeholder="exporter-internal" />
+              {!providerNameValid ? <small>{ko ? '영문, 숫자, 점, 밑줄, 하이픈만 허용됩니다.' : 'Use only letters, numbers, dots, underscores, or dashes.'}</small> : null}
             </label>
             <label className="field">
               <span>Keystone Auth URL</span>
@@ -230,6 +324,10 @@ export default function ProvidersPage() {
               </label>
             </div>
             <label className="field">
+              <span>{ko ? '프로젝트 ID' : 'Project ID'}</span>
+              <input value={draft.project_id} onChange={(e) => setDraft((prev) => ({ ...prev, project_id: e.target.value }))} placeholder={ko ? '프로젝트명을 사용할 수 없을 때 입력' : 'Use when project name is unavailable'} />
+            </label>
+            <label className="field">
               <span>{ko ? '비밀번호' : 'Password'}</span>
               <input type="password" value={draft.password} onChange={(e) => setDraft((prev) => ({ ...prev, password: e.target.value }))} placeholder="********" />
             </label>
@@ -240,15 +338,36 @@ export default function ProvidersPage() {
               </label>
               <label className="field">
                 <span>{ko ? '인터페이스' : 'Interface'}</span>
-                <input value={draft.interface} onChange={(e) => setDraft((prev) => ({ ...prev, interface: e.target.value }))} placeholder="internal" />
+                <select value={draft.interface} onChange={(e) => setDraft((prev) => ({ ...prev, interface: e.target.value }))}>
+                  {OPENSTACK_INTERFACES.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="field">
                 <span>{ko ? 'ID 인터페이스' : 'Identity interface'}</span>
-                <input value={draft.identity_interface} onChange={(e) => setDraft((prev) => ({ ...prev, identity_interface: e.target.value }))} placeholder="internal" />
+                <select value={draft.identity_interface} onChange={(e) => setDraft((prev) => ({ ...prev, identity_interface: e.target.value }))}>
+                  {OPENSTACK_INTERFACES.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
+            <label className="field">
+              <span>Endpoint override JSON</span>
+              <textarea
+                rows={4}
+                value={draft.endpoint_override_json}
+                onChange={(e) => setDraft((prev) => ({ ...prev, endpoint_override_json: e.target.value }))}
+                placeholder='{"compute":"https://compute.example/v2.1"}'
+              />
+            </label>
             <div className="detail-actions">
-              <button type="button" onClick={saveProvider} disabled={saving || !draft.name || !draft.auth_url || !draft.username || !draft.password || !draft.project_name}>
+              <button type="button" onClick={saveProvider} disabled={saving || !draft.name || !providerNameValid || !draft.auth_url || !draft.username || !draft.password || (!draft.project_name && !draft.project_id)}>
                 {saving ? (ko ? '저장 중...' : 'Saving...') : ko ? '공급자 저장' : 'Save provider'}
               </button>
               <button type="button" className="ghost" onClick={() => copySnippet(snippet)}>

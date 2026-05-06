@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ type providerUpsertRequest struct {
 	Username          string            `json:"username"`
 	Password          string            `json:"password"`
 	ProjectName       string            `json:"project_name"`
+	ProjectID         string            `json:"project_id"`
 	UserDomainName    string            `json:"user_domain_name"`
 	ProjectDomainName string            `json:"project_domain_name"`
 	EndpointOverride  map[string]string `json:"endpoint_override"`
@@ -111,17 +113,46 @@ func (s *Server) handleProvidersUpsert(w http.ResponseWriter, r *http.Request, u
 	req.RegionName = strings.TrimSpace(req.RegionName)
 	req.Username = strings.TrimSpace(req.Username)
 	req.ProjectName = strings.TrimSpace(req.ProjectName)
+	req.ProjectID = strings.TrimSpace(req.ProjectID)
 	req.UserDomainName = strings.TrimSpace(req.UserDomainName)
 	req.ProjectDomainName = strings.TrimSpace(req.ProjectDomainName)
-	if req.Name == "" || req.AuthURL == "" || req.Username == "" || strings.TrimSpace(req.Password) == "" || req.ProjectName == "" {
-		writeError(w, http.StatusBadRequest, "name, auth_url, username, password, and project_name are required")
+	endpointOverride := make(map[string]string, len(req.EndpointOverride))
+	for key, value := range req.EndpointOverride {
+		trimmedKey := strings.TrimSpace(key)
+		trimmedValue := strings.TrimSpace(value)
+		if trimmedKey == "" || trimmedValue == "" {
+			writeError(w, http.StatusBadRequest, "endpoint_override keys and values must not be empty")
+			return
+		}
+		endpointOverride[trimmedKey] = trimmedValue
+	}
+	if req.Name == "" || req.AuthURL == "" || req.Username == "" || strings.TrimSpace(req.Password) == "" || (req.ProjectName == "" && req.ProjectID == "") {
+		writeError(w, http.StatusBadRequest, "name, auth_url, username, password, and project_name or project_id are required")
 		return
+	}
+	if !isSafeProviderName(req.Name) {
+		writeError(w, http.StatusBadRequest, "name must contain only letters, numbers, dots, underscores, or dashes")
+		return
+	}
+	if !isHTTPURL(req.AuthURL) {
+		writeError(w, http.StatusBadRequest, "auth_url must be an http or https URL")
+		return
+	}
+	for _, value := range endpointOverride {
+		if !isHTTPURL(value) {
+			writeError(w, http.StatusBadRequest, "endpoint_override values must be http or https URLs")
+			return
+		}
 	}
 	if req.Interface == "" {
 		req.Interface = "internal"
 	}
 	if req.IdentityInterface == "" {
 		req.IdentityInterface = req.Interface
+	}
+	if !isOpenStackInterface(req.Interface) || !isOpenStackInterface(req.IdentityInterface) {
+		writeError(w, http.StatusBadRequest, "interface and identity_interface must be one of public, internal, or admin")
+		return
 	}
 	if req.UserDomainName == "" {
 		req.UserDomainName = "Default"
@@ -139,9 +170,10 @@ func (s *Server) handleProvidersUpsert(w http.ResponseWriter, r *http.Request, u
 		Username:          req.Username,
 		Password:          req.Password,
 		ProjectName:       req.ProjectName,
+		ProjectID:         req.ProjectID,
 		UserDomainName:    req.UserDomainName,
 		ProjectDomainName: req.ProjectDomainName,
-		EndpointOverride:  req.EndpointOverride,
+		EndpointOverride:  endpointOverride,
 		CreatedByUserID:   user.ID,
 		CreatedByEmail:    user.Email,
 		CreatedAt:         now,
@@ -168,6 +200,7 @@ func (s *Server) handleProvidersUpsert(w http.ResponseWriter, r *http.Request, u
 			"interface":          saved.Interface,
 			"identity_interface": saved.IdentityInterface,
 			"project_name":       saved.ProjectName,
+			"project_id":         saved.ProjectID,
 		}),
 		CreatedAt: now,
 	})
@@ -182,19 +215,65 @@ func (s *Server) handleProvidersUpsert(w http.ResponseWriter, r *http.Request, u
 	})
 }
 
+func isHTTPURL(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	return err == nil && u.Host != "" && (u.Scheme == "http" || u.Scheme == "https")
+}
+
+func isOpenStackInterface(value string) bool {
+	switch strings.TrimSpace(value) {
+	case "public", "internal", "admin":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSafeProviderName(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '.', r == '_', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Server) handleProviderRoute(w http.ResponseWriter, r *http.Request, _ domain.User) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/providers/")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || parts[1] != "resources" || strings.TrimSpace(parts[0]) == "" {
+	if len(parts) != 2 || !isSafeProviderName(parts[0]) {
 		http.NotFound(w, r)
 		return
 	}
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
+	switch parts[1] {
+	case "resources":
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleProviderResources(w, r, parts[0])
+	case "preflight":
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.handleProviderPreflight(w, r, parts[0])
+	default:
+		http.NotFound(w, r)
 	}
+}
+
+func (s *Server) handleProviderResources(w http.ResponseWriter, r *http.Request, name string) {
 	if s.providers != nil {
-		item, err := s.providers.GetProviderConnection(r.Context(), parts[0])
+		item, err := s.providers.GetProviderConnection(r.Context(), name)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				http.Error(w, "provider not found", http.StatusNotFound)
@@ -203,22 +282,8 @@ func (s *Server) handleProviderRoute(w http.ResponseWriter, r *http.Request, _ d
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		svc := provider.NewWithClouds([]provider.CloudConfig{{
-			Name:              item.Name,
-			RegionName:        item.RegionName,
-			Interface:         item.Interface,
-			IdentityInterface: item.IdentityInterface,
-			EndpointOverride:  item.EndpointOverride,
-			Auth: provider.CloudAuth{
-				AuthURL:           item.AuthURL,
-				Username:          item.Username,
-				Password:          item.Password,
-				ProjectName:       item.ProjectName,
-				UserDomainName:    item.UserDomainName,
-				ProjectDomainName: item.ProjectDomainName,
-			},
-		}})
-		result, err := svc.FetchCatalog(parts[0])
+		svc := provider.NewWithClouds([]provider.CloudConfig{providerConnectionCloudConfig(item)})
+		result, err := svc.FetchCatalog(name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -231,12 +296,64 @@ func (s *Server) handleProviderRoute(w http.ResponseWriter, r *http.Request, _ d
 		return
 	}
 	svc := provider.New(s.openstackConfigPath)
-	result, err := svc.FetchCatalog(parts[0])
+	result, err := svc.FetchCatalog(name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleProviderPreflight(w http.ResponseWriter, r *http.Request, name string) {
+	if s.providers != nil {
+		item, err := s.providers.GetProviderConnection(r.Context(), name)
+		if err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				http.Error(w, "provider not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		svc := provider.NewWithClouds([]provider.CloudConfig{providerConnectionCloudConfig(item)})
+		result, err := svc.CheckAuth(name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
+	if strings.TrimSpace(s.openstackConfigPath) == "" {
+		http.Error(w, "openstack config path is not configured", http.StatusServiceUnavailable)
+		return
+	}
+	svc := provider.New(s.openstackConfigPath)
+	result, err := svc.CheckAuth(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func providerConnectionCloudConfig(item domain.ProviderConnection) provider.CloudConfig {
+	return provider.CloudConfig{
+		Name:              item.Name,
+		RegionName:        item.RegionName,
+		Interface:         item.Interface,
+		IdentityInterface: item.IdentityInterface,
+		EndpointOverride:  item.EndpointOverride,
+		Auth: provider.CloudAuth{
+			AuthURL:           item.AuthURL,
+			Username:          item.Username,
+			Password:          item.Password,
+			ProjectName:       item.ProjectName,
+			ProjectID:         item.ProjectID,
+			UserDomainName:    item.UserDomainName,
+			ProjectDomainName: item.ProjectDomainName,
+		},
+	}
 }
 
 func auditMetadataJSON(v any) string {

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -25,11 +27,11 @@ func TestJobsCreateListGetAndApplyContract(t *testing.T) {
 		CreatedAt: time.Now().UTC().Add(-time.Minute),
 		UpdatedAt: time.Now().UTC().Add(-time.Minute),
 		Environment: domain.EnvironmentSpec{
-			EnvironmentName: "dev",
-			TenantName:      "tenant-a",
-			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			EnvironmentName: " dev ",
+			TenantName:      " tenant-a ",
+			Network:         domain.Network{Name: " net-a ", CIDR: " 10.0.0.0/24 "},
 			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
-			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+			Instances:       []domain.Instance{{Name: " vm-a ", Image: " id:image-1 ", Flavor: " id:flavor-1 ", Count: 1}},
 		},
 		TemplateName: "basic",
 		Workdir:      "/tmp/workdir-1",
@@ -121,6 +123,9 @@ func TestJobsCreateListGetAndApplyContract(t *testing.T) {
 	}
 	if applied.SourceJobID != planJob.ID {
 		t.Fatalf("apply source_job_id = %q, want %q", applied.SourceJobID, planJob.ID)
+	}
+	if applied.Environment.EnvironmentName != "dev" || applied.Environment.Instances[0].Image != "id:image-1" {
+		t.Fatalf("derived apply environment not normalized: %+v", applied.Environment)
 	}
 }
 
@@ -219,6 +224,65 @@ func TestJobsApplyRejectsEnvironmentManagedPlan(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), "/api/environments/{id}/apply") {
 		t.Fatalf("unexpected body: %s", rr.Body.String())
+	}
+}
+
+func TestJobsLogsEndpointReadsPersistedLogDir(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+
+	logDir := filepath.Join(t.TempDir(), "logs")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		t.Fatalf("mkdir log dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(logDir, "runner.error.log"), []byte("runner error: tofu missing\n"), 0o600); err != nil {
+		t.Fatalf("write log: %v", err)
+	}
+	job := domain.Job{
+		ID:        uuid.NewString(),
+		Type:      domain.JobTypePlan,
+		Status:    domain.JobStatusFailed,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		LogDir:    logDir,
+		Environment: domain.EnvironmentSpec{
+			EnvironmentName: "dev",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+	}
+	if _, err := store.CreateJob(nil, job); err != nil {
+		t.Fatalf("seed job: %v", err)
+	}
+
+	srv := newTestServer(store)
+	req := httptest.NewRequest(http.MethodGet, "/api/jobs/"+job.ID+"/logs", nil)
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("logs status = %d, want %d: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	var resp struct {
+		JobID  string `json:"job_id"`
+		LogDir string `json:"log_dir"`
+		Items  []struct {
+			File    string `json:"file"`
+			Message string `json:"message"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode logs response: %v", err)
+	}
+	if resp.JobID != job.ID || resp.LogDir != logDir {
+		t.Fatalf("unexpected response metadata: %+v", resp)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].File != "runner.error.log" || !strings.Contains(resp.Items[0].Message, "tofu missing") {
+		t.Fatalf("unexpected log items: %+v", resp.Items)
 	}
 }
 

@@ -44,6 +44,10 @@ func (e CommandExecutor) Init(ctx context.Context, workdir string) (RunResult, e
 	return e.run(ctx, workdir, "init", "-input=false", "-no-color")
 }
 
+func (e CommandExecutor) Validate(ctx context.Context, workdir string) (RunResult, error) {
+	return e.run(ctx, workdir, "validate", "-no-color")
+}
+
 func (e CommandExecutor) Plan(ctx context.Context, workdir, outPlanPath string) (RunResult, error) {
 	return e.plan(ctx, workdir, outPlanPath, false)
 }
@@ -84,6 +88,26 @@ func (e CommandExecutor) OutputJSON(ctx context.Context, workdir string) (RunRes
 		"output",
 		"-json",
 	)
+}
+
+func (e CommandExecutor) CheckAvailable(ctx context.Context) error {
+	bin := e.tofuBin()
+	path, err := exec.LookPath(bin)
+	if err != nil {
+		return fmt.Errorf("%s not found in PATH", bin)
+	}
+	cmd := exec.CommandContext(ctx, path, "version")
+	if len(e.Env) > 0 {
+		cmd.Env = append([]string{}, os.Environ()...)
+		for k, v := range e.Env {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s version failed: %w: %s", bin, err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func (e CommandExecutor) run(ctx context.Context, workdir string, args ...string) (RunResult, error) {

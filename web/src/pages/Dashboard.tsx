@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { auth, environments, Environment, User } from '../api'
+import { auth, environments, Environment, overview, OverviewResponse, User } from '../api'
 import StatusBadge from '../components/StatusBadge'
 import { useI18n } from '../i18n'
 import { formatDateTime } from '../utils/format'
@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const ko = locale === 'ko'
   const [viewer, setViewer] = useState<User | null>(null)
   const [items, setItems] = useState<Environment[]>([])
+  const [overviewData, setOverviewData] = useState<OverviewResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
@@ -34,6 +35,12 @@ export default function DashboardPage() {
       const res = await environments.list(100)
       setItems(res.items)
       setViewer(res.viewer)
+      try {
+        const liveOverview = await overview.get()
+        setOverviewData(liveOverview)
+      } catch {
+        setOverviewData(null)
+      }
     } catch (err: any) {
       setError(err?.message || 'failed to load dashboard')
     }
@@ -66,6 +73,14 @@ export default function DashboardPage() {
   )
   const incidents = useMemo(() => items.filter((item) => item.status === 'failed').slice(0, 5), [items])
   const recent = useMemo(() => items.slice(0, 6), [items])
+  const jobBacklog = useMemo(
+    () => ({
+      queued: overviewData?.jobs_queued || 0,
+      running: overviewData?.jobs_running || 0,
+      failed: overviewData?.jobs_failed || 0,
+    }),
+    [overviewData],
+  )
 
   return (
     <div className="page-stack">
@@ -103,6 +118,15 @@ export default function DashboardPage() {
           <span>{ko ? '실패 실행' : 'Failed executions'}</span>
           <strong>{summary.failed}</strong>
           <p>{ko ? '플랜 또는 적용 단계 실패로 멈춘 환경 수입니다.' : 'Environments paused on a failed plan or apply step.'}</p>
+        </article>
+        <article className="metric-card">
+          <span>{ko ? 'Runner 큐' : 'Runner queue'}</span>
+          <strong>{jobBacklog.queued}</strong>
+          <p>
+            {ko
+              ? `실행 중 ${jobBacklog.running} · 실패 job ${jobBacklog.failed}`
+              : `${jobBacklog.running} running · ${jobBacklog.failed} failed jobs`}
+          </p>
         </article>
       </section>
 

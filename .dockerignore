@@ -1,0 +1,16 @@
+.git
+.gitignore
+.DS_Store
+
+web/node_modules
+web/dist
+node_modules
+dist
+
+workdirs
+outputs
+tmp
+.tmp
+
+coverage
+*.log

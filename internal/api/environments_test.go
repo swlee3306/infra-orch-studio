@@ -128,6 +128,54 @@ func TestEnvironmentLifecycleApprovalAndAudit(t *testing.T) {
 	}
 }
 
+func TestEnvironmentCreateNormalizesSpecBeforePersist(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments", strings.NewReader(`{
+		"spec": {
+			"environment_name": " prod-a ",
+			"tenant_name": " tenant-a ",
+			"network": {"name": " net-a ", "cidr": " 10.0.0.0/24 "},
+			"subnet": {"name": " sub-a ", "cidr": " 10.0.0.0/25 ", "gateway_ip": " 10.0.0.1 ", "enable_dhcp": true},
+			"instances": [{"name": " vm-a ", "image": " id:image-1 ", "flavor": " id:flavor-1 ", "ssh_key_name": " demo-key ", "count": 1}],
+			"security_groups": [" default "]
+		}
+	}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("create environment status = %d, want %d: %s", rr.Code, http.StatusCreated, rr.Body.String())
+	}
+
+	var resp struct {
+		Environment domain.Environment `json:"environment"`
+		Job         domain.Job         `json:"job"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+	spec := resp.Environment.Spec
+	if resp.Environment.Name != "prod-a" || spec.EnvironmentName != "prod-a" || spec.TenantName != "tenant-a" {
+		t.Fatalf("top-level spec not normalized: env=%+v spec=%+v", resp.Environment, spec)
+	}
+	if spec.Network.Name != "net-a" || spec.Network.CIDR != "10.0.0.0/24" || spec.Subnet.GatewayIP != "10.0.0.1" {
+		t.Fatalf("network spec not normalized: %+v %+v", spec.Network, spec.Subnet)
+	}
+	if got := spec.Instances[0]; got.Name != "vm-a" || got.Image != "id:image-1" || got.Flavor != "id:flavor-1" || got.SSHKeyName != "demo-key" {
+		t.Fatalf("instance spec not normalized: %+v", got)
+	}
+	if got := spec.SecurityGroups; len(got) != 1 || got[0] != "default" {
+		t.Fatalf("security groups not normalized: %#v", got)
+	}
+	if resp.Job.Environment.EnvironmentName != "prod-a" || resp.Job.Environment.Instances[0].Image != "id:image-1" {
+		t.Fatalf("job environment not normalized: %+v", resp.Job.Environment)
+	}
+}
+
 func TestEnvironmentCreateRejectsInvalidDomainSpec(t *testing.T) {
 	store := newFakeStore()
 	admin := mustUser(t, "admin@example.com", true, "password123")
@@ -399,8 +447,8 @@ func TestRequestDraftsReturnsStructuredEnvironmentDraft(t *testing.T) {
 	if resp.Spec.TenantName != "finops" {
 		t.Fatalf("tenant = %q", resp.Spec.TenantName)
 	}
-	if resp.Spec.Instances[0].Count != 3 {
-		t.Fatalf("instance count = %d, want 3", resp.Spec.Instances[0].Count)
+	if resp.Spec.Instances[0].Count != 2 {
+		t.Fatalf("instance count = %d, want 2", resp.Spec.Instances[0].Count)
 	}
 	if resp.Spec.Network.CIDR != "10.44.0.0/24" || resp.Spec.Subnet.CIDR != "10.44.0.0/26" {
 		t.Fatalf("cidrs = %s / %s", resp.Spec.Network.CIDR, resp.Spec.Subnet.CIDR)
@@ -413,6 +461,16 @@ func TestRequestDraftsReturnsStructuredEnvironmentDraft(t *testing.T) {
 	}
 	if len(resp.Warnings) == 0 {
 		t.Fatalf("expected warnings for production-like request")
+	}
+	foundCapWarning := false
+	for _, warning := range resp.Warnings {
+		if strings.Contains(warning, "MVP supports up to 2") {
+			foundCapWarning = true
+			break
+		}
+	}
+	if !foundCapWarning {
+		t.Fatalf("expected MVP cap warning, got %#v", resp.Warnings)
 	}
 }
 
@@ -539,6 +597,58 @@ func TestEnvironmentDestroyRequiresAdminAndConfirmationName(t *testing.T) {
 	}
 	if len(audits) == 0 || !strings.Contains(audits[0].MetadataJSON, "CHG-42") {
 		t.Fatalf("expected destroy audit metadata to include comment, got %+v", audits)
+	}
+}
+
+func TestEnvironmentDestroyPreservesAppliedWorkdirForRunner(t *testing.T) {
+	store := newFakeStore()
+	admin := mustUser(t, "admin@example.com", true, "password123")
+	seedSession(store, admin, "admin-session-token")
+	srv := newTestServer(store)
+
+	now := time.Now().UTC()
+	env := domain.Environment{
+		ID:             uuid.NewString(),
+		Name:           "env-destroy-stateful",
+		Status:         domain.EnvironmentStatusActive,
+		Operation:      domain.EnvironmentOperationCreate,
+		ApprovalStatus: domain.ApprovalStatusNotRequested,
+		Spec: domain.EnvironmentSpec{
+			EnvironmentName: "env-destroy-stateful",
+			TenantName:      "tenant-a",
+			Network:         domain.Network{Name: "net-a", CIDR: "10.0.0.0/24"},
+			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/24", EnableDHCP: true},
+			Instances:       []domain.Instance{{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 1}},
+		},
+		MaxRetries:  3,
+		Workdir:     "/tmp/applied-workdir",
+		PlanPath:    ".infra-orch/plan/old.bin",
+		OutputsJSON: `{"old":true}`,
+		LastError:   "old error",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if _, err := store.CreateEnvironment(nil, env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/environments/"+env.ID+"/destroy", strings.NewReader(`{"confirmation_name":"env-destroy-stateful"}`))
+	req.AddCookie(cookieFromToken("admin-session-token", srv.cookieName))
+	rr := httptest.NewRecorder()
+	srv.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("destroy status = %d, want %d: %s", rr.Code, http.StatusCreated, rr.Body.String())
+	}
+
+	updated, err := store.GetEnvironment(nil, env.ID)
+	if err != nil {
+		t.Fatalf("get environment: %v", err)
+	}
+	if updated.Workdir != env.Workdir {
+		t.Fatalf("workdir = %q, want applied workdir %q", updated.Workdir, env.Workdir)
+	}
+	if updated.PlanPath != "" || updated.OutputsJSON != "" || updated.LastError != "" {
+		t.Fatalf("destroy should clear attempt artifacts but preserve workdir: %+v", updated)
 	}
 }
 
@@ -1119,7 +1229,6 @@ func TestEnvironmentPlanReviewEndpoint(t *testing.T) {
 			Subnet:          domain.Subnet{Name: "sub-a", CIDR: "10.0.0.0/27", EnableDHCP: true},
 			Instances: []domain.Instance{
 				{Name: "vm-a", Image: "ubuntu", Flavor: "small", Count: 2},
-				{Name: "vm-b", Image: "ubuntu", Flavor: "small", Count: 2},
 			},
 		},
 		LastPlanJobID: uuid.NewString(),
@@ -1197,8 +1306,7 @@ func TestPlanReviewPreviewEndpoint(t *testing.T) {
 			"network": {"name": "net-a", "cidr": "10.0.0.0/24"},
 			"subnet": {"name": "sub-a", "cidr": "10.0.0.0/27", "enable_dhcp": true},
 			"instances": [
-				{"name": "vm-a", "image": "ubuntu", "flavor": "small", "count": 2},
-				{"name": "vm-b", "image": "ubuntu", "flavor": "small", "count": 2}
+				{"name": "vm-a", "image": "ubuntu", "flavor": "small", "count": 2}
 			]
 		},
 		"operation": "create",
