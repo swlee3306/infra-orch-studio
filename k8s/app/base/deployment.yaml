@@ -33,6 +33,9 @@ spec:
             - name: clouds
               mountPath: /etc/openstack
               readOnly: true
+            - name: workdirs
+              mountPath: /workdirs
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /healthz
@@ -56,6 +59,9 @@ spec:
         - name: clouds
           secret:
             secretName: openstack-clouds
+        - name: workdirs
+          persistentVolumeClaim:
+            claimName: infra-orch-workdirs
 ---
 apiVersion: apps/v1
 kind: Deployment
