@@ -299,7 +299,7 @@ func TestPrepareDestroyPlanJobReusesAppliedWorkdir(t *testing.T) {
 	if updated.Workdir != "/tmp/applied-workdir" {
 		t.Fatalf("workdir = %q, want applied workdir", updated.Workdir)
 	}
-	if updated.LogDir != filepath.Join("/tmp/applied-workdir", ".infra-orch", "logs") {
+	if updated.LogDir != filepath.Join("/tmp/applied-workdir", ".infra-orch", "logs", "destroy-plan") {
 		t.Fatalf("log_dir = %q", updated.LogDir)
 	}
 	if stored := store.jobs[job.ID]; stored.Workdir != "/tmp/applied-workdir" {

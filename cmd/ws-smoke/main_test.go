@@ -67,3 +67,12 @@ func TestNormalizeRequiredEvent(t *testing.T) {
 		})
 	}
 }
+
+func TestFirstSessionCookieHeader(t *testing.T) {
+	got := firstSessionCookieHeader([]string{
+		"infra_orch_session=abc123; Path=/; HttpOnly; Secure; SameSite=Lax",
+	})
+	if got != "infra_orch_session=abc123" {
+		t.Fatalf("firstSessionCookieHeader() = %q", got)
+	}
+}

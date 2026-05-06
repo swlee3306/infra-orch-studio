@@ -125,7 +125,7 @@ func main() {
 			job.Workdir = src.Workdir
 			job.PlanPath = src.PlanPath
 			job.TemplateName = src.TemplateName
-			job.LogDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
+			job.LogDir = runnerJobLogDir(job)
 			job.Error = ""
 			job.UpdatedAt = time.Now().UTC()
 			if _, err := store.UpdateJob(context.Background(), job); err != nil {
@@ -138,14 +138,16 @@ func main() {
 				continue
 			}
 
-			applyRes, err := exec.Apply(context.Background(), job.Workdir, job.PlanPath)
+			jobExec := exec
+			jobExec.LogDir = job.LogDir
+			applyRes, err := jobExec.Apply(context.Background(), job.Workdir, job.PlanPath)
 			if err != nil {
 				log.Printf("apply command failed: id=%s exit=%d stderr=%s", job.ID, applyRes.ExitCode, strings.TrimSpace(string(applyRes.Stderr)))
 				failJob(store, job, err.Error())
 				continue
 			}
 			if job.Operation != domain.EnvironmentOperationDestroy {
-				if outputRes, err := exec.OutputJSON(context.Background(), job.Workdir); err == nil {
+				if outputRes, err := jobExec.OutputJSON(context.Background(), job.Workdir); err == nil {
 					job.OutputsJSON = strings.TrimSpace(string(outputRes.Stdout))
 				}
 			}
@@ -198,7 +200,7 @@ func main() {
 				continue
 			}
 			job.Workdir = wd.Dir
-			job.LogDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
+			job.LogDir = runnerJobLogDir(job)
 			job.Error = ""
 			job.UpdatedAt = time.Now().UTC()
 			if _, err := store.UpdateJob(context.Background(), job); err != nil {
@@ -207,14 +209,16 @@ func main() {
 			}
 		}
 
-		initRes, err := exec.Init(context.Background(), job.Workdir)
+		jobExec := exec
+		jobExec.LogDir = job.LogDir
+		initRes, err := jobExec.Init(context.Background(), job.Workdir)
 		if err != nil {
 			log.Printf("init command failed: id=%s exit=%d stderr=%s", job.ID, initRes.ExitCode, strings.TrimSpace(string(initRes.Stderr)))
 			failJob(store, job, err.Error())
 			continue
 		}
 
-		validateRes, err := exec.Validate(context.Background(), job.Workdir)
+		validateRes, err := jobExec.Validate(context.Background(), job.Workdir)
 		if err != nil {
 			log.Printf("validate command failed: id=%s exit=%d stderr=%s", job.ID, validateRes.ExitCode, strings.TrimSpace(string(validateRes.Stderr)))
 			failJob(store, job, err.Error())
@@ -231,9 +235,9 @@ func main() {
 
 		planRes, err := func() (executor.RunResult, error) {
 			if job.Operation == domain.EnvironmentOperationDestroy {
-				return exec.PlanDestroy(context.Background(), job.Workdir, planRelPath)
+				return jobExec.PlanDestroy(context.Background(), job.Workdir, planRelPath)
 			}
-			return exec.Plan(context.Background(), job.Workdir, planRelPath)
+			return jobExec.Plan(context.Background(), job.Workdir, planRelPath)
 		}()
 		if err != nil {
 			log.Printf("plan command failed: id=%s exit=%d stderr=%s", job.ID, planRes.ExitCode, strings.TrimSpace(string(planRes.Stderr)))
@@ -268,7 +272,7 @@ func prepareDestroyPlanJob(ctx context.Context, store runnerEnvironmentStore, jo
 		return job, fmt.Errorf("destroy plan requires an existing applied workdir")
 	}
 	job.Workdir = env.Workdir
-	job.LogDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
+	job.LogDir = runnerJobLogDir(job)
 	job.Error = ""
 	job.UpdatedAt = time.Now().UTC()
 	updated, err := store.UpdateJob(ctx, job)
@@ -276,6 +280,19 @@ func prepareDestroyPlanJob(ctx context.Context, store runnerEnvironmentStore, jo
 		return job, fmt.Errorf("persist destroy plan metadata: %w", err)
 	}
 	return updated, nil
+}
+
+func runnerJobLogDir(job domain.Job) string {
+	if strings.TrimSpace(job.LogDir) != "" {
+		return job.LogDir
+	}
+	if strings.TrimSpace(job.Workdir) == "" {
+		return ""
+	}
+	if strings.TrimSpace(job.ID) == "" {
+		return filepath.Join(job.Workdir, ".infra-orch", "logs")
+	}
+	return filepath.Join(job.Workdir, ".infra-orch", "logs", job.ID)
 }
 
 func envDuration(key string, def time.Duration) time.Duration {
@@ -430,10 +447,7 @@ func failJob(store runnerEnvironmentStore, job domain.Job, message string) {
 }
 
 func writeRunnerErrorLog(job domain.Job, message string, now time.Time) {
-	logDir := job.LogDir
-	if logDir == "" && job.Workdir != "" {
-		logDir = filepath.Join(job.Workdir, ".infra-orch", "logs")
-	}
+	logDir := runnerJobLogDir(job)
 	if logDir == "" {
 		return
 	}

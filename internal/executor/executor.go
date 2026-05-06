@@ -22,6 +22,7 @@ import (
 type CommandExecutor struct {
 	TofuBin string            // default "tofu"
 	Env     map[string]string // extra environment variables injected into tofu process
+	LogDir  string            // optional directory for stdout/stderr log files
 }
 
 type RunResult struct {
@@ -134,7 +135,7 @@ func (e CommandExecutor) run(ctx context.Context, workdir string, args ...string
 	if len(args) > 0 {
 		logName = "tofu-" + strings.ReplaceAll(args[0], " ", "-")
 	}
-	outFile, errFile, err := openRunLogFiles(workdir, logName)
+	outFile, errFile, err := openLogFiles(e.runLogDir(workdir), logName)
 	if err != nil {
 		return RunResult{}, fmt.Errorf("open log files: %w", err)
 	}
@@ -157,6 +158,13 @@ func (e CommandExecutor) run(ctx context.Context, workdir string, args ...string
 		return res, fmt.Errorf("tofu %v failed (exit=%d)", args, res.ExitCode)
 	}
 	return res, nil
+}
+
+func (e CommandExecutor) runLogDir(workdir string) string {
+	if strings.TrimSpace(e.LogDir) != "" {
+		return e.LogDir
+	}
+	return filepath.Join(workdir, ".infra-orch", "logs")
 }
 
 func exitCode(err error) int {
@@ -185,7 +193,7 @@ func errorAs(err error, target any) bool {
 
 // WriteRunLogs writes stdout/stderr to files under workdir.
 func WriteRunLogs(workdir, name string, stdout, stderr []byte) (outPath, errPath string, err error) {
-	outFile, errFile, err := openRunLogFiles(workdir, name)
+	outFile, errFile, err := openLogFiles(filepath.Join(workdir, ".infra-orch", "logs"), name)
 	if err != nil {
 		return "", "", err
 	}
@@ -203,8 +211,7 @@ func WriteRunLogs(workdir, name string, stdout, stderr []byte) (outPath, errPath
 	return outPath, errPath, nil
 }
 
-func openRunLogFiles(workdir, name string) (outFile, errFile *os.File, err error) {
-	logDir := filepath.Join(workdir, ".infra-orch", "logs")
+func openLogFiles(logDir, name string) (outFile, errFile *os.File, err error) {
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		return nil, nil, err
 	}
