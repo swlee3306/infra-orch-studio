@@ -613,6 +613,10 @@ Verification:
 - `GOCACHE=/private/tmp/infra-orch-go-build go test ./cmd/runner ./internal/executor ./cmd/ws-smoke ./internal/api`
 - `GOCACHE=/private/tmp/infra-orch-go-build go test ./...`
 - `npm run build` in `web/`
+- Pushed `a285f81`; `CI` and `api-ci` completed successfully, `api-ci` bumped the deployed API/runner image to `a285f81`, and ArgoCD reported `Synced` / `Healthy`.
+- Re-ran the real existing-provider OpenStack smoke on deployed tag `a285f81`; plan, apply, destroy plan, destroy apply, final job logs, and cleanup all succeeded for environment `8ff45da5-ab33-42da-93fc-7388e42b7dda`.
+- Verified job log directories are isolated for apply job `6a8ba704-1510-41ac-871c-8464f6dd9beb` and destroy apply job `fbbd3175-5ffe-4430-a9fc-ca32ffd1bcaa`.
+- Verified WebSocket log streaming for apply job `6a8ba704-1510-41ac-871c-8464f6dd9beb`; the log event contained the apply create output, not the later destroy output.
 
 Remaining TODO:
 - None.
