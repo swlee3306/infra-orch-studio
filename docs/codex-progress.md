@@ -592,10 +592,14 @@ Verification:
 - `npm run build` in `web/`
 - Added retry handling to the Dockerfile OpenTofu download step so transient GitHub release download resets do not break API/runner image builds as easily.
 - Attempted a manual remote image build on `k8s-master-01`; the first build failed on an OpenTofu download connection reset, and the retried manual build was stopped after the deployment path was redirected to the configured GitHub push -> Jenkins flow.
+- Adjusted the Dockerfile to use a pre-fetched `hack/tofu` binary when present, matching the self-hosted `api-ci` workflow and avoiding a second OpenTofu release download during image build.
+- Ignored transient local `hack/tofu` binaries in `.gitignore`.
+- Fixed self-hosted API/web image workflow Docker permission failures by running Docker build/push steps through `sudo -n docker`.
 - `git diff --check`
 - `GOCACHE=/private/tmp/infra-orch-go-build go test ./...`
 - `npm run build` in `web/`
 - `SMOKE_ENV_FILE=hack/smoke-openstack.env.example make smoke-openstack-config`
+- Pushed `efa313f` to `origin/main`; `api-ci` and `web-ci` reached image build but failed because the self-hosted runner user could not access `/var/run/docker.sock` without sudo.
 
 Remaining TODO:
 - Run `make smoke-openstack-apply` or `make smoke-openstack-existing-provider` successfully against a valid OpenStack target.
