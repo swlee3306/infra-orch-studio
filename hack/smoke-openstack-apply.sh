@@ -368,6 +368,8 @@ esac
 api_root="${API_BASE%/api}"
 cookie_jar="$(mktemp)"
 response_file="$(mktemp)"
+login_headers_file="$(mktemp)"
+session_cookie_header=""
 environment_id=""
 plan_job_id=""
 apply_job_id=""
@@ -379,16 +381,21 @@ cleanup() {
   if (( exit_code != 0 )); then
     echo "smoke: failed exit_code=$exit_code environment_id=${environment_id:-} plan_job_id=${plan_job_id:-} apply_job_id=${apply_job_id:-} destroy_plan_job_id=${destroy_plan_job_id:-} destroy_apply_job_id=${destroy_apply_job_id:-}" >&2
   fi
-  rm -f "$cookie_jar" "$response_file"
+  rm -f "$cookie_jar" "$response_file" "$login_headers_file"
 }
 trap cleanup EXIT
 
 curl_json() {
-  curl -fsS \
+  local curl_args=(
+    -fsS
     -H "content-type: application/json" \
     -b "$cookie_jar" \
-    -c "$cookie_jar" \
-    "$@"
+    -c "$cookie_jar"
+  )
+  if [[ -n "$session_cookie_header" ]]; then
+    curl_args+=(-H "Cookie: $session_cookie_header")
+  fi
+  curl "${curl_args[@]}" "$@"
 }
 
 dump_job_debug() {
@@ -552,9 +559,24 @@ fi
 
 echo "smoke: login"
 curl_json \
+  -D "$login_headers_file" \
   -X POST "$API_BASE/auth/login" \
   --data "$(jq -n --arg email "$ADMIN_EMAIL" --arg password "$ADMIN_PASSWORD" '{email:$email,password:$password}')" \
   >/dev/null
+session_cookie_header="$(awk '
+  BEGIN { IGNORECASE = 1 }
+  /^Set-Cookie:/ {
+    sub(/\r$/, "")
+    sub(/^Set-Cookie:[[:space:]]*/, "")
+    split($0, parts, ";")
+    print parts[1]
+    exit
+  }
+' "$login_headers_file")"
+if [[ -z "$session_cookie_header" ]]; then
+  echo "smoke: login response did not include a session cookie" >&2
+  exit 1
+fi
 curl_json "$API_BASE/auth/me" >"$response_file"
 if ! jq -e '.is_admin == true' "$response_file" >/dev/null; then
   echo "smoke: ADMIN_EMAIL must belong to an admin user for apply/destroy operations" >&2

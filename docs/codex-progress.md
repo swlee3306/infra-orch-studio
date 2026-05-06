@@ -595,11 +595,14 @@ Verification:
 - Adjusted the Dockerfile to use a pre-fetched `hack/tofu` binary when present, matching the self-hosted `api-ci` workflow and avoiding a second OpenTofu release download during image build.
 - Ignored transient local `hack/tofu` binaries in `.gitignore`.
 - Fixed self-hosted API/web image workflow Docker permission failures by running Docker build/push steps through `sudo -n docker`.
+- Updated `hack/smoke-openstack-apply.sh` to preserve the login session cookie as an explicit `Cookie` header after login, allowing smoke runs against internal HTTP service URLs even when the deployed API sets `SESSION_COOKIE_SECURE=true`.
 - `git diff --check`
 - `GOCACHE=/private/tmp/infra-orch-go-build go test ./...`
 - `npm run build` in `web/`
 - `SMOKE_ENV_FILE=hack/smoke-openstack.env.example make smoke-openstack-config`
 - Pushed `efa313f` to `origin/main`; `api-ci` and `web-ci` reached image build but failed because the self-hosted runner user could not access `/var/run/docker.sock` without sudo.
+- Pushed `ae5440e` to `origin/main`; `CI`, `api-ci`, and `web-ci` completed successfully, and the prod overlay advanced API/runner/web images to tag `ae5440e`.
+- Confirmed Kubernetes deployments are ready on tag `ae5440e` for API, runner, and web.
 
 Remaining TODO:
 - Run `make smoke-openstack-apply` or `make smoke-openstack-existing-provider` successfully against a valid OpenStack target.
