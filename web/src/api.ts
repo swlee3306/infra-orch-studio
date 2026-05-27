@@ -322,7 +322,8 @@ export type OverviewResponse = {
 }
 
 // VITE_API_URL should point to the API base.
-// - prod (nginx proxy): "/api"
+// - prod root (nginx proxy): "/api"
+// - prod subpath (nginx proxy): "/infra-orch-studio/api"
 // - dev: "http://localhost:8080/api"
 const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 
@@ -468,12 +469,16 @@ export const requestDrafts = {
 }
 
 export function wsUrl(): string {
-  // WebSocket is served at /ws (not under /api). For relative baseUrl ("/api"),
-  // use the current page host.
+  // WebSocket is served beside the API prefix, not under /api.
   const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsPath = (apiBasePath: string) => {
+    const normalized = apiBasePath.replace(/\/$/, '')
+    if (normalized.endsWith('/api')) return `${normalized.slice(0, -4) || ''}/ws`
+    return `${normalized}/ws`
+  }
   if (baseUrl.startsWith('http')) {
     const u = new URL(baseUrl)
-    return `${wsProto}//${u.host}/ws`
+    return `${wsProto}//${u.host}${wsPath(u.pathname)}`
   }
-  return `${wsProto}//${window.location.host}/ws`
+  return `${wsProto}//${window.location.host}${wsPath(baseUrl)}`
 }

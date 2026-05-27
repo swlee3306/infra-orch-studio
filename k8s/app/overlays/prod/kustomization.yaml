@@ -14,7 +14,7 @@ images:
   newTag: "ecee893"
 - name: 10.10.0.190:32000/infra-orch-web
   newName: 10.10.0.190:32000/infra-orch-web
-  newTag: "ae5440e"
+  newTag: "002f8c0-subpath"
 
 replicas:
   - name: infra-orch-api
