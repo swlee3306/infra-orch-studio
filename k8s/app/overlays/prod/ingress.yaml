@@ -25,7 +25,7 @@ spec:
     - host: dusanserver.webhop.me
       http:
         paths:
-          - path: /
+          - path: /infra-orch-studio
             pathType: Prefix
             backend:
               service:
