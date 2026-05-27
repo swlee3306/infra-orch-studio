@@ -27,11 +27,7 @@
 - [ ] Open plan review and confirm review signals, impact summary, and approval comment flow work.
 - [ ] Approve as admin, then apply from approval control.
 - [ ] Open environment detail and confirm artifacts, audit, and recent jobs are linked.
-- [ ] Run `docs/concurrency-smoke-checklist.md` with two tabs and confirm conflict auto-refresh + smart retry behavior.
-- [ ] If using OpenClaw automation, run the prompt template in `docs/openclaw-concurrency-prompt.md` and archive artifacts.
-- [ ] Summarize OpenClaw artifacts with `hack/summarize-openclaw-report.sh <artifact-dir> --out <artifact-dir>/SUMMARY.md`.
-- [ ] Extract route-level UI TODOs with `hack/extract-openclaw-ui-todos.sh <artifact-dir> --out <artifact-dir>/UI-TODO.md`.
-- [ ] Record the final artifact path, tested commit SHA, and blocker status in `docs/ui-revalidation-log.md`.
+- [ ] Run a two-tab conflict check and confirm stale mutation handling still refreshes status before retry.
 
 ## Operational Checks
 

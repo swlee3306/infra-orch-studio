@@ -6,7 +6,6 @@ cd "$ROOT"
 
 GO_PACKAGES=(
   ./internal/api
-  ./internal/api/handlers
   ./internal/domain
   ./internal/executor
   ./internal/renderer
