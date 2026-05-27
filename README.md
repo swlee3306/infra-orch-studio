@@ -16,7 +16,9 @@
 
 문서:
 - `docs/architecture.md`
-- `docs/roadmap.md`
+- `docs/current-features-and-verification.md`
+- `docs/progress-narrative-2026-05-27.md`
+- `docs/progress-sharing-2026-05-28.md`
 
 ---
 
@@ -169,25 +171,13 @@ Open: http://localhost:5173
 ## Kubernetes (namespace: infra)
 
 Manifests:
-- preferred: `k8s/app/`
-- legacy examples: `deployments/k8s/`
+- `k8s/app/`
 
-Preferred overlay path:
+Overlay path:
 ```bash
 # apply real secrets separately first; see docs/secret-rotation-runbook.md
 hack/apply-runtime-secrets.sh
 kustomize build k8s/app/overlays/prod | kubectl apply -f -
-```
-
-Legacy example path:
-```bash
-# create runtime secrets first (example files contain placeholder values)
-kubectl apply -f deployments/k8s/secret-mysql.example.yaml
-kubectl apply -f deployments/k8s/secret-admin.example.yaml
-kubectl apply -f deployments/k8s/secret-openstack.example.yaml
-
-# apply namespace, MySQL, API, runner, web, and shared workdir PVC
-kubectl apply -k deployments/k8s
 ```
 
 Port-forward:

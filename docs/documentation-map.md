@@ -1,60 +1,29 @@
 # Documentation Map
 
-이 문서는 `docs/` 안의 문서를 두 종류로 구분한다.
+이 문서는 현재 유지하는 핵심 문서의 위치와 읽는 순서를 정리한다.
 
-- `active source of truth`
-  - 현재 구현, 운영, 계약을 설명하는 문서
-- `historical snapshot`
-  - 특정 시점의 진단, 감사, 개선 계획을 기록한 문서
-  - 현재 구현과 다를 수 있으며, 최신 계약 문서로 읽으면 안 된다
-
-## Active Source Of Truth
+## Active Documents
 
 - `README.md`
+- `docs/architecture.md`
 - `docs/api-spec.md`
 - `docs/configuration-reference.md`
+- `docs/current-features-and-verification.md`
+- `docs/progress-narrative-2026-05-27.md`
+- `docs/progress-sharing-2026-05-28.md`
 - `docs/operations-guide.md`
-- `docs/design-integration-plan.md`
-- `docs/templates.md`
 - `docs/release-checklist.md`
-- `docs/release-readiness-2026-04-08.md`
-- `docs/ui-revalidation-log.md`
-- `docs/concurrency-smoke-checklist.md`
-- `docs/openclaw-concurrency-prompt.md`
-- `docs/openclaw-responsive-revalidation-prompt.md`
-- `hack/summarize-openclaw-report.sh`
-- `hack/extract-openclaw-ui-todos.sh`
+- `docs/secret-rotation-runbook.md`
 - `docs/documentation-map.md`
-
-## Historical Snapshot / Analysis
-
-- `docs/api-audit.md`
-- `docs/backend-agent-audit.md`
-- `docs/backend-refactor-plan.md`
-- `docs/current-state-diagnostic.md`
-- `docs/deployment-audit.md`
-- `docs/implementation-backlog.md`
-- `docs/ops-agent-audit.md`
-- `docs/product-audit.md`
-- `docs/product-gap-analysis.md`
-- `docs/quality-agent-audit.md`
-- `docs/quality-audit.md`
-- `docs/unit-test-plan.md`
-- `docs/roadmap.md`
-- `docs/service-roadmap.md`
-- `docs/test-strategy.md`
-- `docs/ui-agent-audit.md`
-- `docs/ui-audit.md`
-- `docs/ui-improvement-plan.md`
-- `docs/upgrade-backlog.md`
-- `docs/upgrade-diagnostic.md`
-- `docs/user-flow.md`
 
 ## Reading Order
 
 1. `README.md`
-2. `docs/api-spec.md`
-3. `docs/configuration-reference.md`
-4. `docs/operations-guide.md`
-5. `docs/design-integration-plan.md`
-6. 필요 시 historical snapshot 문서
+2. `docs/architecture.md`
+3. `docs/api-spec.md`
+4. `docs/current-features-and-verification.md`
+5. `docs/progress-narrative-2026-05-27.md`
+6. `docs/progress-sharing-2026-05-28.md`
+7. `docs/configuration-reference.md`
+8. `docs/operations-guide.md`
+9. `docs/secret-rotation-runbook.md`

@@ -2,13 +2,7 @@
 
 ## Deployment Modes
 
-### Local path
-
-Use `deployments/k8s/` when you want a manual, minimal deployment with a single namespace.
-
-### Environment overlays
-
-Use `k8s/app/overlays/dev`, `k8s/app/overlays/stage`, and `k8s/app/overlays/prod` for more production-like rollout management.
+Use `k8s/app/overlays/dev`, `k8s/app/overlays/stage`, and `k8s/app/overlays/prod` for rollout management.
 
 Access model:
 
@@ -70,11 +64,9 @@ If plan/apply jobs fail:
 
 If operators report repeated `409` or stale mutation errors:
 
-- Run the two-tab drill in `docs/concurrency-smoke-checklist.md`.
 - Confirm conflict callout appears in web UI and refreshes revision/status.
 - Confirm `Retry last action` replays with latest revision and does not re-send stale revision values.
-- If OpenClaw artifacts were produced, run `hack/summarize-openclaw-report.sh <artifact-dir> --out <artifact-dir>/SUMMARY.md` to create a quick triage summary for handoff.
-- Then run `hack/extract-openclaw-ui-todos.sh <artifact-dir> --out <artifact-dir>/UI-TODO.md` to get a route-priority fix list.
+- Re-run the affected environment flow and capture API/job logs before retrying production changes.
 
 ## Rollback Guidance
 
