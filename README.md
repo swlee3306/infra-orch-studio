@@ -1,5 +1,7 @@
 # infra-orch-studio
 
+**Start here:** [Architecture walkthrough and credential-free checks](docs/PORTFOLIO.md) · [Project map](https://github.com/swlee3306#selected-work)
+
 템플릿, API, 웹 UI를 통해 OpenTofu를 활용하여 **OpenStack 인프라 환경(Environment)** 을 선언형으로 생성·관리하는 환경 단위 오케스트레이션 플랫폼.
 
 ## Current platform scope
