@@ -509,8 +509,8 @@ npm run build
 
 최종 배포 검증 기록:
 
-- API/runner image: `10.10.0.190:32000/infra-orch-studio:a285f81`
-- Web image: `10.10.0.190:32000/infra-orch-web:ae5440e`
+- API/runner image: `registry.example.invalid/infra-orch-studio:a285f81`
+- Web image: `registry.example.invalid/infra-orch-web:ae5440e`
 - ArgoCD: `Synced / Healthy`
 
 재검증 명령:
@@ -533,7 +533,7 @@ kubectl -n argocd get application infra-orch-studio
 
 - `/` returns `200`
 - `/healthz` returns `200`
-- Bastion Nginx terminates public `443` and proxies `/` to ingress-nginx HTTPS NodePort `10.10.0.206:30963`.
+- Bastion Nginx terminates public `443` and proxies `/` to ingress-nginx HTTPS NodePort `ingress.example.invalid:30963`.
 - Direct public NodePort access to `dusanserver.webhop.me:30131` or `:30963` is not the supported user path.
 - `/api/auth/me` returns `401` without login, which is expected
 - `/ws` returns `401` without login, which is expected

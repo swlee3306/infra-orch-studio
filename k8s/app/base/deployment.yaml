@@ -17,7 +17,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: api
-          image: 10.10.0.190:32000/infra-orch-studio:dev
+          image: registry.example.invalid/infra-orch-studio:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -82,7 +82,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: runner
-          image: 10.10.0.190:32000/infra-orch-studio:dev
+          image: registry.example.invalid/infra-orch-studio:dev
           imagePullPolicy: IfNotPresent
           command: [/app/infra-orch-runner]
           envFrom:

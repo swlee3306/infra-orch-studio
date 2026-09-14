@@ -311,7 +311,7 @@ export default function ProvidersPage() {
             </label>
             <label className="field">
               <span>Keystone Auth URL</span>
-              <input value={draft.auth_url} onChange={(e) => setDraft((prev) => ({ ...prev, auth_url: e.target.value.trim() }))} placeholder="http://192.168.219.121:5000/v3" />
+              <input value={draft.auth_url} onChange={(e) => setDraft((prev) => ({ ...prev, auth_url: e.target.value.trim() }))} placeholder="http://openstack.example.invalid:5000/v3" />
             </label>
             <div className="grid-two">
               <label className="field">

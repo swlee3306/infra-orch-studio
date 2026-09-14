@@ -161,7 +161,7 @@ Kubernetes prod overlay와 외부 접속 경로도 확인했다.
 Browser
 -> https://dusanserver.webhop.me/
 -> Bastion Nginx public 443
--> ingress-nginx HTTPS NodePort 10.10.0.206:30963
+-> ingress-nginx HTTPS NodePort ingress.example.invalid:30963
 -> infra-orch-web
 -> /api and /ws proxy to infra-orch-api
 ```
@@ -398,4 +398,3 @@ OpenStack cloud 상태, quota, image/flavor availability, provider credential �
 - ArgoCD/Jenkins 배포 상태 확인
 - 가능하면 `smoke-openstack-existing-provider` 한 번 실행
 - 실패 시 보여줄 screenshot 또는 smoke 결과 준비
-

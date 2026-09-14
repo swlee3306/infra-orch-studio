@@ -36,7 +36,7 @@
 - `infra-orch-runner`: Running
 - `infra-orch-web`: Running
 - `infra-orch-mysql`: Running
-- Bastion public `443` -> ingress-nginx HTTPS NodePort `10.10.0.206:30963`
+- Bastion public `443` -> ingress-nginx HTTPS NodePort `ingress.example.invalid:30963`
 
 ## 3. What Changed Since MVP Skeleton
 
@@ -244,4 +244,3 @@ ssh sulee-bastion ssh k8s-master-01 kubectl -n argocd get application infra-orch
 3. `docs/current-features-and-verification.md`의 smoke 결과와 job IDs를 근거로 end-to-end 성공 사례를 설명한다.
 4. Kubernetes pod/ingress 상태와 `/healthz`, `/api/public-config` 응답으로 배포 상태를 증명한다.
 5. 실패 원인은 OpenStack quota/provider 상태와 application 상태를 분리해 설명한다.
-

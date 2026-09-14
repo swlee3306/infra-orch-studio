@@ -1,107 +1,14 @@
 name: api-ci
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - "cmd/**"
-      - "internal/**"
-      - "templates/**"
-      - "third_party/**"
-      - "Dockerfile"
-      - "go.mod"
-      - "go.sum"
-      - "hack/**"
-      - ".github/workflows/api-ci.yml"
   workflow_dispatch: {}
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build_push_and_bump:
-    # Prevent infinite loop when this workflow bumps the tag and pushes a commit
-    if: "${{ github.event.head_commit == null || !startsWith(github.event.head_commit.message, 'chore(cd): bump infra-orch-studio image') }}"
-    runs-on: self-hosted
-    env:
-      REGISTRY: 10.10.0.190:32000
-      IMAGE: infra-orch-studio
+  deployment-disabled:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Compute tag
-        id: vars
-        shell: bash
-        run: |
-          echo "TAG=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
-
-      - name: Fetch OpenTofu binary for image
-        shell: bash
-        run: |
-          set -euo pipefail
-          TOFU_VERSION=1.11.0
-          sudo apt-get -o Acquire::ForceIPv4=true update
-          sudo apt-get -o Acquire::ForceIPv4=true install -y --no-install-recommends ca-certificates curl unzip
-          mkdir -p hack
-          curl -4 --fail --silent --show-error --location \
-            --retry 8 --retry-all-errors --retry-delay 2 \
-            --connect-timeout 10 --max-time 600 --http1.1 \
-            -o /tmp/tofu.zip \
-            "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip"
-          rm -rf /tmp/tofu && mkdir -p /tmp/tofu
-          unzip -o /tmp/tofu.zip -d /tmp/tofu
-          install -m 0755 /tmp/tofu/tofu hack/tofu
-          hack/tofu version || true
-
-      - name: Build api/runner image
-        shell: bash
-        run: |
-          sudo -n docker build -t "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}" .
-
-      - name: Push api/runner image
-        shell: bash
-        run: |
-          sudo -n docker push "$REGISTRY/$IMAGE:${{ steps.vars.outputs.TAG }}"
-
-      - name: Update kustomize overlay tag
-        shell: bash
-        run: |
-          set -e
-          FILE=k8s/app/overlays/prod/kustomization.yaml
-          TAG="${{ steps.vars.outputs.TAG }}"
-          # newTag must be YAML string; unquoted numeric-looking tags break kustomize decoding.
-          perl -0777 -i -pe "s/(name: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newName: 10\\.10\\.0\\.190:32000\\/infra-orch-studio\\n\\s+newTag: )[^\\n]+/\${1}\"$TAG\"/" "$FILE"
-          git diff -- "$FILE" || true
-
-      - name: Validate prod overlay manifest
-        shell: bash
-        run: |
-          set -euo pipefail
-          if command -v kustomize >/dev/null 2>&1; then
-            kustomize build k8s/app/overlays/prod >/tmp/prod-manifest.yaml
-          elif command -v kubectl >/dev/null 2>&1; then
-            kubectl kustomize k8s/app/overlays/prod >/tmp/prod-manifest.yaml
-          else
-            echo "kustomize or kubectl is required to validate prod overlay"
-            exit 1
-          fi
-
-      - name: Commit and push
-        shell: bash
-        run: |
-          set -e
-          git config user.name "infra-orch-studio-ci"
-          git config user.email "infra-orch-studio-ci@users.noreply.github.com"
-          git add k8s/app/overlays/prod/kustomization.yaml
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
-          git commit -m "chore(cd): bump infra-orch-studio image to ${{ steps.vars.outputs.TAG }}"
-          
-          # Avoid non-fast-forward failures when multiple CI jobs push to main.
-          git pull --rebase origin main
-          git push
+      - name: Explain public repository boundary
+        run: echo "Deployment is disabled in this public example repository. No images or manifests are published."

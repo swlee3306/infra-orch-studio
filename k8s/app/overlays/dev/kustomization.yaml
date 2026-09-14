@@ -8,11 +8,11 @@ resources:
   - ../../../../k8s/mysql/base
 
 images:
-  - name: 10.10.0.190:32000/infra-orch-studio
-    newName: 10.10.0.190:32000/infra-orch-studio
+  - name: registry.example.invalid/infra-orch-studio
+    newName: registry.example.invalid/infra-orch-studio
     newTag: dev
-  - name: 10.10.0.190:32000/infra-orch-web
-    newName: 10.10.0.190:32000/infra-orch-web
+  - name: registry.example.invalid/infra-orch-web
+    newName: registry.example.invalid/infra-orch-web
     newTag: dev
 
 replicas:
