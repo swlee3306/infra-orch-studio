@@ -110,7 +110,7 @@ Template runtime validation:
 
 ## Local dev
 
-Requirements: Go 1.23+, Node 18+
+Requirements: Go 1.23+, Node 22.12+
 
 ### 1) API + runner
 
