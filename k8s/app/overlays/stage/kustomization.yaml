@@ -9,11 +9,11 @@ resources:
   - ingress.yaml
 
 images:
-  - name: 10.10.0.190:32000/infra-orch-studio
-    newName: 10.10.0.190:32000/infra-orch-studio
+  - name: registry.example.invalid/infra-orch-studio
+    newName: registry.example.invalid/infra-orch-studio
     newTag: stage
-  - name: 10.10.0.190:32000/infra-orch-web
-    newName: 10.10.0.190:32000/infra-orch-web
+  - name: registry.example.invalid/infra-orch-web
+    newName: registry.example.invalid/infra-orch-web
     newTag: stage
 
 replicas:

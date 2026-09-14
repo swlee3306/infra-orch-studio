@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: 10.10.0.190:32000/infra-orch-web:dev
+          image: registry.example.invalid/infra-orch-web:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
