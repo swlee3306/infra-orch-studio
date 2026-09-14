@@ -1,8 +1,8 @@
 # Public deployment boundary
 
-Prepared on 2026-09-14 on the local `security/public-example-2026-09-14` branch.
-This change must not be merged into a branch followed by an operating GitOps
-controller until that controller's source and sync policy are checked.
+Public-example transition verified on 2026-09-14.
+Do not point an operating GitOps controller at this branch without replacing
+the example configuration and reviewing its source and sync policy.
 
 ## GitHub Actions
 
@@ -28,9 +28,13 @@ is not recorded here. Before publishing these manifest changes to the tracked
 branch, the deployment owner must verify the repository, revision, source path
 and sync policy and detach/pin the operating deployment as appropriate.
 
-No operating cluster was contacted, no sync policy was changed, and no Kubernetes
-resources were applied or deleted while preparing this branch. Source/manifests
-on remote main remain unchanged until the external dependency is resolved.
+Before publication, the owner authorized disabling the existing Argo CD
+Application's automated sync and pinning its source to the previously Synced
+commit. The Application remained Healthy/Synced after that configuration change;
+no manual sync, workload restart or resource deletion was requested. Deployment
+coordinates and operational configuration are intentionally not published here.
+Future operational updates should use separately maintained private manifests,
+not restore tracking of this public example branch.
 
 ## Local validation
 
